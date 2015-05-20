@@ -1,4 +1,4 @@
-## Dependencies: ruby, source-hightlight, vim
+## Dependencies: ruby, source-hightlight, vim, openvpn, daemonize
 
 #############################
 ## Setup Ruby Default Path ##
@@ -21,17 +21,24 @@ export EDITOR=vim
 ## Time functions ##
 ####################
 countdown() {
-   date1=$((`date +%s` + $1));
-   while [ "$date1" -ne `date +%s` ]; do
-     echo -ne "$(date -u --date @$(($date1 - `date +%s`)) +%H:%M:%S)\r";
-     sleep 0.1
-   done
+	date1=$((`date +%s` + $1));
+	while [ "$date1" -ne `date +%s` ]; do
+		echo -ne "$(date -u --date @$(($date1 - `date +%s`)) +%H:%M:%S)\r";
+		sleep 0.1
+	done
 }
 
 stopwatch() {
-  date1=`date +%s`;
-   while true; do
-    echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r";
-    sleep 0.1
-   done
+	date1=`date +%s`;
+	while true; do
+		echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r";
+		sleep 0.1
+	done
+}
+
+###################
+## VPN Functions ##
+###################
+vpn() {
+       sudo daemonize /usr/sbin/openvpn /etc/openvpn/$1.conf
 }
