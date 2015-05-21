@@ -27,3 +27,8 @@ case $TERM in
 		}
 	;;
 esac
+
+if [ -z "$DISPLAY" ] && [ $(tty) = /dev/tty1 ]; then
+	startx -- -br 1>/dev/null
+	exit 0
+fi
