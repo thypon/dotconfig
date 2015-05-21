@@ -1,0 +1,8 @@
+binlist=(
+	"/usr/bin/xinit subtle"                       # Launch subtle session,
+	"/usr/bin/xinit kde"                          # Launch kde session,
+	"/bin/bash --login"                         # or start a console
+)
+namelist=("Subtle session" "KDE4 Session" Console)
+flaglist=(C C C)
+consolekit=no
