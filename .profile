@@ -42,3 +42,7 @@ stopwatch() {
 vpn() {
        sudo daemonize /usr/sbin/openvpn /etc/openvpn/$1.conf
 }
+
+shortprompt() {
+	export PS1="$ "
+}
