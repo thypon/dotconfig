@@ -1,4 +1,4 @@
-## Dependencies: ruby, source-hightlight, vim, openvpn, daemonize
+## Dependencies: ruby, source-hightlight, vim, openvpn, dtach, sudo
 
 #############################
 ## Setup Ruby Default Path ##
@@ -40,7 +40,7 @@ stopwatch() {
 ## VPN Functions ##
 ###################
 vpn() {
-       sudo daemonize /usr/sbin/openvpn /etc/openvpn/$1.conf
+       dtach -A "/tmp/vpn$1" sudo /usr/sbin/openvpn "/etc/openvpn/$1.conf"
 }
 
 shortprompt() {
