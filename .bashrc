@@ -22,8 +22,9 @@ export HISTFILESIZE=-1
 # Print command name xterm header
 case $TERM in
 	xterm*)
+		export PS1="$ "
 		preexec() {
-			echo -ne "\033]0;$*\007";
+			echo -ne "\033]0;$*:$PWD\007";
 		}
 	;;
 esac
