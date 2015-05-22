@@ -54,3 +54,4 @@ shortprompt() {
 ## Intelligen Aliases ##
 ########################
 alias wget="wget -c" # Continue Interrupted downloads
+alias zyboconn="picocom -l -b 115200 /dev/ttyUSB1" # Connect to the zybo board
