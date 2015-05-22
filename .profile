@@ -43,6 +43,14 @@ vpn() {
        dtach -A "/tmp/vpn$1" sudo /usr/sbin/openvpn "/etc/openvpn/$1.conf"
 }
 
+###############
+## Short PS1 ##
+###############
 shortprompt() {
 	export PS1="$ "
 }
+
+########################
+## Intelligen Aliases ##
+########################
+alias wget="wget -c" # Continue Interrupted downloads
