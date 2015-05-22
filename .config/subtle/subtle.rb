@@ -96,8 +96,8 @@ end
 
 # Example for a second screen:
 screen 2 do
-  top    [ :views, :spacer, :sublets ]
-  bottom [ :views, :spacer, :tray, :tasks]
+  top    [ ]
+  bottom [ :views, :spacer, :tray, :title]
 end
 
 #
@@ -765,6 +765,15 @@ tag "editor" do
   resize true
 end
 
+tag "wine" do
+  match instance: "exe$"
+  type :dialog
+end
+
+tag "steam" do
+  match "[Ss]team"
+end
+
 tag "fixed" do
   geometry [ 10, 10, 100, 100 ]
   stick    true
@@ -884,6 +893,10 @@ view "dev" do
   match "editor"
   dynamic true
 end
+view "games" do
+  match "steam"
+  dynamic true
+end
 view "gimp" do
   match"gimp_.*"
   dynamic true
@@ -978,7 +991,7 @@ on :view_jump do |v|
 end
 
 on :client_create do |c|
-  c.raise.focus
+  c.raise
 end
 
 # vim:ts=2:bs=2:sw=2:et:fdm=marker
