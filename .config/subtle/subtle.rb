@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-## Dependencies: xterm, ponymix, synclient, xrandr
+## Dependencies: xterm, ponymix, synclient, xrandr, dmenu, i3lock
 #
 # Author::  Christoph Kappel <unexist@subforge.org>
 # Author::  Andrea Brancaleoni <miwaxe@gmail.com>
@@ -576,6 +576,7 @@ grab "W-Tab" do
     Subtlext::View.current.clients.select { |e| e.name.include? v }.first.raise.focus
   end
 end
+grab "C-A-L", "i3lock -c 332222"
 
 # Exec programs
 grab "W-Return", "exec xterm"
