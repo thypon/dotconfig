@@ -42,7 +42,7 @@ set :skip_pointer_warp, false
 set :skip_urgent_warp, false
 
 # Set the WM_NAME of subtle (Java quirk)
-# set :wmname, "LG3D"
+set :wmname, "LG3D"
 
 #
 # == Screen
