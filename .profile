@@ -1,4 +1,4 @@
-## Dependencies: ruby, source-hightlight, vim, openvpn, dtach, sudo
+## Dependencies: ruby, source-hightlight, vim, openvpn, dtach, sudo, glibc
 
 #############################
 ## Setup Ruby Default Path ##
@@ -55,3 +55,8 @@ shortprompt() {
 ########################
 alias wget="wget -c" # Continue Interrupted downloads
 alias zyboconn="picocom -l -b 115200 /dev/ttyUSB1" # Connect to the zybo board
+
+##################
+## Host Aliases ##
+##################
+export HOSTALIASES="~/.hosts"
