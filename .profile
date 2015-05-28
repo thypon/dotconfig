@@ -69,3 +69,4 @@ cl() {
 	ls -la
 }
 alias c="cl"
+alias l="ls -la"
