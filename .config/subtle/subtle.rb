@@ -992,7 +992,7 @@ on :view_jump do |v|
 end
 
 on :client_create do |c|
-  c.raise
+  c.raise.focus
 end
 
 # vim:ts=2:bs=2:sw=2:et:fdm=marker
