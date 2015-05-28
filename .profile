@@ -60,3 +60,12 @@ alias zyboconn="picocom -l -b 115200 /dev/ttyUSB1" # Connect to the zybo board
 ## Host Aliases ##
 ##################
 export HOSTALIASES="~/.hosts"
+
+##################################################
+## (C)ontext Sensitive CD Wrapper for (L)oosers ##
+##################################################
+cl() {
+	cd $@
+	ls -la
+}
+alias c="cl"
