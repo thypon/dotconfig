@@ -70,3 +70,8 @@ cl() {
 }
 alias c="cl"
 alias l="ls -la"
+
+###################
+## Setup Aliases ##
+###################
+alias schroot="schroot -p"
