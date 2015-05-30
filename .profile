@@ -75,3 +75,9 @@ alias l="ls -la"
 ## Setup Aliases ##
 ###################
 alias schroot="schroot -p"
+alias pinstall="pip install --user"
+
+######################
+## Setup Local Path ##
+######################
+export PATH="$PATH:$HOME/.local/bin"
