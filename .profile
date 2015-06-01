@@ -3,7 +3,7 @@
 #############################
 ## Setup Ruby Default Path ##
 #############################
-export GEM_HOME=$(ruby -e 'print Gem.user_dir')
+export GEM_HOME=$(ruby -e 'require "rubygems"; print Gem.user_dir')
 export PATH=$PATH:$GEM_HOME/bin
 
 ###################
@@ -55,6 +55,8 @@ shortprompt() {
 ########################
 alias wget="wget -c" # Continue Interrupted downloads
 alias zyboconn="picocom -l -b 115200 /dev/ttyUSB1" # Connect to the zybo board
+RADIOS="http://mp3.kataweb.it:8000/M2O http://mp3.kataweb.it:8000/RadioDeejay http://shoutcast.unitedradio.it:1301"
+alias radio="while true; do mplayer $RADIOS; done"
 
 ##################
 ## Host Aliases ##

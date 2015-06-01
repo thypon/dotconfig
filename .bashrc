@@ -13,8 +13,8 @@ export PS1="\[$(tput sgr0)\]\033[38;5;15m\033[38;5;112m\A\[$(tput sgr0)\]\033[38
 . $HOME/.profile
 
 # Unlimited History
-export HISTSIZE=-1
-export HISTFILESIZE=-1
+export HISTSIZE=30000
+export HISTFILESIZE=30000
 
 # Source bash-preexec.sh if exists
 [ -f /usr/bin/bash-preexec.sh ] && . /usr/bin/bash-preexec.sh
