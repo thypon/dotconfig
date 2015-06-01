@@ -1,4 +1,4 @@
-# Dependencies: subtle, kde, xrdb, ConsoleKit2, autocutsel
+# Dependencies: subtle, kde, xrdb, ConsoleKit2, autocutsel, dunst
 if [ -d /etc/X11/xinit/xinitrc.d ]; then
 	for f in /etc/X11/xinit/xinitrc.d/?* ; do
 		[ -x "$f" ] && . "$f"
@@ -23,7 +23,7 @@ fi
 session=${1:-subtle}
 
 case $session in
-	subtle) exec ck-launch-session subtle;;
+	subtle) exec ck-launch-session bash -c "dunst & subtle";;
 	kde) exec ck-launch-session startkde;;
 	*) exec ck-launch-session $1;;
 esac
