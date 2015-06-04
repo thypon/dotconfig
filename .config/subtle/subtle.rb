@@ -344,8 +344,8 @@ grab "W-S-3", :ViewSwitch3
 grab "W-S-4", :ViewSwitch4
 
 # Select next and prev view */
-grab "KP_Add",      :ViewNext
-grab "KP_Subtract", :ViewPrev
+#grab "KP_Add",      :ViewNext
+#grab "KP_Subtract", :ViewPrev
 
 # Move mouse to screen1, screen2, ...
 grab "W-A-1", :ScreenJump1
@@ -766,6 +766,8 @@ tag "editor" do
   resize true
 end
 
+tag "document", "zathura"
+
 tag "wine" do
   match instance: "exe$"
   type :dialog
@@ -900,6 +902,10 @@ view "games" do
 end
 view "gimp" do
   match"gimp_.*"
+  dynamic true
+end
+view "docs" do
+  match "document"
   dynamic true
 end
 
