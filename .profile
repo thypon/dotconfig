@@ -83,3 +83,15 @@ alias pinstall="pip install --user"
 ## Setup Local Path ##
 ######################
 export PATH="$PATH:$HOME/.local/bin"
+
+#######################
+## VoidLinux Helpers ##
+#######################
+xupdate() {
+	upd=$(./xbps-src update-check $1 | tr '-' '\n' | tail -n1)
+	[ upd == "" ] && echo "package alredy updated" && exit 0
+	sed -i "s/^version=.*/version=$upd/" "srcpkgs/$1/template"
+	sed -i "s/^revision=.*/revision=1/"  "srcpkgs/$1/template"
+	xgensum -i "srcpkgs/$1/template"
+	xbump $1
+}
