@@ -25,5 +25,10 @@ session=${1:-subtle}
 case $session in
 	subtle) exec ck-launch-session bash -c "dunst & subtle";;
 	kde) exec ck-launch-session startkde;;
+	mate) exec ck-launch-session mate-session;;
+	cinnamon) exec ck-launch-session cinnamon-session;;
+	xfce) exec ck-launch-session startxfce4;;
+	enlightenment) exec ck-launch-session enlightenment_start;;
+	gnome) exec ck-launch-session gnome-session;;
 	*) exec ck-launch-session $1;;
 esac
