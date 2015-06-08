@@ -389,8 +389,40 @@ grab "W-l", :WindowLower
 # Select next windows
 grab "W-Left",  :WindowLeft
 grab "W-Down",  :WindowDown
-grab "W-Up",    :WindowUp
-grab "W-Right", :WindowRight
+
+def goto_next_view(vArr)
+  cindx = vArr.index(Subtlext::View.current);
+
+  #Find the next view beyond all existing
+  for i in 1..vArr.size do
+    cV = vArr[(i + cindx) % vArr.size];
+
+    # Verify that the potential next view isn't displayed on another screens
+    if (Subtlext::View.visible.index(cV) == nil) then
+      containsClients = false;
+      # Check if the view has clients and if those clients are not only sticky one.
+      cV.clients.each {|c|
+        containsClients = !(cV.tags & c.tags).empty?;
+        if(containsClients)
+          break;
+        end
+      }
+
+      if (containsClients) then
+        cV.jump
+        break
+      end
+    end
+  end
+end
+
+grab "W-Right" do
+  goto_next_view(Subtlext::View[:all]);
+end
+
+grab "W-Left" do
+  goto_next_view(Subtlext::View[:all].reverse);
+end
 
 # Kill current window
 grab "W-S-k", :WindowKill
@@ -560,11 +592,15 @@ end
 
 # Meta
 grab "XF86AudioRaiseVolume", "exec ponymix increase 10"
+grab "C-F12", "exec ponymix increase 10"
 grab "XF86AudioLowerVolume", "exec ponymix decrease 10"
+grab "C-F11", "exec ponymix decrease 10"
 grab "XF86AudioMute", "exec ponymix toggle"
+grab "C-F10", "exec ponymix toggle"
 grab "XF86TouchpadToggle", "exec synclient TouchpadOff=$(synclient -l | grep -c 'TouchpadOff.*=.*0')"
 grab "XF86Display", "exec xrandr --auto"
 grab "XF86Launch6", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf darkgreen -sb gray"
+grab "A-F2", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf darkgreen -sb gray"
 grab "Menu", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf darkgreen -sb gray"
 grab "W-Tab" do
   d = Dmenu.new
@@ -582,7 +618,11 @@ grab "C-A-L", "i3lock -c 332222"
 grab "W-Return", "exec xterm"
 
 grab "A-Tab" do
-  Subtlext::View.current.clients.last.raise.focus
+  Subtlext::View.current.clients.last.focus.raise
+end
+
+grab "A-S-Tab" do
+  Subtlext::View.current.clients.first.lower.focus
 end
 
 # Run Ruby lambdas
@@ -626,6 +666,10 @@ end
 #    match   "xterm|[u]?rxvt"
 #    gravity :center
 #  end
+#
+# === Default
+#
+# Whenever a window has no tag it will get the default tag and be placed on the
 #
 # === Default
 #
@@ -967,10 +1011,6 @@ end
 # [*:client_focus*]     Called whenever a window gets focus
 # [*:client_kill*]      Called whenever a window is killed
 #
-# [*:tag_create*]       Called whenever a tag is created
-# [*:tag_kill*]         Called whenever a tag is killed
-#
-# [*:view_create*]      Called whenever a view is created
 # [*:view_configure*]   Called whenever a view is configured
 # [*:view_jump*]        Called whenever the view is switched
 # [*:view_kill*]        Called whenever a view is killed
@@ -999,6 +1039,53 @@ end
 
 on :client_create do |c|
   c.raise.focus
+end
+
+on :start do
+  # Create missing tags
+  views = Subtlext::View.all.map { |v| v.name }
+  tags  = Subtlext::Tag.all.map { |t| t.name }
+
+  views.each do |v|
+    unless tags.include?(v)
+      t = Subtlext::Tag.new(v)
+      t.save
+    end
+  end
+end
+
+# Add nine C-< number> grabs
+(1..9).each do |i|
+  grab "C-%d" % [ i ] do |c|
+    views = Subtlext::View.all
+    names = views.map { |v| v.name }
+
+    # Sanity check
+    if i <= views.size
+      # Tag client
+      tags = c.tags.reject { |t| names.include?(t.name) or "default" == t.name }
+      tags << names[i - 1]
+
+      c.tags = tags
+
+      # Tag view
+      views[i - 1].tag(names[i - 1])
+    end
+  end
+end
+
+# Assign tags to clients
+on :client_create do |c|
+  view = Subtlext::View.current
+  tags = c.tags.map { |t| t.name }
+
+  # Add tag to view
+  view.tag(view.name) unless(view.tags.include?(view.name))
+
+  # Exclusive for clients with default tag only
+  if tags.include?("default") and 1 == tags.size
+    c.tags = [ view.name ]
+  end
 end
 
 # vim:ts=2:bs=2:sw=2:et:fdm=marker
