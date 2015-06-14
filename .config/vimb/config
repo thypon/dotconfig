@@ -1,0 +1,11 @@
+shortcut-add gh=https://github.com/$0/$1
+shortcut-add g=https://google.com/search?q=$0
+shortcut-add s=https://scholar.google.com/scholar?q=$0
+shortcut-add map=https://maps.google.com/maps?saddr=$0&daddr=$1
+shortcut-add a=http://avxsearch.se/search?q=$0
+shortcut-add t=https://thepiratebay.la/search/$0
+shortcut-default g
+set home-page=http://board.pompel.me/boards
+
+set auto-response-header+=* Content-security-policy=default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; img-src *; object-src 'none'; font-src *; connect-src 'self' ws: wss:
+set input-autohide=true
