@@ -122,66 +122,129 @@ end
 # http://subforge.org/projects/subtle/wiki/Styles
 
 # Style for all style elements
-color = `convert ~/background.png  -format %c -depth 8  histogram:info: | sort | tail -n 10 | rev | awk '{print $2}' | rev`.split.reverse
-mean = color.map { |c| c[1..-1].hex }.inject{ |sum, el| sum + el }.to_f / color.size
-light = color.select { |c| c[1..-1].hex < mean }
-dark = color.select { |c| c[1..-1].hex >= mean }
+class ColorUnit
+  def initialize(other)
+    @num = if other < 0
+      0
+    elsif other > 255
+      255
+    else
+      other
+    end
+  end
 
-first = light[0] || "#202020"
-second = dark[0] || "#757575"
-third = light[1] || "#303030"
-fourth = dark[1] || "#fecf35"
-fifth = dark[2] || "#ff9800"
-sixt = dark[3] || "#b8b8b8"
+  def +(other)
+    if @num + other > 255
+      255
+    else
+      @num + other
+    end
+  end
+
+  def -(other)
+    if @num - other < 0
+      0
+    else
+      @num - other
+    end
+  end
+
+  private
+  def method_missing(method, *args, &block)
+    @num.send(method, *args, &block)
+  end
+end
+
+def to_color s
+  Color.new(
+    s[1..2].hex,
+    s[3..4].hex,
+    s[5..6].hex)
+end
+
+class Color
+  attr_reader :r, :g, :b
+  def initialize(r, g, b)
+    @r = ColorUnit.new(r)
+    @g = ColorUnit.new(g)
+    @b = ColorUnit.new(b)
+  end
+
+  def darken(percentage)
+    Color.new(
+      (@r + (- @r * percentage / 100)).to_i,
+      (@g + (- @g * percentage / 100)).to_i,
+      (@b + (- @b * percentage / 100)).to_i)
+  end
+
+  def lighten(percentage)
+    self.darken(-percentage)
+  end
+
+  def to_s
+    '#' + "%02x" % @r + "%02x" % @g + "%02x" % @b
+  end
+end
+
+color = `python .config/colorz.py ~/background.png 3`.split.sort { |x, y| x[1..-1] <=> y[1..-1] }.map { |e| to_color(e) }
+
+first = color[0] || to_color("#202020")
+second = color[1].lighten(100) || to_color("#757575")
+third = first.lighten(50)
+fourth = color[2] || to_color("#fecf35")
+fifth = fourth.lighten(50)
+sixt = fifth.lighten(50)
+
+puts color
 
 style :all do
-  background  first
-  icon        second
-  border      third, 0
+  background  first.to_s
+  icon        second.to_s
+  border      third.to_s, 0
   padding     0, 3
   font        "xft:Inconsolata:style=Regular:size=18"
 end
 
 # Style for the all views
 style :views do
-  foreground  second
+  foreground  second.to_s
 
   # Style for the active views
   style :focus do
-    foreground  fourth
+    foreground  fourth.to_s
   end
 
   # Style for urgent window titles and views
   style :urgent do
-    foreground  fifth
+    foreground  fifth.to_s
   end
 
   # Style for occupied views (views with clients)
   style :occupied do
-    foreground  sixt
+    foreground  sixt.to_s
   end
 end
 
 # Style for sublets
 style :sublets do
-  foreground  second
+  foreground  second.to_s
 end
 
 # Style for separator
 style :separator do
-  foreground  second
+  foreground  second.to_s
   separator   "|"
 end
 
 # Style for focus window title
 style :title do
-  foreground  fourth
+  foreground  fourth.to_s
 end
 
 # Style for active/inactive windows
 style :clients do
-  active    third, 2
-  inactive  first, 2
+  active    third.to_s, 2
+  inactive  first.to_s, 2
   margin    0
   width     50
 end
@@ -189,9 +252,9 @@ end
 # Style for subtle
 style :subtle do
   margin      0, 0, 0, 0
-  panel       first
+  panel       first.to_s
   #background  "#3d3d3d"
-  stipple     second
+  stipple     second.to_s
 end
 
 #
@@ -624,7 +687,7 @@ grab "W-Tab" do
     Subtlext::View.current.clients.select { |e| e.name.include? v }.first.raise.focus
   end
 end
-grab "C-A-L", "i3lock -c 332222"
+grab "C-A-L", "i3lock -c #{first.to_s[1..-1]}"
 
 # Exec programs
 grab "W-Return", "exec xterm"
