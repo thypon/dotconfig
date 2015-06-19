@@ -17,6 +17,11 @@ export LESS=' -R '
 ####################
 export EDITOR=vim
 
+#########################
+## Libvirt default URI ##
+#########################
+export LIBVIRT_DEFAULT_URI="qemu:///system"
+
 ####################
 ## Time functions ##
 ####################
@@ -78,6 +83,7 @@ alias l="ls -la"
 ###################
 alias schroot="schroot -p"
 alias pinstall="pip install --user"
+alias virsh="virsh -c qemu:///system"
 
 ######################
 ## Setup Local Path ##
