@@ -122,54 +122,66 @@ end
 # http://subforge.org/projects/subtle/wiki/Styles
 
 # Style for all style elements
+color = `convert ~/background.png  -format %c -depth 8  histogram:info: | sort | tail -n 10 | rev | awk '{print $2}' | rev`.split.reverse
+mean = color.map { |c| c[1..-1].hex }.inject{ |sum, el| sum + el }.to_f / color.size
+light = color.select { |c| c[1..-1].hex < mean }
+dark = color.select { |c| c[1..-1].hex >= mean }
+
+first = light[0] || "#202020"
+second = dark[0] || "#757575"
+third = light[1] || "#303030"
+fourth = dark[1] || "#fecf35"
+fifth = dark[2] || "#ff9800"
+sixt = dark[3] || "#b8b8b8"
+
 style :all do
-  background  "#202020"
-  icon        "#757575"
-  border      "#303030", 0
+  background  first
+  icon        second
+  border      third, 0
   padding     0, 3
   font        "xft:Inconsolata:style=Regular:size=18"
 end
 
 # Style for the all views
 style :views do
-  foreground  "#757575"
+  foreground  second
 
   # Style for the active views
   style :focus do
-    foreground  "#fecf35"
+    foreground  fourth
   end
 
   # Style for urgent window titles and views
   style :urgent do
-    foreground  "#ff9800"
+    foreground  fifth
   end
 
   # Style for occupied views (views with clients)
   style :occupied do
-    foreground  "#b8b8b8"
+    foreground  sixt
   end
 end
 
 # Style for sublets
 style :sublets do
-  foreground  "#757575"
+  foreground  second
 end
 
 # Style for separator
 style :separator do
-  foreground  "#757575"
+  foreground  second
   separator   "|"
 end
 
 # Style for focus window title
 style :title do
-  foreground  "#fecf35"
+  foreground  fourth
 end
 
 # Style for active/inactive windows
 style :clients do
-  active    "#303030", 2
-  inactive  "#202020", 2
+  active    third, 2
+  inactive  first, 2
   margin    0
   width     50
 end
@@ -177,9 +189,9 @@ end
 # Style for subtle
 style :subtle do
   margin      0, 0, 0, 0
-  panel       "#202020"
-  background  "#3d3d3d"
-  stipple     "#757575"
+  panel       first
+  #background  "#3d3d3d"
+  stipple     second
 end
 
 #
@@ -599,9 +611,9 @@ grab "XF86AudioMute", "exec ponymix toggle"
 grab "C-F10", "exec ponymix toggle"
 grab "XF86TouchpadToggle", "exec synclient TouchpadOff=$(synclient -l | grep -c 'TouchpadOff.*=.*0')"
 grab "XF86Display", "exec xrandr --auto"
-grab "XF86Launch6", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf darkgreen -sb gray"
-grab "A-F2", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf darkgreen -sb gray"
-grab "Menu", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf darkgreen -sb gray"
+grab "XF86Launch6", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
+grab "A-F2", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
+grab "Menu", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
 grab "W-Tab" do
   d = Dmenu.new
   d.setup "apps"
