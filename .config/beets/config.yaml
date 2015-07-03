@@ -1,0 +1,5 @@
+directory;: /var/music
+import:
+        write: yes
+        copy: yes
+        resume: no
