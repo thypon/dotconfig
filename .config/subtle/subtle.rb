@@ -283,7 +283,7 @@ end
 # Top left
 gravity :top_left,       [   0,   0,  50,  50 ]
 gravity :top_left66,     [   0,   0,  50,  66 ]
-gravity :top_left33,     [   0,   0,  50,  34 ]
+gravity :top_left33,     [   0,   0,  50,  33 ]
 
 # Top
 gravity :top,            [   0,   0, 100,  50 ]
