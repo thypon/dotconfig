@@ -307,23 +307,23 @@ gravity :center33,       [  33,  33,  33,  33 ]
 
 # Right
 gravity :right,          [  50,   0,  50, 100 ]
-gravity :right66,        [  34,   0,  66, 100 ]
-gravity :right33,        [  67,   0,  33, 100 ]
+gravity :right66,        [  33,   0,  67, 100 ]
+gravity :right33,        [  66,   0,  34, 100 ]
 
 # Bottom left
 gravity :bottom_left,    [   0,  50,  50,  50 ]
-gravity :bottom_left66,  [   0,  34,  50,  66 ]
-gravity :bottom_left33,  [   0,  67,  50,  33 ]
+gravity :bottom_left66,  [   0,  33,  50,  67 ]
+gravity :bottom_left33,  [   0,  66,  50,  34 ]
 
 # Bottom
 gravity :bottom,         [   0,  50, 100,  50 ]
-gravity :bottom66,       [   0,  34, 100,  66 ]
-gravity :bottom33,       [   0,  67, 100,  33 ]
+gravity :bottom66,       [   0,  33, 100,  67 ]
+gravity :bottom33,       [   0,  66, 100,  34 ]
 
 # Bottom right
 gravity :bottom_right,   [  50,  50,  50,  50 ]
-gravity :bottom_right66, [  50,  34,  50,  66 ]
-gravity :bottom_right33, [  50,  67,  50,  33 ]
+gravity :bottom_right66, [  50,  33,  50,  67 ]
+gravity :bottom_right33, [  50,  66,  50,  34 ]
 
 # Gimp
 gravity :gimp_image,     [  10,   0,  80, 100 ]
