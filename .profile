@@ -6,6 +6,15 @@
 export GEM_HOME=$(ruby -e 'require "rubygems"; print Gem.user_dir')
 export PATH=$PATH:$GEM_HOME/bin
 
+###############################
+## Setup Nodejs Default Path ##
+###############################
+export NPM_PACKAGES="$HOME/.npm-packages"
+[ ! -n "$NPM_PACKAGES" ] && mkdir -p "$NPM_PACKAGES"
+export PATH="$NPM_PACKAGES/bin:$PATH"
+export MANPATH="$NPM_PACKAGES/share/man:$(manpath)"
+export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
+
 ###################
 ## Colorful LESS ##
 ###################
@@ -101,3 +110,7 @@ xupdate() {
 	xgensum -i "srcpkgs/$1/template"
 	xbump $1
 }
+#################
+## Misc Config ##
+#################
+CHROME_FLAGS+=" --force-device-scale-factor=1.2 "
