@@ -666,12 +666,12 @@ class Dmenu
 end
 
 # Meta
-grab "XF86AudioRaiseVolume", "exec ponymix increase 10"
-grab "C-F12", "exec ponymix increase 10"
-grab "XF86AudioLowerVolume", "exec ponymix decrease 10"
-grab "C-F11", "exec ponymix decrease 10"
-grab "XF86AudioMute", "exec ponymix toggle"
-grab "C-F10", "exec ponymix toggle"
+grab "XF86AudioRaiseVolume", "ponymix increase 10 || amixer -c 0 set Master 10%+"
+grab "C-F12", "exec ponymix increase 10 || amixer -c 0 set Master 10%+"
+grab "XF86AudioLowerVolume", "exec ponymix decrease 10 || amixer -c 0 set Master 10%-"
+grab "C-F11", "exec ponymix decrease 10 || amixer -c 0 set Master 10%-"
+grab "XF86AudioMute", "exec ponymix toggle || amixer -c 0 set Master toggle"
+grab "C-F10", "exec ponymix toggle || amixer -c 0 set Master toggle"
 grab "XF86TouchpadToggle", "exec synclient TouchpadOff=$(synclient -l | grep -c 'TouchpadOff.*=.*0')"
 grab "XF86Display", "exec xrandr --auto"
 grab "XF86Launch6", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
