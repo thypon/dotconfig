@@ -113,3 +113,10 @@ xupdate() {
 ## Misc Config ##
 #################
 CHROME_FLAGS+=" --force-device-scale-factor=1.2 "
+
+##################
+## Remove Noise ##
+##################
+denoise() {
+	ffmpeg -i $1 -vcodec libx264 -crf 24 -preset slow -filter:v hqdn3d=4.0:3.0:6.0:4.5 -af "bandpass=f=900:width_type=h:w=600" -acodec aac -strict experimental -ab 192k $2
+}
