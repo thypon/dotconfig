@@ -892,6 +892,8 @@ tag "wine" do
   type :dialog
 end
 
+tag "media", "vlc|mpv|mplayer|pavucontrol"
+
 tag "steam" do
   match "[Ss]team"
 end
@@ -908,13 +910,6 @@ end
 
 tag "gravity" do
   gravity :center
-end
-
-# Modes
-tag "stick" do
-  match "mplayer"
-  float true
-  stick true
 end
 
 tag "float" do
@@ -1013,6 +1008,10 @@ view "www" do
 end
 view "dev" do
   match "editor"
+  dynamic true
+end
+view "media" do
+  match "media"
   dynamic true
 end
 view "games" do
