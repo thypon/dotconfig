@@ -24,6 +24,14 @@ if [ -x /usr/bin/bgs ]; then
 	bgs -R ~/background.png
 fi
 
+if [ -x /usr/bin/xdg-mime ]; then
+	xdg-mime default chromium.desktop text/html
+	xdg-mime default chromium.desktop x-scheme-handler/http
+	xdg-mime default chromium.desktop x-scheme-handler/https
+	xdg-mime default chromium.desktop x-scheme-handler/about
+fi
+export BROWSER="/usr/bin/chromium"
+
 session=${1:-subtle}
 
 case $session in
