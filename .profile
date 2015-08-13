@@ -98,6 +98,11 @@ alias virsh="virsh -c qemu:///system"
 ######################
 export PATH="$PATH:$HOME/.local/bin"
 
+####################
+## Setup Opt Path ##
+####################
+export PATH="$PATH:/opt/freeplane"
+
 #######################
 ## VoidLinux Helpers ##
 #######################
