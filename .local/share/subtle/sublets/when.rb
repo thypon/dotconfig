@@ -5,7 +5,7 @@ configure :when do |s|
 end
 
 on :run do |s|
-  s.data = `when --future=0 --language=en --no-header --nowrap_auto --nopaging --norows_auto --nostyled_output`.split("\n").map do |elem|
+  s.data = `when --past=0 --future=0 --language=en --no-header --nowrap_auto --nopaging --norows_auto --nostyled_output`.split("\n").map do |elem|
     elem.match(/[^\s]+\s+\d+\s+[^\s]+\s+\d+\s+(.*)/)[1]
   end.join(", ")
 end
