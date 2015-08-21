@@ -233,7 +233,7 @@ end
 # Style for separator
 style :separator do
   foreground  second.to_s
-  separator   "|"
+  separator   "·"
 end
 
 # Style for focus window title
