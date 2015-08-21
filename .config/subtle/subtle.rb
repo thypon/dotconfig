@@ -885,7 +885,7 @@ tag "editor" do
   resize true
 end
 
-tag "document", "zathura|okular|CuteMarkEd"
+tag "document", "zathura|okular|CuteMarkEd|Xournal"
 
 tag "wine" do
   match instance: "exe$"
