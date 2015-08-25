@@ -690,7 +690,11 @@ end
 grab "C-A-L", "i3lock -c #{first.to_s[1..-1]}"
 
 # Exec programs
-grab "W-Return", "exec xterm"
+if File.exists? "/usr/bin/xterm"
+  grab "W-Return", "exec xterm"
+else
+  grab "W-Return", "exec urxvt"
+end
 
 grab "A-Tab" do
   Subtlext::View.current.clients.last.focus.raise
