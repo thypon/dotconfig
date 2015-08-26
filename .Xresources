@@ -1,4 +1,4 @@
-!! Dependencies: xterm, xcalc
+!! Dependencies: xterm, xcalc, urxvt, xsel
 ! terminal colors ------------------------------------------------------------
 
 ! tangoesque scheme
@@ -109,7 +109,7 @@ XCalc*Cursor:                 hand2
 XCalc*ShapeStyle:             rectangle
 
 ! URxvt config
-URxvt*termName:           rxvt-16color
+URxvt*termName:           rxvt-256color
 
 URxvt.scrollBar:          off
 URxvt.font:               xft:Inconsolata:style=Regular:size=18:antialias=true
@@ -117,7 +117,7 @@ URxvt.internalBorder:     0
 URxvt*selectToClipboard:  true
 URxvt*saveLines:          10000
 
-URxvt.perl-ext-common:    default,matcher,searchable-scrollback
+URxvt.perl-ext-common:    default,matcher,searchable-scrollback,clipboard
 URxvt.urlLauncher:        /usr/bin/firefox
 URxvt.matcher.button:     1
 URxvt.tabbed.tabbar-fg:   8
@@ -126,3 +126,11 @@ URxvt.tabbed.tab-fg:      2
 URxvt.tabbed.tab-bg:      0
 URxvt.tabbed.new-button:  no
 URxvt.tabbed.title:       no
+
+URxvt.keysym.Shift-Control-C: perl:clipboard:copy
+URxvt.keysym.Shift-Control-V: perl:clipboard:paste
+
+URxvt.clipboard.copycmd:  xsel -ib
+URxvt.clipboard.pastecmd: xsel -ob
+URxvt*transparent: true
+URxvt*shading: 30
