@@ -100,6 +100,11 @@ screen 2 do
   bottom [ :views, :spacer, :tray, :title]
 end
 
+screen 3 do
+  top    [ ]
+  buttom [ :views, :spacer, :tray, :title]
+end
+
 #
 # == Styles
 #
