@@ -1,0 +1,23 @@
+## Dependencies: bash, bash-preexec
+# .bashrc
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+# Source global definitions
+[ -f /etc/mkshrc ] && source /etc/mkshrc
+
+alias ls='ls --color=auto'
+
+source $HOME/.profile
+
+# Unlimited History
+export HISTSIZE=30000
+export HISTFILESIZE=30000
+HOST=$(hostname)
+PS1='${USER}@${HOST}:$(local WD=${PWD/$HOME/~}; if (( ${#WD} > 23 )); then print ${WD:0:10}...${WD: -10: -1}; else print $WD; fi) $(git branch 2>/dev/null | grep \*; )$(if (( USER_ID )); then print \$; else print \#; fi) '
+
+if [ -z "$DISPLAY" ] && [ $(tty) = /dev/tty1 ]; then
+	startx -- -br 1>/dev/null
+	exit 0
+fi
