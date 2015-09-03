@@ -701,11 +701,11 @@ else
   grab "W-Return", "exec urxvt"
 end
 
-grab "A-Tab" do
+grab "A-S-Tab" do
   Subtlext::View.current.clients.last.focus.raise
 end
 
-grab "A-S-Tab" do
+grab "A-Tab" do
   Subtlext::View.current.clients.first.lower.focus
 end
 
