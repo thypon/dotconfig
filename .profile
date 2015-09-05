@@ -139,3 +139,11 @@ mnemo() {
 	ruby -e 'require "date"; print (Date.today + ARGV[0].to_i).strftime "%Y %b %d, "' 28 >> $HOME/Documents/calendar
 	echo "$@" >> $HOME/Documents/calendar
 }
+
+##################
+## Source 2 PDF ##
+##################
+src2rtf() {
+	local noext="${1%.*}"
+	pygmentize -f rtf -O full -o "$noext.rtf" "$1"
+}
