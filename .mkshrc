@@ -12,8 +12,8 @@ alias ls='ls --color=auto'
 source $HOME/.profile
 
 # Unlimited History
-export HISTSIZE=30000
-export HISTFILESIZE=30000
+export HISTSIZE=300000
+export HISTFILE=$HOME/Documents/history
 HOST=$(hostname)
 PS1='${USER}@${HOST}:$(local WD=${PWD/$HOME/~}; if (( ${#WD} > 23 )); then print ${WD:0:10}...${WD: -10: -1}; else print $WD; fi) $(git branch 2>/dev/null | grep \*; )$(if (( USER_ID )); then print \$; else print \#; fi) '
 
