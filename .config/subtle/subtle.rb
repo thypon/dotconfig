@@ -894,14 +894,14 @@ tag "editor" do
   resize true
 end
 
-tag "document", "zathura|okular|CuteMarkEd|Xournal"
+tag "document", "zathura|okular|CuteMarkEd|Xournal|Foxit"
 
 tag "wine" do
   match instance: "exe$"
   type :dialog
 end
 
-tag "media", "vlc|mpv|mplayer|pavucontrol"
+tag "media", "vlc|mpv|mplayer|pavucontrol|clementine|spotify"
 
 tag "steam" do
   match "[Ss]team"
