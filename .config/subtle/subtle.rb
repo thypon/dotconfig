@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-## Dependencies: xterm, ponymix, synclient, xrandr, dmenu, i3lock
+## Dependencies: xterm, ponymix, synclient, xrandr, dmenu, xtrlock
 #
 # Author::  Christoph Kappel <unexist@subforge.org>
 # Author::  Andrea Brancaleoni <miwaxe@gmail.com>
@@ -692,7 +692,7 @@ grab "W-Tab" do
     Subtlext::View.current.clients.select { |e| e.name.include? v }.first.raise.focus
   end
 end
-grab "C-A-L", "i3lock -c #{first.to_s[1..-1]}"
+grab "C-A-L", "xtrlock"
 
 # Exec programs
 if File.exists? "/usr/bin/xterm"
@@ -946,7 +946,7 @@ tag "gimp_scum" do
   match role: "gimp-.*|screenshot"
 end
 
-tag "notes", "freeplane"
+tag "notes", "org-knopflerfish-framework-BundleThread"
 
 #
 # == Views
