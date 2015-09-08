@@ -946,6 +946,8 @@ tag "gimp_scum" do
   match role: "gimp-.*|screenshot"
 end
 
+tag "notes", "freeplane"
+
 #
 # == Views
 #
@@ -1035,7 +1037,10 @@ view "docs" do
   match "document"
   dynamic true
 end
-
+view "notes" do
+  match "editor|note"
+  dynamic true
+end
 #
 # == Sublets
 #
