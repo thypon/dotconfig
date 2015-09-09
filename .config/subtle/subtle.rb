@@ -890,7 +890,7 @@ tag "browser", "uzbl|opera|firefox|navigator|vimb|chrom(e|ium)"
 
 # Placement
 tag "editor" do
-  match  "^[g]?vim$"
+  match  "^[g]?vim|atom$"
   resize true
 end
 
@@ -1011,7 +1011,7 @@ tag "notes", "org-knopflerfish-framework-BundleThread"
 
 view "terms" do
   match "terms|default"
-  dynamic true
+ dynamic true
 end
 view "www" do
   match "browser"
@@ -1029,16 +1029,16 @@ view "games" do
   match "steam"
   dynamic true
 end
-view "gimp" do
-  match"gimp_.*"
-  dynamic true
-end
 view "docs" do
   match "document"
   dynamic true
 end
 view "notes" do
   match "editor|note"
+  dynamic true
+end
+view "gimp" do
+  match"gimp_.*"
   dynamic true
 end
 #
