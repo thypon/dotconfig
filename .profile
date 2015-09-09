@@ -96,7 +96,7 @@ alias virsh="virsh -c qemu:///system"
 ######################
 ## Setup Local Path ##
 ######################
-export PATH="$PATH:$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
 
 ####################
 ## Setup Opt Path ##
