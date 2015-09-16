@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-## Dependencies: xterm, ponymix, synclient, xrandr, dmenu, xtrlock
+## Dependencies: xterm, ponymix, synclient, xrandr, dmenu, trollock
 #
 # Author::  Christoph Kappel <unexist@subforge.org>
 # Author::  Andrea Brancaleoni <miwaxe@gmail.com>
@@ -692,7 +692,7 @@ grab "W-Tab" do
     Subtlext::View.current.clients.select { |e| e.name.include? v }.first.raise.focus
   end
 end
-grab "C-A-L", "xtrlock"
+grab "C-A-L", "trollock"
 
 # Exec programs
 if File.exists? "/usr/bin/xterm"
