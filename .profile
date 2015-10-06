@@ -14,6 +14,12 @@ export NPM_PACKAGES="$HOME/.npm-packages"
 export PATH="$NPM_PACKAGES/bin:$PATH"
 export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
 
+###############################
+## Setup Golang Default Path ##
+###############################
+export GOPATH=~/.go
+export PATH="$PATH:$GOPATH/bin"
+
 ###################
 ## Colorful LESS ##
 ###################
