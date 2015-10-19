@@ -948,6 +948,13 @@ end
 
 tag "notes", "org-knopflerfish-framework-BundleThread"
 
+tag "virtualmachine" do
+  match   "virtualbox"
+  gravity :center
+  sticky false
+  float false
+end
+
 #
 # == Views
 #
@@ -1018,7 +1025,7 @@ view "www" do
   dynamic true
 end
 view "dev" do
-  match "editor"
+  match "editor|virtualmachine"
   dynamic true
 end
 view "media" do
