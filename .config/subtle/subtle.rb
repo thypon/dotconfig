@@ -955,6 +955,8 @@ tag "virtualmachine" do
   float false
 end
 
+tag "ide", "Vivado.*|win0"
+
 #
 # == Views
 #
@@ -1025,7 +1027,11 @@ view "www" do
   dynamic true
 end
 view "dev" do
-  match "editor|virtualmachine"
+  match "editor|ide"
+  dynamic true
+end
+view "vm" do
+  match "virtualmachine"
   dynamic true
 end
 view "media" do
