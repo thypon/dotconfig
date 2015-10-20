@@ -5,11 +5,11 @@
 [[ $- != *i* ]] && return
 
 # Source global definitions
-[ -f /etc/mkshrc ] && source /etc/mkshrc
+[ -f /etc/mkshrc ] && . /etc/mkshrc
 
 alias ls='ls --color=auto'
 
-source $HOME/.profile
+. $HOME/.profile
 
 # Unlimited History
 export HISTSIZE=300000
