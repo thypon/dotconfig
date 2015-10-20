@@ -1,8 +1,10 @@
 binlist=(
-	"/usr/bin/xinit subtle"                       # Launch subtle session,
-	"/usr/bin/xinit kde"                          # Launch kde session,
-	"/bin/bash --login"                         # or start a console
+	"/usr/bin/xinit subtle"		# Launch subtle session,
+	"/usr/bin/xinit cwm"		# Launch cwm session,
+	"/usr/bin/xinit kde"		# Launch kde session,
+	"/usr/bin/xinit cinnamon"	# Launch cinnamon session,
+	"/bin/bash --login"		# or start a console
 )
-namelist=("Subtle session" "KDE4 Session" Console)
-flaglist=(C C C)
+namelist=("Subtle session" "CWM Session" "KDE4 Session" "Cinnamon Session" Console)
+flaglist=(C C C C C)
 consolekit=no
