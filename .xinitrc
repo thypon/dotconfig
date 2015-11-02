@@ -45,5 +45,6 @@ case $session in
 	xfce) exec ck-launch-session startxfce4;;
 	enlightenment) exec ck-launch-session enlightenment_start;;
 	gnome) exec ck-launch-session gnome-session;;
+	lxqt) exec ck-launch-session lxqt-session;;
 	*) exec ck-launch-session $1;;
 esac
