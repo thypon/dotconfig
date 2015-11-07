@@ -90,8 +90,8 @@ set :wmname, "LG3D"
 #
 
 screen 1 do
-  top    [ :views, :spacer, :keychain, :title, :spacer, :tray, :sublets ]
-  bottom [ ]
+  bottom    [ :views, :spacer, :keychain, :title, :spacer, :tray, :sublets ]
+  top       [ ]
 end
 
 # Example for a second screen:
