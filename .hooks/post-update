@@ -1,0 +1,5 @@
+#!/bin/sh
+
+TOPLEVELDIR=$(git rev-parse --show-toplevel)
+
+rsync -avp --exclude .git --exclude .hooks $TOPLEVELDIR/ $HOME/
