@@ -153,3 +153,10 @@ src2rtf() {
 	local noext="${1%.*}"
 	pygmentize -f rtf -O full -o "$noext.rtf" "$1"
 }
+
+###############
+## To Update ##
+###############
+toupdate() {
+	curl 'http://repo.voidlinux.eu/void-updates/void-updates/updates_miwaxe%40gmail.com.txt'
+}
