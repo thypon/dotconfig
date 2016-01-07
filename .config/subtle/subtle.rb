@@ -763,7 +763,7 @@ tag "wine" do
   type :dialog
 end
 
-tag "media", "vlc|mpv|mplayer|pavucontrol|clementine|spotify"
+tag "media", "vlc|mpv|mplayer|pavucontrol|clementine|Spotify"
 
 tag "steam" do
   match "[Ss]team"
