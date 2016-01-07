@@ -550,6 +550,11 @@ grab "Menu", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmen
 grab "W-Tab", "exec #{ENV['HOME']}/.config/subtle/sel.rb"
 grab "W-P", "EDITOR='xterm -e vim' #{ENV['HOME']}/.config/subtle/vitag.rb"
 grab "C-A-L", "exec trollock"
+if File.exists? "/usr/bin/xterm"
+  grab "W-O", "exec xterm -e ranger"
+else
+  grab "W-O", "exec urxvt -e ranger"
+end
 
 # Exec programs
 if File.exists? "/usr/bin/xterm"
