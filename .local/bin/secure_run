@@ -1,8 +1,3 @@
 #!/bin/sh
 SEL=$(dmenu_path | dmenu "$@")
-if [ -f "/etc/firejail/$SEL.profile" ];
-then
-	exec firejail --profile="/etc/firejail/$SEL.profile" $SEL
-else
-	exec $SEL
-fi
+exec firejail $SEL
