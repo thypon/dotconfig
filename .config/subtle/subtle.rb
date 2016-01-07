@@ -548,6 +548,7 @@ grab "XF86Launch6", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -
 grab "A-F2", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
 grab "Menu", "exec dmenu_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
 grab "W-Tab", "exec #{ENV['HOME']}/.config/subtle/sel.rb"
+grab "W-P", "EDITOR='xterm -e vim' #{ENV['HOME']}/.config/subtle/vitag.rb"
 grab "C-A-L", "exec trollock"
 
 # Exec programs
