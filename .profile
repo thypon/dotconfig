@@ -120,6 +120,9 @@ xupdate() {
 	xgensum -i "srcpkgs/$1/template"
 	xbump $1
 }
+xlazy() {
+	xupdate $1 && ./xbps-src pkg $1 || git reset --hard origin/master
+}
 #################
 ## Misc Config ##
 #################
