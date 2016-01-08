@@ -4,6 +4,9 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
+# Start Xorg if you are on the first VT
+[[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]] && exec startx
+
 # Source global definitions
 [ -f /etc/mkshrc ] && . /etc/mkshrc
 
