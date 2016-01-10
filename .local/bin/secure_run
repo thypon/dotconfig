@@ -1,3 +1,4 @@
 #!/bin/sh
 SEL=$(dmenu_path | dmenu "$@")
+SEL=$(dmenu_path_reorder $SEL)
 exec firejail --shell=none $SEL
