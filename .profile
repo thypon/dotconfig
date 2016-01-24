@@ -123,7 +123,7 @@ xupdate() {
 	xbump $1
 }
 xlazy() {
-	xupdate $1 && ./xbps-src pkg $1 || git reset --hard origin/master
+	xupdate $1 && ./xbps-src -j4 pkg $1 || git reset --hard HEAD~1
 }
 #################
 ## Misc Config ##
