@@ -176,7 +176,7 @@ class Color
   end
 
   def darken(percentage)
-    Color.new(
+   Color.new(
       (@r + (- @r * percentage / 100)).to_i,
       (@g + (- @g * percentage / 100)).to_i,
       (@b + (- @b * percentage / 100)).to_i)
@@ -536,6 +536,11 @@ grab "W-x", [ :bottom,       :bottom66,       :bottom33       ]
 grab "W-c", [ :bottom_right, :bottom_right66, :bottom_right33 ]
 
 # Meta
+TERM = if File.exists? "/usr/bin/terminology" then "terminology"
+       elsif File.exists? "/usr/bin/xterm" then "xterm"
+       elsif File.exists? "/usr/bin/urxvt" then "urxvt"
+       end
+
 grab "XF86AudioRaiseVolume", "ponymix increase 10 || amixer -c 0 set Master 10%+"
 grab "C-F12", "ponymix increase 10 || amixer -c 0 set Master 10%+"
 grab "XF86AudioLowerVolume", "ponymix decrease 10 || amixer -c 0 set Master 10%-"
@@ -548,20 +553,12 @@ grab "XF86Launch6", "exec secure_run -m 0 -fn Inconsolata:style=Regular:size=18 
 grab "A-F2", "exec secure_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
 grab "Menu", "exec secure_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
 grab "W-Tab", "exec #{ENV['HOME']}/.config/subtle/sel.rb"
-grab "W-P", "EDITOR='xterm -e vim' #{ENV['HOME']}/.config/subtle/vitag.rb"
+grab "W-P", "EDITOR='#{TERM} -e vim' #{ENV['HOME']}/.config/subtle/vitag.rb"
 grab "C-A-L", "exec trollock"
-if File.exists? "/usr/bin/xterm"
-  grab "W-O", "exec xterm -e ranger"
-else
-  grab "W-O", "exec urxvt -e ranger"
-end
+grab "W-O", "exec #{TERM} -e ranger"
 
 # Exec programs
-if File.exists? "/usr/bin/xterm"
-  grab "W-Return", "exec xterm"
-else
-  grab "W-Return", "exec urxvt"
-end
+grab "W-Return", "exec #{TERM}"
 
 grab "A-S-Tab" do
   Subtlext::View.current.clients.last.focus.raise
@@ -747,7 +744,7 @@ end
 #
 
 # Simple tags
-tag "terms",   "xterm|[u]?rxvt"
+tag "terms",   "xterm|[u]?rxvt|terminology"
 tag "browser", "uzbl|opera|firefox|navigator|vimb|chrom(e|ium)"
 
 # Placement
