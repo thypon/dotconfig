@@ -1,8 +1,0 @@
-# -- void --
-# Preload lib{crypto,ssl} from openssl, our libressl seems to be incompatible.
-# -- void --
-DEFAULTSTEAMDIR=$HOME/.local/share/Steam
-STEAM32_BSTRAP=${DEFAULTSTEAMDIR}/ubuntu12_32/steam-runtime/i386/lib/i386-linux-gnu
-STEAM64_BSTRAP=${DEFAULTSTEAMDIR}/ubuntu12_32/steam-runtime/amd64/lib/x86_64-linux-gnu
-export LD_PRELOAD="$STEAM32_BSTRAP/libcrypto.so.1.0.0:$STEAM32_BSTRAP/libssl.so.1.0.0"
-exec /usr/bin/steam

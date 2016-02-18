@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+PACKAGE="$1"
+TMPL="srcpkgs/$PACKAGE/template"
+
+REVERTS="$(cat $TMPL | grep reverts= | sed 's|reverts=||g' | sed 's|"||g')"
+VERSION="$(cat $TMPL | grep version= | sed 's|version=||g' | sed 's|"||g')"
+REVISION="$(cat $TMPL | grep revision= | sed 's|revision=||g' | sed 's|"||g')"
+
+COMMIT=$(git log --pretty=oneline srcpkgs/$1 | head -n1 | awk '{print $1}')
+
+git revert $COMMIT --no-edit
+
+git stash
+sed -i '/reverts/d' $TMPL
+if [ -z "$VAR" ]; then
+	sed -i "/version=/i reverts\=$VERSION\_$REVISION" $TMPL
+else
+	sed -i "/version=/i reverts\=\"$VERSION\_$REVISION $REVERTS\"" $TMPL
+fi
+git commit -a --amend --no-edit
+git stash apply
+
+echo "$PACKAGE reverted"
