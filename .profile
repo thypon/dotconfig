@@ -165,3 +165,7 @@ src2rtf() {
 toupdate() {
 	curl 'http://repo.voidlinux.eu/void-updates/void-updates/updates_miwaxe%40gmail.com.txt'
 }
+
+pdfpages() {
+	( for pdf in *.pdf ; do pdfinfo "$pdf" ; done ) | grep Pages | sed 's/[^0-9]*//' | paste -sd+ | bc
+}
