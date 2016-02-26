@@ -170,3 +170,4 @@ pdfpages() {
 	( for pdf in *.pdf ; do pdfinfo "$pdf" ; done ) | grep Pages | sed 's/[^0-9]*//' | paste -sd+ | bc
 }
 alias meteo='curl -4 http://wttr.in/Milan'
+alias dia='dia --integrated'
