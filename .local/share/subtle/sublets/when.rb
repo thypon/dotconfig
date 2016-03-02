@@ -8,7 +8,7 @@ configure :when do |s|
 end
 
 on :run do |s|
-  s.data = File.readlines('~/.events').map do |elem|
+  s.data = File.readlines("#{ENV['HOME']}/.events").map do |elem|
     elem.match(/[^\s]+\s+\d+\s+[^\s]+\s+\d+\s+(.*)/)[1]
   end.select { |e| ! e.index '!'}.first(4).join(", ")
 end
