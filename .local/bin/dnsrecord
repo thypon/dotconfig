@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+
+require 'tugboat'
+require 'droplet_kit'
+
+name = ARGV[0]
+domain = ARGV[1]
+token = Tugboat::Configuration.instance.access_token
+client = DropletKit::Client.new(access_token: token)
+ip = client.droplets.all.select { |e| e.name == name }.first.networks.v4.first.ip_address
+begin
+old_id = client.domain_records.all(for_domain: domain).each.select { |e| e.type == "A" && e.name == name }.first.id
+client.domain_records.delete(for_domain: domain, id: old_id)
+rescue
+end
+record = DropletKit::DomainRecord.new(type: 'A', name: name, data: ip)
+client.domain_records.create(record, for_domain: domain)
