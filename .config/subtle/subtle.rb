@@ -541,6 +541,10 @@ TERM = if File.exists? "/usr/bin/xterm" then "xterm"
        elsif File.exists? "/usr/bin/urxvt" then "urxvt"
        end
 
+grab "XF86WebCam", "exec scrot"
+grab "XF86Launch1", "firejail firefox"
+grab "XF86KbdBrightnessUp", "exec asus-kbd-backlight up"
+grab "XF86KbdBrightnessDown", "exec asus-kbd-backlight down"
 grab "XF86AudioRaiseVolume", "ponymix increase 10 || amixer -c 0 set Master 10%+"
 grab "C-F12", "ponymix increase 10 || amixer -c 0 set Master 10%+"
 grab "XF86AudioLowerVolume", "ponymix decrease 10 || amixer -c 0 set Master 10%-"
