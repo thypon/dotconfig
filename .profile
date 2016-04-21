@@ -163,7 +163,7 @@ src2rtf() {
 ## To Update ##
 ###############
 toupdate() {
-	curl 'http://repo.voidlinux.eu/void-updates/void-updates/updates_miwaxe%40gmail.com.txt'
+	curl 'https://repo.voidlinux.eu/void-updates/void-updates/updates_miwaxe%40gmail.com.txt'
 }
 
 pdfpages() {
