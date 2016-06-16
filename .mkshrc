@@ -14,6 +14,13 @@ alias ls='ls --color=auto'
 
 . $HOME/.profile
 
+function workspace() {
+	echo -n "cd " > /tmp/.workspace
+	pwd >> /tmp/.workspace
+}
+
+[ -f /tmp/.workspace ] && . /tmp/.workspace
+
 # Unlimited History
 export HISTSIZE=300000
 export HISTFILE=$HOME/Documents/history
