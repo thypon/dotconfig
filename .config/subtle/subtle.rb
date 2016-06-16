@@ -891,6 +891,10 @@ view "www" do
   match "browser"
   dynamic true
 end
+view "docs" do
+  match "document"
+  dynamic true
+end
 view "dev" do
   match "editor|ide"
   dynamic true
@@ -907,10 +911,6 @@ view "games" do
   match "steam"
   dynamic true
 end
-view "docs" do
-  match "document"
-  dynamic true
-end
 view "notes" do
   match "editor|note"
   dynamic true
@@ -919,6 +919,7 @@ view "gimp" do
   match"gimp_.*"
   dynamic true
 end
+
 #
 # == Sublets
 #
