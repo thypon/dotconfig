@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/freeplane $@ &> /dev/null &
