@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/bin/freeplane $@ &> /dev/null &
+exec /usr/bin/freeplane "$@" &> /dev/null &
