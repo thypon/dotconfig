@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/bin/zathura $@ &> /dev/null &
+exec /usr/bin/zathura "$@" &> /dev/null &
