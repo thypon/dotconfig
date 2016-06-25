@@ -60,6 +60,7 @@ Plugin 'ctrlpvim/ctrlp.vim'
 Plugin 'SirVer/ultisnips'
 Plugin 'honza/vim-snippets'
 Plugin 'ervandew/supertab'
+Plugin 'shougo/neocomplete.vim'
 Plugin 'valloric/youcompleteme'
 
 " make YCM compatible with UltiSnips (using supertab)
