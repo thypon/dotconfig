@@ -1,0 +1,2 @@
+#!/bin/sh
+xdg-open $(xbps-query -R $1 | grep homepage | awk '{print $2}') &> /dev/null &
