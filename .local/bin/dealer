@@ -1,0 +1,7 @@
+#!/bin/bash
+deals="$(cat ~/Documents/deals)"
+
+IFS=$'\n' read -rd '' -a d <<<"$deals"
+
+seldeal=${d[$RANDOM % ${#d[@]} ]}
+eval "$seldeal" > ~/.deals
