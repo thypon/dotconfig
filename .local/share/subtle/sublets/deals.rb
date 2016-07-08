@@ -10,7 +10,7 @@ configure :when do |s|
 end
 
 on :mouse_down do |s, x, y, button|
-  fork { `chromium #{s.deal['href']}` }
+  `daemonize /usr/bin/chromium #{s.deal['href']}`
 end
 
 on :run do |s|
