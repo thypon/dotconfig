@@ -1,8 +1,5 @@
 # When sublet file
 # Created with sur-0.2
-# Put:
-#  @hourly when --past=0 --future=0 --language=en --no-header --nowrap_auto --nopaging --norows_auto --nostyled_output > .events
-# inside a cronjob
 require 'json'
 
 configure :when do |s|
@@ -14,6 +11,6 @@ on :mouse_down do |s, x, y, button|
 end
 
 on :run do |s|
-  s.deal = JSON.parse(File.read("#{ENV['HOME']}/.deals"))
+  s.deal = JSON.parse(File.read("/tmp/.deals"))
   s.data = "#{s.deal['name']}, #{s.deal['price']}"
 end
