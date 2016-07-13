@@ -9,6 +9,10 @@ if [ -d /etc/X11/xinit/xinitrc.d ]; then
 	unset f
 fi
 
+if [ -x /usr/bin/pulseaudio ]; then
+	pulseaudio --start --log-target=syslog
+fi
+
 if [ -x /usr/bin/xrdb ] && [ -f $HOME/.Xresources ]; then
 	xrdb -I$HOME $HOME/.Xresources
 fi
