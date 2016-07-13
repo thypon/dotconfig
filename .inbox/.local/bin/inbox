@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/chromium --app=https://inbox.google.com/ "$@" &> /dev/null &
