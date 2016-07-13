@@ -9,8 +9,11 @@ if [ -d /etc/X11/xinit/xinitrc.d ]; then
 	unset f
 fi
 
-if [ -x /usr/bin/pulseaudio ]; then
+if [ -x /usr/bin/pulseaudio ] && [ -x /usr/bin/pactl ]; then
 	pulseaudio --start --log-target=syslog
+	pactl load-module module-switch-on-connect
+	pactl upload-sample /usr/share/sounds/freedesktop/stereo/bell.oga x11-bell
+	pactl load-module module-x11-bell sample=x11-bell display=$DISPLAY
 fi
 
 if [ -x /usr/bin/xrdb ] && [ -f $HOME/.Xresources ]; then
