@@ -1021,9 +1021,9 @@ on :start do
   end
 end
 
-# Add nine C-< number> grabs
+# Add nine C-S-< number> grabs
 (1..9).each do |i|
-  grab "C-%d" % [ i ] do |c|
+  grab "C-S-%d" % [ i ] do |c|
     views = Subtlext::View.all
     names = views.map { |v| v.name }
 
