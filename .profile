@@ -171,3 +171,4 @@ pdfpages() {
 }
 alias meteo='curl -4 http://wttr.in/Milan'
 alias dia='dia --integrated'
+alias broken='grep -Polz "(?s)miwaxe.*[^\t ]broken" srcpkgs/*/template'
