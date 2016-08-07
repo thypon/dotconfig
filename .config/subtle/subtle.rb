@@ -814,7 +814,7 @@ end
 tag "notes", "org-knopflerfish-framework-BundleThread"
 
 tag "virtualmachine" do
-  match   "virtualbox"
+  match   "virtualbox|qemu"
   gravity :center
   sticky false
   float false
