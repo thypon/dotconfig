@@ -564,7 +564,7 @@ grab "C-A-L", "exec trollock"
 grab "W-O", "exec #{TERM} -e ranger"
 
 # Exec programs
-grab "W-Return", "exec #{TERM}"
+grab "W-Return", "tabbed -c xterm -into"
 
 grab "A-S-Tab" do
   Subtlext::View.current.clients.last.focus.raise
