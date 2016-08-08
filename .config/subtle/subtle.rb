@@ -564,7 +564,7 @@ grab "C-A-L", "exec trollock"
 grab "W-O", "exec #{TERM} -e ranger"
 
 # Exec programs
-grab "W-Return", "exec terminology"
+grab "W-Return", "exec terminator"
 
 grab "A-S-Tab" do
   Subtlext::View.current.clients.last.focus.raise
