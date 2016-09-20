@@ -20,6 +20,10 @@ if [ -x /usr/bin/xrdb ] && [ -f $HOME/.Xresources ]; then
 	xrdb -I$HOME $HOME/.Xresources
 fi
 
+if [ -x /usr/bin/xcompmgr ]; then
+	xcompmgr -C
+fi
+
 if [ -x /usr/bin/autocutsel ]; then
 	#this will keep the clipboard in sync
 	#   with the primary buffer
