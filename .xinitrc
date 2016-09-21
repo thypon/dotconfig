@@ -1,4 +1,4 @@
-# Dependencies: subtle, kde, xrdb, ConsoleKit2, autocutsel, dunst, bgs
+# Dependencies: subtle, kde, xrdb, ConsoleKit2, autocutsel, dunst, feh, xcompmgr
 
 . $HOME/.profile
 
@@ -20,10 +20,6 @@ if [ -x /usr/bin/xrdb ] && [ -f $HOME/.Xresources ]; then
 	xrdb -I$HOME $HOME/.Xresources
 fi
 
-if [ -x /usr/bin/xcompmgr ]; then
-	xcompmgr -C
-fi
-
 if [ -x /usr/bin/autocutsel ]; then
 	#this will keep the clipboard in sync
 	#   with the primary buffer
@@ -34,8 +30,8 @@ if [ -x /usr/bin/autocutsel ]; then
 	autocutsel -selection PRIMARY -fork
 fi
 
-if [ -x /usr/bin/bgs ]; then
-	bgs -R ~/background.png
+if [ -x /usr/bin/feh ]; then
+	feh --bg-max ~/background.png
 fi
 
 if [ -x /usr/bin/xdg-mime ]; then
@@ -49,7 +45,7 @@ export BROWSER="/usr/bin/chromium"
 session=${1:-subtle}
 
 case $session in
-	subtle) exec ck-launch-session bash -c "dunst & subtle";;
+	subtle) exec ck-launch-session bash -c "dunst & xcompmgr -C & subtle";;
 	kde) exec ck-launch-session startkde;;
 	mate) exec ck-launch-session mate-session;;
 	cinnamon) exec ck-launch-session cinnamon-session;;
