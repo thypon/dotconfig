@@ -102,7 +102,7 @@ end
 
 screen 3 do
   top    [ ]
-  buttom [ :views, :spacer, :tray, :title]
+  bottom [ :views, :spacer, :tray, :title]
 end
 
 #
