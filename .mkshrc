@@ -1,5 +1,5 @@
-## Dependencies: bash, bash-preexec
-# .bashrc
+## Dependencies: mksh
+# .mkshrc
 
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
@@ -8,6 +8,7 @@
 [[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]] && exec startx
 
 # Source global definitions
+[ -f /etc/skel/.mkshrc ] && . /etc/skel/.mkshrc
 [ -f /etc/mkshrc ] && . /etc/mkshrc
 
 alias ls='ls --color=auto'
