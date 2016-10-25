@@ -2,7 +2,7 @@
 # Created with sur-0.2
 require 'json'
 
-configure :when do |s|
+configure :deals do |s|
   s.interval = 60
 end
 
