@@ -39,6 +39,7 @@ if [ -x /usr/bin/xdg-mime ]; then
 	xdg-mime default chromium.desktop x-scheme-handler/http
 	xdg-mime default chromium.desktop x-scheme-handler/https
 	xdg-mime default chromium.desktop x-scheme-handler/about
+	xdg-mime default zathura.desktop application/pdf
 fi
 export BROWSER="/usr/bin/chromium"
 
