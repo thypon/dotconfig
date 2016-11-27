@@ -1,2 +1,2 @@
 #!/bin/sh
-exec wine $HOME/.wine/drive_c/Program\ Files/Foxit\ Software/Foxit\ Reader/FoxitReader.exe $@ &> /dev/null &
+exec wine $HOME/.wine/drive_c/Program\ Files/Foxit\ Software/Foxit\ Reader/FoxitReader.exe "$@" &> /dev/null &
