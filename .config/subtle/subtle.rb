@@ -1043,15 +1043,18 @@ end
 
 # Assign tags to clients
 on :client_create do |c|
-  view = Subtlext::View.current
-  tags = c.tags.map { |t| t.name }
+  Thread.new do
+    Thread.sleep 300
+    view = Subtlext::View.current
+    tags = c.tags.map { |t| t.name }
 
-  # Add tag to view
-  view.tag(view.name) unless(view.tags.include?(view.name))
+    # Add tag to view
+    view.tag(view.name) unless(view.tags.include?(view.name))
 
-  # Exclusive for clients with default tag only
-  if tags.include?("default") and 1 == tags.size
-    c.tags = [ view.name ]
+    # Exclusive for clients with default tag only
+    if tags.include?("default") and 1 == tags.size
+      c.tags = [ view.name ]
+    end
   end
 end
 
