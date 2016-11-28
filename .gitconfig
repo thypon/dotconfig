@@ -1,0 +1,10 @@
+[user]
+	email = abc@pompel.me
+	name = Andrea Brancaleoni
+[credential]
+	helper = store
+[color]
+	ui = auto
+[alias]
+	create-pull-request = !sh -c 'stash pull-request $0 $@'
+	up = pull --rebase --autostash
