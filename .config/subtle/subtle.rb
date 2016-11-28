@@ -566,12 +566,8 @@ grab "W-O", "exec #{TERM} -e ranger"
 # Exec programs
 grab "W-Return", "exec terminator"
 
-grab "A-S-Tab" do
-  Subtlext::View.current.clients.last.focus.raise
-end
-
 grab "A-Tab" do
-  Subtlext::View.current.clients.first.lower.focus
+  Subtlext::View.current.clients.last.focus.raise
 end
 
 # Run Ruby lambdas
