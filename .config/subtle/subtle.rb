@@ -907,10 +907,10 @@ view "games" do
   match "steam"
   dynamic true
 end
-view "notes" do
-  match "editor|note"
-  dynamic true
-end
+#view "notes" do
+#  match "editor|note"
+#  dynamic true
+#end
 view "gimp" do
   match"gimp_.*"
   dynamic true
