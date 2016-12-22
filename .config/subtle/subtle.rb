@@ -335,6 +335,8 @@ gravity :gimp_image,     [  10,   0,  80, 100 ]
 gravity :gimp_toolbox,   [   0,   0,  10, 100 ]
 gravity :gimp_dock,      [  90,   0,  10, 100 ]
 
+gravity :pnp, [ 67, 67, 33, 33 ]
+
 #
 # == Grabs
 #
@@ -456,6 +458,13 @@ grab "W-space", :WindowFull
 
 # Toggle sticky mode of window (will be visible on all views)
 grab "W-v", :WindowStick
+
+# Toggle picture-in-picture mode
+grab "W-n" do |c|
+  c.gravity = :pnp
+  c.toggle_float
+  c.toggle_stick
+end
 
 # Toggle zaphod mode of window (will span across all screens)
 grab "W-equal", :WindowZaphod
