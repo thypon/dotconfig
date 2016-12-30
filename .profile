@@ -172,3 +172,21 @@ pdfpages() {
 alias meteo='curl -4 http://wttr.in/Milan'
 alias dia='dia --integrated'
 alias broken='grep -Polz "(?s)miwaxe.*[^\t ]broken" srcpkgs/*/template'
+
+##########################
+# Compile Android Kernel #
+##########################
+akernel() {
+	#make ARCH=arm CROSS_COMPILE=../../../prebuilts/gcc/linux-x86/arm/arm-eabi-4.8/bin/arm-eabi- -j8 zImage
+
+	local DTS_FILES=$(perl -e 'while (<>) {$a = $1 if /CONFIG_ARCH_((?:MSM|QSD|MPQ)[a-zA-Z0-9]+)=y/; $r = $1 if /CONFIG_MSM_SOC_REV_(?!NONE)(\w+)=y/; $arch = $arch.lc("$a$r ") if /CONFIG_ARCH_((?:MSM|QSD|MPQ)[a-zA-Z0-9]+)=y/} print $arch;' .config)
+	cp ./arch/arm/boot/zImage /tmp/zImage.tmp
+	for DTS in $(find arch/arm/boot/dts/ | grep $DTS_FILES | egrep "\.dts$"); do
+		dtc -p 1024 -O dtb -o /tmp/file.dtb $DTS
+		cat /tmp/zImage.tmp /tmp/file.dtb > /tmp/zImage
+		mv /tmp/zImage /tmp/zImage.tmp
+	done
+	local TDIR=$(mktemp -d)
+	#mv /tmp/zImage.tmp $TDIR/boot.img-zImage
+	python -c "from droidtools import unpackbootimg; unpackbootimg.extract('boot.img', '$TDIR').build('out.img')"
+}
