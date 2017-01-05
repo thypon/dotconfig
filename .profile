@@ -30,7 +30,7 @@ export PAGER='less'
 ####################
 ## Default Editor ##
 ####################
-export EDITOR=vim
+export EDITOR=nvim
 
 #########################
 ## Libvirt default URI ##
@@ -78,6 +78,7 @@ alias zyboconn="picocom -l -b 115200 /dev/ttyUSB1" # Connect to the zybo board
 alias usbarmoryconn="picocom -b 115200 -r -l /dev/ttyUSB0" # Connect to the usbarmory board
 RADIOS="http://mp3.kataweb.it:8000/M2O http://mp3.kataweb.it:8000/RadioDeejay http://shoutcast.unitedradio.it:1301"
 alias radio="while true; do mplayer $RADIOS; done"
+alias e="nvim"
 
 ##################
 ## Host Aliases ##
