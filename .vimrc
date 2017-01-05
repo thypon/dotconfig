@@ -28,6 +28,11 @@ Plugin 'VundleVim/Vundle.vim'
 " different version somewhere else.
 " Plugin 'ascenator/L9', {'name': 'newL9'}
 
+" TagBar plugin
+Plugin 'majutsushi/tagbar'
+nmap <C-b> :TagbarToggle<CR>
+
+" MMD syntax plugin
 Plugin 'thypon/vim-mymmd'
 
 " Git plugin
