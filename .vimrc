@@ -28,6 +28,7 @@ Plugin 'VundleVim/Vundle.vim'
 " different version somewhere else.
 " Plugin 'ascenator/L9', {'name': 'newL9'}
 
+Plugin 'gi1242/vim-multimarkdown'
 
 " Git plugin
 Plugin 'tpope/vim-fugitive'
@@ -36,35 +37,8 @@ Plugin 'tpope/vim-fugitive'
 Plugin 'scrooloose/nerdtree'
 map <C-n> :NERDTreeToggle<CR>
 
-" Syntax checking hacks plugin
-Plugin 'scrooloose/syntastic'
-
-set statusline+=%#warningmsg#
-set statusline+=%{SyntasticStatuslineFlag()}
-set statusline+=%*
-
-let g:syntastic_always_populate_loc_list = 1
-let g:syntastic_auto_loc_list = 1
-let g:syntastic_check_on_open = 1
-let g:syntastic_check_on_wq = 0
-
-" tagbar
-Plugin 'majutsushi/tagbar'
-nmap <F8> :TagbarToggle<CR>
-
 " ctrlp
 Plugin 'ctrlpvim/ctrlp.vim'
-
-"" Autocompletion engine
-" Track the engine.
-Plugin 'shougo/neocomplete.vim'
-
-" Disable AutoComplPop.
-let g:acp_enableAtStartup = 0
-" Use neocomplete.
-let g:neocomplete#enable_at_startup = 1
-" Use smartcase.
-let g:neocomplete#enable_smart_case = 1
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -86,9 +60,6 @@ set incsearch
 set ignorecase
 set smartcase
 
-" Plugin Indentation Based
-filetype plugin indent on
-
 " Trim and identify trailing white spaces
 autocmd BufWritePre * :%s/\s\+$//e
 highlight ExtraWhitespace ctermbg=red guibg=red
@@ -100,6 +71,3 @@ autocmd BufWinLeave * call clearmatches()
 
 " Enable Syntax Highlight
 syntax on
-
-" Select zellner colorscheme
-colorscheme zellner
