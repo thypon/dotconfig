@@ -1,0 +1,6 @@
+[submodule ".vim/markdown2ctags"]
+	path = .vim/markdown2ctags
+	url = https://github.com/jszakmeister/markdown2ctags
+[submodule ".vim/bundle/Vundle.vim"]
+	path = .vim/bundle/Vundle.vim
+	url = https://github.com/VundleVim/Vundle.vim.git

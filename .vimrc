@@ -29,6 +29,20 @@ Plugin 'VundleVim/Vundle.vim'
 " Plugin 'ascenator/L9', {'name': 'newL9'}
 
 " TagBar plugin
+let g:tagbar_type_mmd = {
+    \ 'ctagstype': 'mmd',
+    \ 'ctagsbin' : '~/.vim/markdown2ctags/markdown2ctags.py',
+    \ 'ctagsargs' : '-f - --sort=yes',
+    \ 'kinds' : [
+        \ 's:sections',
+        \ 'i:images'
+    \ ],
+    \ 'sro' : '|',
+    \ 'kind2scope' : {
+        \ 's' : 'section',
+    \ },
+    \ 'sort': 0,
+\ }
 Plugin 'majutsushi/tagbar'
 nmap <C-b> :TagbarToggle<CR>
 
