@@ -6,6 +6,10 @@
 [color]
 	ui = auto
 [alias]
-	create-pull-request = !sh -c 'stash pull-request $0 $@'
+	pr = !sh -c 'stash pull-request $0 $@'
 	up = pull --rebase --autostash
+	u = pull --rebase --autostash
 	graph = log --graph --decorate --oneline
+	g = log --graph --decorate --oneline
+	a = add
+	t = !sh -c 'tig'
