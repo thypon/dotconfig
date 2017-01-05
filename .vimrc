@@ -130,3 +130,6 @@ set statusline+=\ %l/%L\ lines	" percentage through the file
 
 " Enable Syntax Highlight
 syntax on
+
+" Enable system clipboard sharing
+set clipboard+=unnamedplus
