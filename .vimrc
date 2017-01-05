@@ -28,7 +28,7 @@ Plugin 'VundleVim/Vundle.vim'
 " different version somewhere else.
 " Plugin 'ascenator/L9', {'name': 'newL9'}
 
-Plugin 'gi1242/vim-multimarkdown'
+Plugin 'thypon/vim-mymmd'
 
 " Git plugin
 Plugin 'tpope/vim-fugitive'
