@@ -80,6 +80,10 @@ RADIOS="http://mp3.kataweb.it:8000/M2O http://mp3.kataweb.it:8000/RadioDeejay ht
 alias radio="while true; do mplayer $RADIOS; done"
 alias e="nvim"
 alias g="git"
+alias gg="g g"
+alias gt="g t"
+alias ga="g a"
+alias t="tig"
 
 ##################
 ## Host Aliases ##
