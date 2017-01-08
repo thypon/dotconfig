@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+require 'subtle/subtlext'
+
+TERM = if File.exists? "/usr/bin/xterm" then "xterm"
+       elsif File.exists? "/usr/bin/terminology" then "terminology"
+       elsif File.exists? "/usr/bin/urxvt" then "urxvt"
+       end
+
+def subtle_session
+  Subtlext::Client.all.select { |c| c.instance == TERM }.length
+end
+
+exec "byobu new-session -A -s subtle#{subtle_session}"
