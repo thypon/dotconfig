@@ -596,7 +596,7 @@ numbers = SimpleEnumerator.new do |yielder|
     yielder.yield number
   end
 end
-grab "W-Return", "exec #{TERM} -e byobu -S #{numbers.next}"
+grab "W-Return", "exec #{TERM} -e byobu"
 
 grab "A-Tab" do
   Subtlext::View.current.clients.last.focus.raise
