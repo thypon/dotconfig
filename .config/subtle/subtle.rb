@@ -602,15 +602,6 @@ grab "A-Tab" do
   Subtlext::View.current.clients.last.focus.raise
 end
 
-# Run Ruby lambdas
-grab "S-F2" do |c|
-  puts c.name
-end
-
-grab "S-F3" do
-  puts Subtlext::VERSION
-end
-
 #
 # == Tags
 #
