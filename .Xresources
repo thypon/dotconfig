@@ -40,7 +40,7 @@ Xft.hintstyle:  hintslight
 ! xterm ----------------------------------------------------------------------
 
 xterm*VT100.geometry:     100x25
-xterm*faceName:           Inconsolata:style=Regular:size=18
+xterm*faceName:           Inconsolata:style=Regular:size=16
 !xterm*font:              -*-dina-medium-r-*-*-16-*-*-*-*-*-*-*
 xterm*dynamicColors:      true
 xterm*utf8:               2
