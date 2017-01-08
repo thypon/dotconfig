@@ -32,5 +32,3 @@ export HISTSIZE=300000
 export HISTFILE=$HOME/Documents/history
 HOST=$(hostname)
 PS1="\$(if [[ \$? == 0 ]]; then echo -n \"\E[32m;)\E[0m\"; else echo -n \"\E[31m:(\E[0m\"; fi)\$(echo -ne \"\033]0;\$(date +%H:%M:%S)+\$PWD\007\") "
-
-[ -n "$XTERM_VERSION" ] && transset --id "$WINDOWID" 0.98 >/dev/null

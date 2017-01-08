@@ -2,6 +2,8 @@
 
 require 'subtle/subtlext'
 
+`transset --id #{ENV['WINDOWID']} 0.98`
+
 TERM = if File.exists? "/usr/bin/xterm" then "xterm"
        elsif File.exists? "/usr/bin/terminology" then "terminology"
        elsif File.exists? "/usr/bin/urxvt" then "urxvt"
