@@ -573,7 +573,30 @@ grab "C-A-L", "exec trollock"
 grab "W-O", "exec #{TERM} -e ranger"
 
 # Exec programs
-grab "W-Return", "exec #{TERM} -e byobu"
+class SimpleEnumerator
+
+  def initialize &block
+    # creates a new Fiber to be used as an Yielder
+    @yielder  = Fiber.new do
+      yield Fiber # call the block code. The same as: block.call Fiber
+      raise StopIteration # raise an error if there is no more calls
+    end
+  end
+
+  def next
+    # return the value and wait until the next call
+    @yielder.resume
+  end
+
+end
+numbers = SimpleEnumerator.new do |yielder|
+  number  = 0
+  loop do
+    number  += 1
+    yielder.yield number
+  end
+end
+grab "W-Return", "exec #{TERM} -e byobu -S #{numbers.next}"
 
 grab "A-Tab" do
   Subtlext::View.current.clients.last.focus.raise
