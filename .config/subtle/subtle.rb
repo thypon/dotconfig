@@ -750,7 +750,7 @@ tag "browser", "uzbl|opera|firefox|navigator|vimb|chrom(e|ium)"
 
 # Placement
 tag "editor" do
-  match  "^[g]?vim|atom|lyx$"
+  match  "^[g]?vim|atom|lyx|subl3$"
   resize true
 end
 
