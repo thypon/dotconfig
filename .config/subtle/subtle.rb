@@ -746,6 +746,7 @@ end
 
 # Simple tags
 tag "terms",   "xterm|[u]?rxvt|terminology"
+tag "chat",    "hexchat"
 tag "browser", "uzbl|opera|firefox|navigator|vimb|chrom(e|ium)"
 
 # Placement
@@ -883,7 +884,7 @@ view "terms" do
  dynamic true
 end
 view "www" do
-  match "browser"
+  match "browser|chat"
   dynamic true
 end
 view "docs" do
