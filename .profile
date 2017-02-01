@@ -196,3 +196,18 @@ akernel() {
 	#mv /tmp/zImage.tmp $TDIR/boot.img-zImage
 	python -c "from droidtools import unpackbootimg; unpackbootimg.extract('boot.img', '$TDIR').build('out.img')"
 }
+
+###############################################
+# Merge different repos in a unique directory #
+###############################################
+mergedir() {
+	local REPO="$1" 
+	local SUBDIR="$2"
+	local BRANCH="$3"
+	local REMOTE="$(echo $SUBDIR | sed 's|/|-|g')"
+	git remote add $REMOTE $REPO
+	git fetch $REMOTE
+	git merge -s ours --no-commit --allow-unrelated-histories $REMOTE
+	git read-tree --prefix=$SUBDIR -u $REMOTE/$BRANCH
+	git commit
+}
