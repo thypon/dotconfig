@@ -1,0 +1,2 @@
+#!/bin/sh
+exec chromium --profile-directory=Default --app-id=pebppomjfocnoigkeepgbmcifnnlndla
