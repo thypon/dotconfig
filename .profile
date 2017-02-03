@@ -207,7 +207,7 @@ mergedir() {
 	local REMOTE="$(echo $SUBDIR | sed 's|/|-|g')"
 	git remote add $REMOTE $REPO
 	git fetch $REMOTE
-	git merge -s ours --no-commit --allow-unrelated-histories $REMOTE
+	git merge -s ours --no-commit --allow-unrelated-histories $REMOTE/$BRANCH
 	git read-tree --prefix=$SUBDIR -u $REMOTE/$BRANCH
 	git commit
 }
