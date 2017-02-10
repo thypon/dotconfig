@@ -545,10 +545,10 @@ grab "W-x", [ :bottom,       :bottom66,       :bottom33       ]
 grab "W-c", [ :bottom_right, :bottom_right66, :bottom_right33 ]
 
 # Meta
-TERM = if File.exists? "/usr/bin/alacritty" then "alacritty"
+TERM = if File.exists? "/usr/bin/urxvt" then "urxvt"
+       elsif File.exists? "/usr/bin/alacritty" then "alacritty"
        elsif File.exists? "/usr/bin/xterm" then "xterm"
        elsif File.exists? "/usr/bin/terminology" then "terminology"
-       elsif File.exists? "/usr/bin/urxvt" then "urxvt"
        end
 
 grab "XF86WebCam", "exec scrot"
