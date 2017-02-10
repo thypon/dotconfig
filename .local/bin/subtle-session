@@ -2,7 +2,7 @@
 
 require 'subtle/subtlext'
 
-`transset --id #{ENV['WINDOWID']} 0.98`
+`transset --id #{ENV['WINDOWID']} 0.95`
 
 TERM = if File.exists? "/usr/bin/st" then "st"
        elsif File.exists? "/usr/bin/alacritty" then "alacritty"
