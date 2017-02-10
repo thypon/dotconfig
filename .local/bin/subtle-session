@@ -4,7 +4,7 @@ require 'subtle/subtlext'
 
 `transset --id #{ENV['WINDOWID']} 0.95`
 
-TERM = if File.exists? "/usr/bin/st" then "st"
+TERM = if File.exists? "/usr/bin/st" then "st-256color"
        elsif File.exists? "/usr/bin/alacritty" then "alacritty"
        elsif File.exists? "/usr/bin/xterm" then "xterm"
        elsif File.exists? "/usr/bin/terminology" then "terminology"
