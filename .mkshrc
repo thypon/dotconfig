@@ -34,6 +34,6 @@ HOST=$(hostname)
 PS1="\$(if [[ \$? == 0 ]]; then echo -n \"\E[32m;)\E[0m\"; else echo -n \"\E[31m:(\E[0m\"; fi)\$(echo -ne \"\033]0;\$(date +%H:%M:%S)+\$PWD\007\") "
 
 # Alert on long running commands
-precmd() { local x=${EPOCHREALTIME%.*}; (( x - ${_OLDTIME:-$x} > 30 )) && alert; }
+precmd() { local x=${EPOCHREALTIME%.*}; (( x - ${_OLDTIME:-$x} > 10 )) && ! focus && alert; }
 bind '^X^M=newline'; preexecstuff() { export _OLDTIME=${EPOCHREALTIME%.*}; }; PS1+='$(precmd)'
 bind -m '^M=^[ preexecstuff^[^E^X^M' '^J=^[ preexecstuff^[^E^X^M'
