@@ -84,6 +84,7 @@ alias gg="g g"
 alias gt="g t"
 alias ga="g a"
 alias t="tig"
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 
 ##################
 ## Host Aliases ##
@@ -201,7 +202,7 @@ akernel() {
 # Merge different repos in a unique directory #
 ###############################################
 mergedir() {
-	local REPO="$1" 
+	local REPO="$1"
 	local SUBDIR="$2"
 	local BRANCH="$3"
 	local REMOTE="$(echo $SUBDIR | sed 's|/|-|g')"
