@@ -9,7 +9,7 @@
     show_age_threshold = 60
     word_wrap = yes
     ignore_newline = no
-    geometry = "200x5-6-36"
+    geometry = "200x5-6-34"
     transparency = 0
     idle_threshold = 120
     monitor = 0
