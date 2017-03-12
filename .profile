@@ -215,3 +215,11 @@ mergedir() {
 	git read-tree --prefix=$SUBDIR -u $REMOTE/$BRANCH
 	git commit
 }
+
+###################################################
+# Extract a Docker image in the current directory #
+###################################################
+extractimage() {
+	docker export `docker run -d --entrypoint="sleep 1" $1` | sudo tar xf - -C $PWD
+	mkdir -p $PWD/etc/sudoers.d
+}
