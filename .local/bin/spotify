@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/bin/chromium --app=https://play.spotify.com/browse "$@" &> /dev/null &
+exec /usr/bin/google-chrome-stable --app=https://play.spotify.com/browse "$@" &> /dev/null &

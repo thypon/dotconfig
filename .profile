@@ -221,5 +221,5 @@ mergedir() {
 ###################################################
 extractimage() {
 	docker export `docker run -d --entrypoint="sleep 1" $1` | sudo tar xf - -C $PWD
-	mkdir -p $PWD/etc/sudoers.d
+	sudo mkdir -p $PWD/etc/sudoers.d
 }
