@@ -2,7 +2,7 @@
 
 require 'subtle/subtlext'
 
-`transset --id #{ENV['WINDOWID']} 0.95`
+`transset --id #{ENV['WINDOWID']} 0.90`
 
 TERM = if File.exists? "/usr/bin/st" then "st-256color"
        elsif File.exists? "/usr/bin/alacritty" then "alacritty"
