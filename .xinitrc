@@ -29,7 +29,7 @@ if [ -x /usr/bin/autocutsel ]; then
 
 	#this will keep the primary in sync
 	#   with the clipboard buffer
-	autocutsel -selection PRIMARY -fork
+	# autocutsel -selection PRIMARY -fork
 fi
 
 if [ -x /usr/bin/feh ]; then
