@@ -223,3 +223,10 @@ extractimage() {
 	docker export `docker run -d --entrypoint="sleep 1" $1` | sudo tar xf - -C $PWD
 	sudo mkdir -p $PWD/etc/sudoers.d
 }
+
+################
+# Brew Support #
+################
+export PATH="$HOME/.linuxbrew/bin:$PATH"
+export MANPATH="$HOME/.linuxbrew/share/man:$MANPATH"
+export INFOPATH="$HOME/.linuxbrew/share/info:$INFOPATH"
