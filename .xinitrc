@@ -48,7 +48,11 @@ export BROWSER="/usr/bin/chromium"
 session=${1:-subtle}
 
 case $session in
-	subtle) exec ck-launch-session bash -c "dunst -c $HOME/.config/dunst/dunstrc & xcompmgr -C & redshift -l 45.393:8.9198 & subtle";;
+	subtle) exec ck-launch-session bash -c "dunst -c $HOME/.config/dunst/dunstrc &\
+						xcompmgr -C &\
+						/usr/share/indicator-doom-cpu/indicator-doom-cpu &\
+						redshift -l 45.393:8.9198 &\
+						subtle";;
 	kde) exec ck-launch-session startkde;;
 	mate) exec ck-launch-session mate-session;;
 	cinnamon) exec ck-launch-session cinnamon-session;;
