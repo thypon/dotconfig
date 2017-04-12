@@ -1,0 +1,4 @@
+#!/bin/bash
+for F in $(find -iname '*.pdf' -o -iname '*.PDF'); do
+	pdftk "$F" dump_data 2>/dev/null | grep NumberOfPages
+done | awk '{s+=$2; print $0} END {printf "Total: %.0f\n", s}'
