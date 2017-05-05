@@ -2,8 +2,8 @@
 
 require 'subtle/subtlext'
 
-TERM = if File.exists? "/usr/bin/alacritty" then "Alacritty"
-       elsif File.exists? "/usr/bin/st" then "st-256color"
+TERM = if File.exists? "/usr/bin/st" then "st-256color"
+       elsif File.exists? "/usr/bin/alacritty" then "Alacritty"
        elsif File.exists? "/usr/bin/xterm" then "xterm"
        elsif File.exists? "/usr/bin/terminology" then "terminology"
        elsif File.exists? "/usr/bin/urxvt" then "urxvt"
