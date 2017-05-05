@@ -111,7 +111,7 @@ alias schroot="schroot -p"
 alias pinstall="pip install --user"
 alias virsh="virsh -c qemu:///system"
 
-update-clock() {
+updateclock() {
 	sudo date -s "$(curl -s --head http://google.com | grep ^Date: | sed 's/Date: //g')"
 	sudo hwclock -w --utc
 	sudo hwclock -r --utc
