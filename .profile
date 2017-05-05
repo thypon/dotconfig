@@ -36,6 +36,7 @@ export EDITOR=nvim
 ## Libvirt default URI ##
 #########################
 export LIBVIRT_DEFAULT_URI="qemu:///system"
+export QEMU_AUDIO_DRV=pa
 
 ####################
 ## Time functions ##
