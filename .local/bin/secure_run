@@ -1,4 +1,11 @@
 #!/bin/sh
-SEL=$(dmenu_path | dmenu "$@")
+ELS="$(dmenu_path)"
+ELS="$ELS $(flatpak list | grep ,current | awk '{print $1}')"
+SEL=$(echo $ELS | tr ' ' '\n' | dmenu "$@")
 SEL=$(dmenu_path_reorder $SEL)
-exec firejail --shell=none $SEL
+ARCH=x86_64
+if test "${SEL#*$ARCH}" != "$SEL"; then
+	exec flatpak run $SEL
+else
+	exec firejail --shell=none $SEL
+fi
