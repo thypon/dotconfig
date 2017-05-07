@@ -1,0 +1,3 @@
+#!/usr/bin/env ruby
+require 'clipboard'
+system "mpv #{Clipboard.paste}"
