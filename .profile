@@ -242,3 +242,8 @@ export INFOPATH="$HOME/.linuxbrew/share/info:$INFOPATH"
 # Ansible Vars #
 ################
 export ANSIBLE_HOSTS=~/Documents/ansible_hosts
+
+###############
+#  KeyChain   #
+###############
+eval $(keychain --noask --eval)
