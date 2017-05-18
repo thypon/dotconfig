@@ -246,4 +246,4 @@ export ANSIBLE_HOSTS=~/Documents/ansible_hosts
 ###############
 #  KeyChain   #
 ###############
-eval $(keychain --noask --eval)
+eval $(keychain --noask --eval --quiet)
