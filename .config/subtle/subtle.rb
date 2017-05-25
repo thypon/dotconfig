@@ -766,7 +766,7 @@ tag "wine" do
   type :dialog
 end
 
-tag "media", "vlc|mpv|mplayer|pavucontrol|clementine|Spotify"
+tag "media", "vlc|mpv|mplayer|pavucontrol|clementine|[Ss]potify"
 
 tag "steam" do
   match "[Ss]team"
@@ -820,7 +820,7 @@ tag "virtualmachine" do
   float false
 end
 
-tag "ide", "Vivado.*|win0"
+tag "ide", "Vivado.*|win0|IDEA|sun-awt-X11-"
 
 #
 # == Views
