@@ -247,3 +247,9 @@ export ANSIBLE_HOSTS=~/Documents/ansible_hosts
 #  KeyChain   #
 ###############
 eval $(keychain --noask --eval --quiet)
+
+########
+# JAVA #
+########
+unset JAVA_HOME
+source /etc/profile.d/11_oracle-jdk.sh
