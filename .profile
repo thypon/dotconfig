@@ -262,3 +262,8 @@ export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin
 replace() {
   sed -i "s/$(echo $1 | sed -e 's/\([[\/.*]\|\]\)/\\&/g')/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3
 }
+
+############
+# LuaRocks #
+############
+export PATH="$HOME/.luarocks/bin:$PATH"
