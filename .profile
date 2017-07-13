@@ -255,3 +255,10 @@ unset JAVA_HOME
 source /etc/profile.d/11_oracle-jdk.sh
 export ANDROID_HOME=$HOME/.android-sdk
 export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin
+
+#########################
+# Replace String Easily #
+#########################
+replace() {
+  sed -i "s/$(echo $1 | sed -e 's/\([[\/.*]\|\]\)/\\&/g')/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3
+}
