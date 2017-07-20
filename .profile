@@ -267,3 +267,9 @@ replace() {
 # LuaRocks #
 ############
 export PATH="$HOME/.luarocks/bin:$PATH"
+
+#########
+# Fonts #
+#########
+export _JAVA_OPTIONS='-Dswing.defaultlaf=com.sun.java.swing.plaf.gtk.GTKLookAndFeel -Dawt.useSystemAAFontSettings=lcd'
+export FT2_SUBPIXEL_HINTING=1
