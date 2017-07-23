@@ -273,3 +273,8 @@ export PATH="$HOME/.luarocks/bin:$PATH"
 #########
 export _JAVA_OPTIONS='-Dswing.defaultlaf=com.sun.java.swing.plaf.gtk.GTKLookAndFeel -Dawt.useSystemAAFontSettings=lcd'
 export FT2_SUBPIXEL_HINTING=1
+
+###############
+# VM location #
+###############
+export PATH="$HOME/.vms/bin:$PATH"
