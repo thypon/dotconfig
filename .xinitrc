@@ -51,6 +51,7 @@ case $session in
 						/usr/share/indicator-doom-cpu/indicator-doom-cpu &\
 						[ -x /usr/bin/ckb ] && ckb &\
 						[ -x /usr/bin/redshift ] && redshift -l 45.393:8.9198 &\
+						[ -x /usr/bin/anbox ] && anbox session-manager &\
 						subtle";;
 	kde) exec ck-launch-session startkde;;
 	mate) exec ck-launch-session mate-session;;
