@@ -140,7 +140,9 @@ xupdate() {
 	xbump $1
 }
 xlazy() {
-	xupdate $1 && ./xbps-src -j4 pkg $1 || git reset --hard HEAD~1
+	for pkg in "$@"; do
+		xupdate ${pkg} && ./xbps-src -j4 pkg ${pkg} || git reset --hard HEAD~1
+	done
 }
 #################
 ## Misc Config ##
