@@ -820,7 +820,7 @@ tag "virtualmachine" do
   float false
 end
 
-tag "ide", "Vivado.*|win0|IDEA|sun-awt-X11-"
+tag "ide", "Vivado.*|win0|IDEA|sun-awt-X11-|qtcreator"
 
 #
 # == Views
