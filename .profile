@@ -229,7 +229,7 @@ mergedir() {
 # Extract a Docker image in the current directory #
 ###################################################
 extractimage() {
-	docker export `docker run -d --entrypoint="sleep 1" $1` | sudo tar xf - -C $PWD
+	docker export `docker run -d --entrypoint="true" $1` | sudo tar xf - -C $PWD
 	sudo mkdir -p $PWD/etc/sudoers.d
 }
 
