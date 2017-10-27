@@ -18,7 +18,6 @@ export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
 ## Setup Golang Default Path ##
 ###############################
 export GOPATH=~/.go
-export GOROOT=$GOPATH
 export PATH="$PATH:$GOPATH/bin"
 
 ###################
