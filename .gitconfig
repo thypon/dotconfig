@@ -13,3 +13,4 @@
 	g = log --graph --decorate --oneline
 	a = add
 	t = !sh -c 'tig'
+	root = rev-parse --show-toplevel

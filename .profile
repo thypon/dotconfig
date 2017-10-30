@@ -84,6 +84,7 @@ alias g="git"
 alias gg="g g"
 alias gt="g t"
 alias ga="g a"
+alias groot='cd $(git root)'
 alias t="tig"
 alias alert='notify-send --urgency=low -i shell "command has terminated"'
 focus() {
