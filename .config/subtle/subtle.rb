@@ -414,10 +414,11 @@ gravity :pnp, [ 67, 67, 33, 33 ]
 #
 
 # Jump to view1, view2, ...
-grab "W-1", :ViewJump1
-grab "W-2", :ViewJump2
-grab "W-3", :ViewJump3
-grab "W-4", :ViewJump4
+(1..9).each do |n|
+  grab "W-#{n}" do
+    Subtlext::View[:all].select { |v| !v.clients.empty? }[n-1].jump
+  end
+end
 
 # Switch current view
 grab "W-S-1", :ViewSwitch1
