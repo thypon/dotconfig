@@ -1,3 +1,3 @@
 # Netflix  profile
-private ${HOME}/.netflix
-include /etc/firejail/chromium.profile
+whitelist ${HOME}/.local/bin
+include /etc/firejail/google-chrome-stable.profile

@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/bin/chromium --app=https://netflix.com "$@" &> /dev/null &
+exec /usr/bin/google-chrome-stable --app=https://netflix.com "$@" &> /dev/null &
