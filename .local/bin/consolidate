@@ -1,0 +1,20 @@
+#!/bin/sh
+set -x
+set -e
+VMNAME=$1
+SNAPSHOT="$HOME/.vms/snapshots/$VMNAME.img"
+IMAGE="$HOME/.vms/images/$VMNAME-backing.img"
+
+if [ -f "$SNAPSHOT" ] && [ -f "$IMAGE" ]; then
+	qemu-img convert -p -c -O qcow2 "$SNAPSHOT" "$IMAGE.new"
+	mv "$IMAGE" "$IMAGE.old"
+	mv "$IMAGE.new" "$IMAGE"
+fi
+
+if ! [ -f "$SNAPSHOT" ]; then
+	echo "There is no snapshot: $SNAPSHOT"
+fi
+
+if ! [ -f "$IMAGE" ]; then
+	echo "There is no snapshot: $IMAGE"
+fi
