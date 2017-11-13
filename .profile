@@ -218,7 +218,7 @@ mergedir() {
 	local REPO="$1"
 	local SUBDIR="$2"
 	local BRANCH="$3"
-	local REMOTE="$(echo $SUBDIR | sed 's|/|-|g')"
+	local REMOTE="$(echo $SUBDIR | sed 's|/|-|g' | sed 's|\.||g')"
 	git remote add $REMOTE $REPO
 	git fetch $REMOTE
 	git merge -s ours --no-commit --allow-unrelated-histories $REMOTE/$BRANCH
