@@ -24,7 +24,7 @@ function verlte {
 }
 
 function verlt {
-    [ "$1" = "" ] && return 0 
+    [ "$1" = "" ] && return 0
     [ "$1" = "$2" ] && return 1 || verlte $1 $2
 }
 
@@ -72,12 +72,12 @@ function package_update {
     apm update
 }
 
-if [ $PACKAGE -eq 1 ]; then
-    package_update
-fi
-
 if [ $UPDATE -eq 1 ]; then
     update_atom
+fi
+
+if [ $PACKAGE -eq 1 ]; then
+    package_update
 fi
 
 exit 0
