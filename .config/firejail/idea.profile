@@ -1,0 +1,1 @@
+/etc/firejail/idea.sh.profile
