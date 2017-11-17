@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-## Dependencies: xterm, ponymix, synclient, xrandr, dmenu, trollock
+## Dependencies: xterm, ponymix, synclient, xrandr, rofi, trollock
 #
 # Author::  Christoph Kappel <unexist@subforge.org>
 # Author::  Andrea Brancaleoni <miwaxe@gmail.com>
@@ -567,12 +567,13 @@ grab "XF86AudioMute", "ponymix toggle || amixer -c 0 set Master toggle"
 grab "C-F10", "ponymix toggle || amixer -c 0 set Master toggle"
 grab "XF86TouchpadToggle", "exec synclient TouchpadOff=$(synclient -l | grep -c 'TouchpadOff.*=.*0')"
 grab "XF86Display", "exec xrandr --auto"
-grab "XF86Launch6", "exec secure_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
+grab "XF86Launch6", "exec rofi -show run"
 grab "XF86MonBrightnessUp", "exec xbacklight -inc 10"
 grab "XF86MonBrightnessDown", "exec xbacklight -dec 10"
-grab "A-F2", "exec secure_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
-grab "Menu", "exec secure_run -m 0 -fn Inconsolata:style=Regular:size=18 -p 'dmenu>' -sf '#{first}' -sb '#{second}' -nf '#{fourth}' -nb '#{third}'"
-grab "W-Tab", "exec #{ENV['HOME']}/.config/subtle/sel.rb"
+grab "A-F2", "exec rofi -show run"
+grab "Menu", "exec rofi -show run"
+grab "W-Tab", "exec rofi -show window"
+grab "W-I", "exec rofi -show ssh"
 grab "W-P", "EDITOR='#{TERM} -e vim' #{ENV['HOME']}/.config/subtle/vitag.rb"
 grab "C-A-L", "exec trollock"
 grab "W-O", "exec #{TERM} -e ranger"
