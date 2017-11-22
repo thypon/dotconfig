@@ -1,6 +1,5 @@
 rofi.theme: /usr/share/rofi/themes/sidebar.rasi
 rofi.matching: fuzzy
 rofi.terminal: xterm
-rofi.run-command: firejail --shell=none {cmd}
 rofi.sort: true
 rofi.ssh-command: byobu-tmux new-window {ssh-client} {host}
