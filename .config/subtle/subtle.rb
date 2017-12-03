@@ -1002,6 +1002,10 @@ end
 # http://subforge.org/projects/subtle/wiki/Hooks
 #
 
+on :client_focus do |c|
+  c.raise
+end
+
 on :view_jump do |v|
   v.clients.first.raise.focus
 end
