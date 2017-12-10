@@ -11,6 +11,7 @@ export PATH=$PATH:$GEM_HOME/bin
 ###############################
 export NPM_PACKAGES="$HOME/.npm-packages"
 [ ! -n "$NPM_PACKAGES" ] && mkdir -p "$NPM_PACKAGES"
+echo "prefix = $NPM_PACKAGES" > $HOME/.npmrc
 export PATH="$NPM_PACKAGES/bin:$PATH"
 export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
 
