@@ -320,7 +320,7 @@ cb() {
 # Aliases / functions leveraging the cb() function
 # ------------------------------------------------
 # Copy contents of a file
-function cbf() { cat "$1" | cb; }
+cbf() { cat "$1" | cb; }
 # Copy SSH public key
 alias cbssh="cbf ~/.ssh/id_rsa.pub"
 # Copy current working directory
