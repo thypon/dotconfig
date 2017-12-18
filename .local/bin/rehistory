@@ -47,12 +47,23 @@ while b_curr_commit = b_curr_commit.parent
 end
 pb.finish
 
+b_diff_min = (2**(0.size * 8 -2) -1)
+b_right_commit = "None"
 pb = ProgressBar.create(:total => b_commits.length, :format => "Diffing %c/%C: |%B| %a %e")
-res = b_commits.map { |c| pb.increment; git.diff(a_last_commit, c).size }
+res = b_commits.map do |c|
+	pb.format = "Diffing %c/%C: |%B| %a %e Min(#{b_diff_min}, #{b_right_commit})"
+	pb.increment
+	res = git.diff(a_last_commit, c).size
+	if res < b_diff_min
+		b_diff_min = res
+		b_right_commit = c
+	end
+	res
+end
 pb.finish
 
-b_diff_min = res.min
-b_right_commit = b_commits[res.index(b_diff_min)]
+#b_diff_min = res.min
+#b_right_commit = b_commits[res.index(b_diff_min)]
 
 puts "Minimum commit: #{b_right_commit.sha} with #{b_diff_min} diff"
 
