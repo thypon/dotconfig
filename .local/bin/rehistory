@@ -1,0 +1,60 @@
+#!/usr/bin/env ruby
+
+require 'git'
+require 'logger'
+require 'ostruct'
+require 'progressbar'
+require 'optparse'
+
+options = {
+	workdir: ENV['PWD'],
+	b: nil,
+	c: nil,
+	verbose: false,
+}
+OptionParser.new do |opts|
+	opts.on("-wWORKDIR", "--workdir=WORKDIR", "Workdir") do |w|
+		options[:workdir] = w
+	end
+	opts.on("-bBRANCH_B", "--branch-b=BRANCH_B", "Workdir") do |b|
+		options[:b] = b
+	end
+	opts.on("-aBRANCH_A", "--branch-a=BRANCH_A", "Workdir") do |a|
+		options[:a] = a
+	end
+	opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+		options[:verbose] = v
+	end
+end.parse!
+
+working_dir    = options[:workdir]
+branch_a       = options[:a]
+branch_b       = options[:b]
+git = if options[:verbose]
+	Git.open(working_dir, :log => Logger.new(STDOUT))
+else
+	Git.open(working_dir)
+end
+
+b_commits      = []
+b_commits << b_curr_commit = git.gcommit(branch_b)
+a_last_commit = git.gcommit(branch_a)
+
+pb = ProgressBar.create(:total => nil, :format => "Commits %c: |%B| %a")
+while b_curr_commit = b_curr_commit.parent
+	pb.increment
+	b_commits << b_curr_commit
+end
+pb.finish
+
+pb = ProgressBar.create(:total => b_commits.length, :format => "Diffing %c/%C: |%B| %a %e")
+res = b_commits.map { |c| pb.increment; git.diff(a_last_commit, c).size }
+pb.finish
+
+b_diff_min = res.min
+b_right_commit = b_commits[res.index(b_diff_min)]
+
+puts "Minimum commit: #{b_right_commit.sha} with #{b_diff_min} diff"
+
+require 'pry'
+binding.pry
