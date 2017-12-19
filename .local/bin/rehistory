@@ -6,24 +6,55 @@ require 'ostruct'
 require 'progressbar'
 require 'optparse'
 
+class MovingAvarage
+	def initialize(elems = 100)
+		@elems = elems
+		@queue = Array.new
+	end
+
+	def add(elem)
+		@queue << elem
+		@queue.shift if @queue.size > @elems
+		self
+	end
+
+	def get
+		size = @queue.size
+		return 0 if size == 0
+		@queue.inject{ |sum, el| sum + el }.to_f / size
+	end
+
+	def reset
+		@queue = Array.new
+	end
+end
+
 options = {
 	workdir: ENV['PWD'],
 	b: nil,
 	c: nil,
 	verbose: false,
+	threshold: 30,
+	ma: 100,
 }
 OptionParser.new do |opts|
 	opts.on("-wWORKDIR", "--workdir=WORKDIR", "Workdir") do |w|
 		options[:workdir] = w
 	end
-	opts.on("-bBRANCH_B", "--branch-b=BRANCH_B", "Workdir") do |b|
+	opts.on("-bBRANCH_B", "--branch-b=BRANCH_B", "Branch A") do |b|
 		options[:b] = b
 	end
-	opts.on("-aBRANCH_A", "--branch-a=BRANCH_A", "Workdir") do |a|
+	opts.on("-aBRANCH_A", "--branch-a=BRANCH_A", "Branch B") do |a|
 		options[:a] = a
 	end
 	opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
 		options[:verbose] = v
+	end
+	opts.on("-tTRESHOLD", "--treshold=TRESHOLD", "Percentual Stop Treshold (after min is found)") do |t|
+		options[:threshold] = t.to_i
+	end
+	opts.on("-maPARAM", "--moving-avarage=PARAM", "Max elements saved in the moving avarage filter") do |p|
+		options[:ma] = p.to_i
 	end
 end.parse!
 
@@ -47,23 +78,27 @@ while b_curr_commit = b_curr_commit.parent
 end
 pb.finish
 
-b_diff_min = (2**(0.size * 8 -2) -1)
+FIXNUM_MAX = (2**(0.size * 8 -2) -1)
+b_diff_min = FIXNUM_MAX
 b_right_commit = "None"
 pb = ProgressBar.create(:total => b_commits.length, :format => "Diffing %c/%C: |%B| %a %e")
-res = b_commits.map do |c|
-	pb.format = "Diffing %c/%C: |%B| %a %e Min(#{b_diff_min}, #{b_right_commit})"
+ma = MovingAvarage.new(options[:threshold])
+b_commits.each do |c|
 	pb.increment
-	res = git.diff(a_last_commit, c).size
+	diff = git.diff(a_last_commit, c)
+	res = diff.insertions + diff.deletions
 	if res < b_diff_min
 		b_diff_min = res
 		b_right_commit = c
+		ma.reset
 	end
-	res
+
+	curr_ma = ma.add(res).get
+	break if curr_ma > b_diff_min * (100.0 + options[:threshold])/100 || curr_ma < b_diff_min * (100.0 - options[:threshold])/100
+
+	pb.format = "Diffing %c/%C: |%B| %a %e Min(#{b_diff_min}, #{b_right_commit}) MA(#{curr_ma})"
 end
 pb.finish
-
-#b_diff_min = res.min
-#b_right_commit = b_commits[res.index(b_diff_min)]
 
 puts "Minimum commit: #{b_right_commit.sha} with #{b_diff_min} diff"
 
