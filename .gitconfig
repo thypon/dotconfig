@@ -14,4 +14,5 @@
 	a = add
 	t = !sh -c 'tig'
 	root = rev-parse --show-toplevel
-	search = !sh -c 'git grep "$0" $(git rev-list --all); git log --grep="$0"'
+	search = !sh -c 'git grep "$0" $(git rev-list --all)'
+	msgsearch = !sh -c 'git log --grep="$0"'
