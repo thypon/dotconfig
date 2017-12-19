@@ -82,7 +82,7 @@ FIXNUM_MAX = (2**(0.size * 8 -2) -1)
 b_diff_min = FIXNUM_MAX
 b_right_commit = "None"
 pb = ProgressBar.create(:total => b_commits.length, :format => "Diffing %c/%C: |%B| %a %e")
-ma = MovingAvarage.new(options[:threshold])
+ma = MovingAvarage.new(options[:ma])
 b_commits.each do |c|
 	pb.increment
 	diff = git.diff(a_last_commit, c)
