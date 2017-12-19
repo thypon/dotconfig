@@ -36,6 +36,7 @@ options = {
 	verbose: false,
 	threshold: 30,
 	ma: 100,
+	csv: nil,
 }
 OptionParser.new do |opts|
 	opts.on("-wWORKDIR", "--workdir=WORKDIR", "Workdir") do |w|
@@ -55,6 +56,9 @@ OptionParser.new do |opts|
 	end
 	opts.on("-maPARAM", "--moving-avarage=PARAM", "Max elements saved in the moving avarage filter") do |p|
 		options[:ma] = p.to_i
+	end
+	opts.on("-cCSV", "--csv=CSV", "Outputs the result to the given CSV") do |csv|
+		options[:csv] = csv
 	end
 end.parse!
 
@@ -101,6 +105,10 @@ end
 pb.finish
 
 puts "Minimum commit: #{b_right_commit.sha} with #{b_diff_min} diff"
+
+if options[:csv]
+	File.open(options[:csv], 'a') { |file| file.write("#{options[:workdir]},#{options[:branch_a]},#{options[:branch_b]},#{b_right_commit.sha},#{b_diff_min} ") }
+end
 
 require 'pry'
 binding.pry
