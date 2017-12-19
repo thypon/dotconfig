@@ -37,6 +37,7 @@ options = {
 	threshold: 30,
 	ma: 100,
 	csv: nil,
+	pry: nil
 }
 OptionParser.new do |opts|
 	opts.on("-wWORKDIR", "--workdir=WORKDIR", "Workdir") do |w|
@@ -59,6 +60,9 @@ OptionParser.new do |opts|
 	end
 	opts.on("-cCSV", "--csv=CSV", "Outputs the result to the given CSV") do |csv|
 		options[:csv] = csv
+	end
+	opts.on("-p", "--[no-]pry", "Start an interactive shell after the result is found") do |v|
+		options[:pry] = v
 	end
 end.parse!
 
@@ -110,5 +114,7 @@ if options[:csv]
 	File.open(options[:csv], 'a') { |file| file.write("#{options[:workdir]},#{options[:branch_a]},#{options[:branch_b]},#{b_right_commit.sha},#{b_diff_min} ") }
 end
 
-require 'pry'
-binding.pry
+if options[:pry]
+	require 'pry'
+	binding.pry
+end
