@@ -34,7 +34,7 @@ options = {
 	b: nil,
 	c: nil,
 	verbose: false,
-	threshold: 30,
+	threshold: 100,
 	ma: 100,
 	csv: nil,
 	pry: nil
