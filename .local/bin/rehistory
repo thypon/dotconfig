@@ -111,7 +111,7 @@ pb.finish
 puts "Minimum commit: #{b_right_commit.sha} with #{b_diff_min} diff"
 
 if options[:csv]
-	File.open(options[:csv], 'a') { |file| file.write("#{options[:workdir]},#{options[:branch_a]},#{options[:branch_b]},#{b_right_commit.sha},#{b_diff_min} ") }
+	File.open(options[:csv], 'a') { |file| file.write("#{options[:workdir]},#{options[:a]},#{options[:b]},#{b_right_commit.sha},#{b_diff_min} ") }
 end
 
 if options[:pry]
