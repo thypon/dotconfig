@@ -1,18 +1,8 @@
-#!/usr/bin/perl
-open FF,$ARGV[0];
-my @data = &lt;FF&gt;;
-close(FF);
-open OO,"&gt;$ARGV[1]";
-my $header = shift @data;
-chomp($header);
-$header =~ s/,/\|\|/g;
-$header =~ s/\r//g;
-print OO "||$header||\n";
-foreach(@data)
-{
-        chomp;
-        s/\r//g;
-        s/,/\|/g;
-        print OO "|$_|\n";
-}
-close(OO);
+#!/usr/bin/env ruby
+
+separator = Hash.new('|')
+separator[0] = '||'
+
+File.readlines(ARGV[0]).each_with_index do |line, index|
+	puts "#{separator[index]}#{line.strip.gsub(',', separator[index])}#{separator[index]}"
+end
