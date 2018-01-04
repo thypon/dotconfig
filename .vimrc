@@ -80,7 +80,7 @@ set ignorecase
 set smartcase
 
 " Trim and identify trailing white spaces
-autocmd BufWritePre * :%s/\s\+$//e
+" autocmd BufWritePre * :%s/\s\+$//e " removes trailing whitespaces on close
 highlight ExtraWhitespace ctermbg=red guibg=red
 match ExtraWhitespace /\s\+$/
 autocmd BufWinEnter * match ExtraWhitespace /\s\+$/
