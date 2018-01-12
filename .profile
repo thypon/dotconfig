@@ -146,6 +146,9 @@ xlazy() {
 		xupdate ${pkg} && ./xbps-src -j4 pkg ${pkg} || git reset --hard HEAD~1
 	done
 }
+xverylaxy() {
+	xlazy $(toupdate | awk '{print $1}')
+}
 #################
 ## Misc Config ##
 #################
