@@ -16,3 +16,5 @@
 	root = rev-parse --show-toplevel
 	search = !sh -c 'git rev-list --all | xargs git grep "$0"'
 	msgsearch = !sh -c 'git log --grep="$0"'
+	c = cherry-pick --continue
+	r = reset
