@@ -31,8 +31,8 @@ end
 
 options = {
 	workdir: ENV['PWD'],
+	a: nil,
 	b: nil,
-	c: nil,
 	verbose: false,
 	threshold: 100,
 	ma: 100,
