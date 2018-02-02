@@ -168,7 +168,10 @@ commits_bug.each_with_index do |bugs, idx|
 			:Missing
 		end
 
-		output "#{b_commits[idx]} , #{bugs.join(' ')}, #{cherried_changes[idx].clean}, #{cherried_changes[idx].changes}, #{incremental_changes[idx]}, #{status}"
+		msg = [b_commits[idx], bugs.join(' '), cherried_changes[idx].clean, cherried_changes[idx].changes, incremental_changes[idx], status]
+		msg << OPTIONS[:project] if OPTIONS[:project]
+
+		output msg.join(' , ')
 	end
 end
 
