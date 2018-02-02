@@ -269,11 +269,6 @@ gravity :bottom_right,   [  50,  50,  50,  50 ]
 gravity :bottom_right66, [  50,  33,  50,  67 ]
 gravity :bottom_right33, [  50,  66,  50,  34 ]
 
-# Gimp
-gravity :gimp_image,     [  10,   0,  80, 100 ]
-gravity :gimp_toolbox,   [   0,   0,  10, 100 ]
-gravity :gimp_dock,      [  90,   0,  10, 100 ]
-
 gravity :pnp, [ 67, 67, 33, 33 ]
 
 #
@@ -826,41 +821,36 @@ tag "ide", "Vivado.*|win0|IDEA|sun-awt-X11-|qtcreator"
 
 view "terms" do
   match "terms|default"
- dynamic true
+  set :dynamic
 end
 view "www" do
   match "browser|chat"
-  dynamic true
+  set :dynamic
 end
 view "docs" do
   match "document"
-  dynamic true
+  set :dynamic
 end
 view "dev" do
   match "editor|ide"
-  dynamic true
+  set :dynamic
 end
 view "vm" do
   match "virtualmachine"
-  dynamic true
+  set :dynamic
 end
 view "media" do
   match "media"
-  dynamic true
+  set :dynamic
 end
 view "games" do
   match "steam"
-  dynamic true
+  set :dynamic
 end
 #view "notes" do
 #  match "editor|note"
 #  dynamic true
 #end
-view "gimp" do
-  match"gimp_.*"
-  dynamic true
-end
-
 #
 # == Sublets
 #
