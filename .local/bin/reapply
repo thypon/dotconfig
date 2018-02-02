@@ -1,0 +1,178 @@
+#!/usr/bin/env ruby
+
+require 'git'
+require 'logger'
+require 'ostruct'
+require 'progressbar'
+require 'optparse'
+
+OPTIONS = {
+	workdir: ENV['PWD'],
+	a: 'master',
+	b: nil,
+	limit: nil,
+	verbose: false,
+	threshold: 0.40,
+	csv: nil,
+	pry: false
+}
+
+OptionParser.new do |opts|
+	opts.on("-wWORKDIR", "--workdir=WORKDIR", "Workdir") do |w|
+		OPTIONS[:workdir] = w
+	end
+	opts.on("-bBRANCH_B", "--branch-b=BRANCH_B", "Branch A") do |b|
+		OPTIONS[:b] = b
+	end
+	opts.on("-aBRANCH_A", "--branch-a=BRANCH_A", "Branch B") do |a|
+		OPTIONS[:a] = a
+	end
+	opts.on("-lLIMIT", "--limit=LIMIT", "Limit on branch B") do |limit|
+		OPTIONS[:limit] = limit
+	end
+	opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+		OPTIONS[:verbose] = v
+	end
+	opts.on("-tTRESHOLD", "--treshold=TRESHOLD", "Percentual Stop Treshold (after min is found)") do |t|
+		OPTIONS[:threshold] = t.to_f
+	end
+	opts.on("-cCSV", "--csv=CSV", "Outputs the result to the given CSV") do |csv|
+		OPTIONS[:csv] = csv
+	end
+	opts.on("-p", "--[no-]pry", "Start an interactive shell after the result is found") do |v|
+		OPTIONS[:pry] = v
+	end
+end.parse!
+
+
+### The search is tristate and fuzzy and can yield 3 states
+# - When diff(commit_patched, commit_unpatched) << 0 -> conflicting
+# - When diff(commit_patched, commit_unpatched) ~ 0 -> already applied
+# - When diff(commit_patched, commit_unpatched) >> 0 -> applyable
+
+working_dir    = OPTIONS[:workdir]
+branch_a       = OPTIONS[:a]
+branch_b       = OPTIONS[:b]
+threshold      = OPTIONS[:threshold]
+
+logger = if OPTIONS[:verbose]
+	Logger.new(STDOUT)
+else
+	Logger.new('/dev/null')
+end
+
+git = Git.open(working_dir, :log => logger)
+
+limit = git.gcommit(OPTIONS[:limit]) if OPTIONS[:limit]
+
+def git.changes(a, b)
+	diff = self.diff(a, b)
+	return diff.insertions + diff.deletions
+end
+
+class Stat < Struct.new(:changes, :clean, :reference)
+end
+
+def git.stat(a, b)
+	# git checkout the A head
+	`git cherry-pick --abort 2> /dev/null`
+	`git reset --hard HEAD 2> /dev/null`
+	# Move to an untrucking HEAD in order not to mess with the current A head
+	self.checkout('HEAD')
+
+	# check if there are conflicts
+	`git cherry-pick --strategy recursive --strategy-option patience -xs #{b} 2> /dev/null`
+	clean = `git diff-index --quiet HEAD -- 2> /dev/null || echo -n "untracked"` != 'untracked'
+
+	# git try to cherry-pick B
+	`git cherry-pick --abort 2> /dev/null || git reset --hard HEAD 2> /dev/null && git cherry-pick --strategy-option patience -xs #{b} 2> /dev/null`
+	
+	# get the actual changes score
+	changes = self.changes('HEAD', 'HEAD~1')
+
+	Stat.new(changes, clean)
+end
+
+b_commits      = []
+b_commits << b_curr_commit = git.gcommit(branch_b)
+a_last_commit = git.gcommit(branch_a)
+
+pb = ProgressBar.create(:total => nil, :format => "Commits %c: |%B| %a")
+while b_curr_commit = b_curr_commit.parent
+	break if limit && b_curr_commit.sha == limit.sha
+	pb.increment
+	b_commits << b_curr_commit
+end
+pb.finish
+
+pb = ProgressBar.create(:total => b_commits.length, :format => "Commits %c: |%B| %a %e")
+incremental_changes = b_commits.map do |c|
+	pb.increment
+	begin
+		git.changes(c, "#{c}~1")
+	rescue Exception => ex
+		logger << ex
+		0
+	end
+end
+pb.finish
+
+pb = ProgressBar.create(:total => b_commits.length, :format => "Commits %c: |%B| %a %e")
+git.checkout(branch_a)
+cherried_changes = b_commits.reverse.map do |c|
+	pb.increment
+	begin
+		git.stat(branch_a, c)
+	rescue Exception => ex
+		logger << ex
+		0
+	end
+end.reverse
+`git cherry-pick --abort 2> /dev/null`
+`git reset --hard HEAD 2> /dev/null`
+git.checkout(branch_a)
+pb.finish
+
+
+
+pb = ProgressBar.create(:total => b_commits.length, :format => "Commits %c: |%B| %a %e")
+commits_bug = b_commits.map do |c|
+	pb.increment
+	begin
+		c.message.scan(/^Bug: (\d*)/).to_a
+	rescue Exception => ex
+		logger << ex
+		[]
+	end
+end
+pb.finish
+
+def output(smth)
+	if OPTIONS[:csv]
+		File.open(OPTIONS[:csv], 'a') { |file| file.puts(smth) }
+	else
+		puts smth
+	end
+end
+
+logger << "Threshold set at: #{threshold}"
+commits_bug.each_with_index do |bugs, idx|
+	if bugs.length > 0
+		diff = (incremental_changes[idx] - cherried_changes[idx].changes).abs
+		avg = (incremental_changes[idx] + cherried_changes[idx].changes)/2
+		t = threshold * avg
+		
+		status = if diff > t
+			:Applied
+		else
+			:Missing
+		end
+
+		output "#{b_commits[idx]} , #{bugs.join(' ')}, #{cherried_changes[idx].clean}, #{cherried_changes[idx].changes}, #{incremental_changes[idx]}, #{status}"
+	end
+end
+
+if OPTIONS[:pry]
+	require 'pry'
+	binding.pry
+end
