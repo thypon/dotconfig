@@ -85,7 +85,7 @@ def git.stat(a, b)
 	clean = `git diff-index --quiet HEAD -- 2> /dev/null || echo -n "untracked"` != 'untracked'
 
 	# git try to cherry-pick B
-	`git cherry-pick --abort 2> /dev/null || git reset --hard HEAD 2> /dev/null && git cherry-pick --strategy-option patience -xs #{b} 2> /dev/null`
+	`git cherry-pick --abort 2> /dev/null || git reset --hard HEAD 2> /dev/null && git cherry-pick --strategy-option theirs -xs #{b} 2> /dev/null`
 	
 	# get the actual changes score
 	changes = self.changes('HEAD', 'HEAD~1')
