@@ -31,7 +31,7 @@ end
 
 options = {
 	workdir: ENV['PWD'],
-	a: nil,
+	a: `git rev-list --max-parents=0 HEAD`,
 	b: nil,
 	verbose: false,
 	threshold: 100,
