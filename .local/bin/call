@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+require 'open-uri'
+ARGV.each do |arg|
+  puts "Calling #{arg}"
+  `adb shell service call phone 1 s16 "#{URI::encode(arg)}" 2 s16 "#{URI::encode(arg)}"`
+  sleep ENV["CALL_SLEEP"].to_i if ENV["CALL_SLEEP"]
+end
