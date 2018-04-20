@@ -71,6 +71,22 @@ vpn() {
 shortprompt() {
 	export PS1="$ "
 }
+repo_dir() {
+        DIR=$PWD
+        pushd $PWD &> /dev/null
+        while ! [ "$PWD" = "/" ]; do
+                if [ -d ".repo" ]; then
+                        DIR="$PWD"
+                        break
+                fi
+                cd ..
+        done
+        popd &> /dev/null
+        echo -n $DIR
+}
+repo_prompt() {
+	export PS1='$(local REPO_DIR=$(repo_dir); echo -n ${REPO_DIR##*/}) '
+}
 
 #########################
 ## Intelligent Aliases ##
