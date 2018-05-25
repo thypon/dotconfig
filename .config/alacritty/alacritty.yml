@@ -42,13 +42,13 @@ font:
   bold:
     family: Inconsolata # should be "Menlo" or something on macOS.
     # Style can be specified to pick a specific face.
-    # style: Bold
+    style: Bold
 
   # The italic font face
   italic:
     family: Inconsolata # should be "Menlo" or something on macOS.
     # Style can be specified to pick a specific face.
-    # style: Italic
+    style: Italic
 
   # Point size of the font
   size: 14.0
@@ -120,8 +120,8 @@ colors:
 # To completely disable the visual bell, set its duration to 0.
 #
 visual_bell:
-  animation: EaseOutExpo
-  duration: 50
+  animation: Linear
+  duration: 10
 
 # Key bindings
 #
@@ -157,6 +157,7 @@ visual_bell:
 # then run `showkey -a` to get the sequence associated to a key combination.
 key_bindings:
   - { key: V,        mods: Control|Shift,    action: Paste               }
+  - { key: Insert,   mods: Shift,            action: Paste               }
   - { key: C,        mods: Control|Shift,    action: Copy                }
   - { key: Q,        mods: Command, action: Quit                         }
   - { key: W,        mods: Command, action: Quit                         }
@@ -189,6 +190,8 @@ key_bindings:
   - { key: Tab,      mods: Shift,   chars: "\x1b[Z"                      }
   - { key: F1,                      chars: "\x1bOP"                      }
   - { key: F2,                      chars: "\x1bOQ"                      }
+  - { key: F2,       mods: Shift,   chars: "\x1b[1;2Q"                   }
+  - { key: F2,       mods: Control, chars: "\x1b[1;5Q"                   }
   - { key: F3,                      chars: "\x1bOR"                      }
   - { key: F4,                      chars: "\x1bOS"                      }
   - { key: F5,                      chars: "\x1b[15~"                    }
