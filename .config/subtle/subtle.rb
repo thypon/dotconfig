@@ -695,7 +695,7 @@ tag "editor" do
   resize true
 end
 
-tag "document", "zathura|okular|CuteMarkEd|Xournal|Foxit|Libreoffice"
+tag "document", "zathura|okular|CuteMarkEd|Xournal|Foxit|Libreoffice|cherrytree|rednotebook"
 
 tag "wine" do
   match instance: "exe$"
