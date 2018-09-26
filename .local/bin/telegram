@@ -1,2 +1,0 @@
-#!/bin/sh
-exec /usr/bin/chromium --app=https://web.telegram.org "$@" &> /dev/null &
