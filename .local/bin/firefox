@@ -1,0 +1,3 @@
+#!/bin/sh
+export GTK_THEME=Adapta-Brila
+exec /usr/bin/firefox $@
