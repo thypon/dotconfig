@@ -1,2 +1,2 @@
 #!/bin/sh
-exec chromium  --disable-web-security --allow-file-access-from-files --user-data-dir=$HOME/.analyst-chrome --proxy-server=localhost:8080 --ignore-certificate-errors
+exec /usr/bin/chromium  --disable-web-security --allow-file-access-from-files --user-data-dir=$HOME/.analyst-chrome --proxy-server=localhost:8080 --ignore-certificate-errors
