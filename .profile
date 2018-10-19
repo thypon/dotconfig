@@ -348,6 +348,17 @@ alias cbwd="pwd | cb"
 # Copy most recent command in bash history
 alias cbhs="cat $HISTFILE | tail -n 1 | cb"
 
+# verify_ssh/signature_ssh
+sig_ssh() {
+	SSH_SIGNATURE=${SSH_SIGNATURE:-~/.ssh/id_rsa}
+	openssl dgst -sign $SSH_SIGNATURE $1 > $1.sig
+	ssh-keygen -e -f ${SSH_SIGNATURE}.pub -m PKCS8 > pub
+}
+verify_ssh() {
+	SSH_SIGNATURE=
+	openssl dgst -verify pub -signature $1.sig $1
+}
+
 #############################
 # Private Profile if exists #
 #############################
