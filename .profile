@@ -165,6 +165,13 @@ xlazy() {
 xverylaxy() {
 	xlazy $(toupdate | awk '{print $1}')
 }
+xfixupdate() {
+	LOG="$(curl https://repo.voidlinux.eu/void-updates/void-updates/_log.txt)"
+	for PKG in `fgrep abc@pompel.me srcpkgs/*/template | tr / ' ' | awk '{print $2;}'`; do
+		echo "$LOG" | grep $PKG
+	done
+}
+
 #################
 ## Misc Config ##
 #################
