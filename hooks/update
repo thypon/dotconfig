@@ -1,0 +1,9 @@
+#!/bin/sh
+
+TOPLEVELDIR=$(git rev-parse --show-toplevel)
+
+if [ "$(uname -s)" != "Darwin" ]; then
+	rsync -avp --exclude hooks --exclude .git $TOPLEVELDIR/ $HOME/
+else
+	rsync -avp --include '.vim**' --exclude '*' $TOPLEVELDIR/ $HOME/
+fi
