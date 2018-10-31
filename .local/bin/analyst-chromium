@@ -1,2 +1,7 @@
-#!/bin/sh
-exec /usr/bin/chromium  --disable-web-security --allow-file-access-from-files --user-data-dir=$HOME/.analyst-chrome --proxy-server=localhost:8080 --ignore-certificate-errors
+#!/bin/bash
+ARGS="--disable-web-security --allow-file-access-from-files --user-data-dir=$HOME/.analyst-chrome --proxy-server=localhost:8080 --ignore-certificate-errors"
+if [ "$(uname -s)" == "Darwin" ]; then
+	open -Wna "Google Chrome" --args $ARGS
+else
+	exec /usr/bin/chromium $ARGS
+fi
