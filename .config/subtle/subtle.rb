@@ -413,8 +413,8 @@ grab "W-r", :WindowRaise
 grab "W-l", :WindowLower
 
 # Select next windows
-grab "W-Left",  :WindowLeft
-grab "W-Down",  :WindowDown
+grab "C-W-Left",  :WindowLeft
+grab "C-W-Down",  :WindowDown
 
 def goto_next_view(vArr)
   cindx = vArr.index(Subtlext::View.current);
