@@ -1,0 +1,2 @@
+gesture swipe left        xdotool key super+Right
+gesture swipe right       xdotool key super+Left

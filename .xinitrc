@@ -52,6 +52,7 @@ case $session in
 						[ -x /usr/bin/ckb ] && ckb &\
 						[ -x /usr/bin/redshift ] && redshift -l 45.393:8.9198 &\
 						[ -x /usr/bin/anbox ] && anbox session-manager &\
+						[ -x /usr/bin/libinput-gestures ] && sudo -ginput libinput-gestures -c $HOME/.config/gestures &\
 						subtle";;
 	kde) exec ck-launch-session startkde;;
 	mate) exec ck-launch-session mate-session;;
