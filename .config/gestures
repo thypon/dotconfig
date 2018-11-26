@@ -1,2 +1,3 @@
 gesture swipe left        xdotool key super+Right
 gesture swipe right       xdotool key super+Left
+gesture swipe up          xdotool key alt+Tab
