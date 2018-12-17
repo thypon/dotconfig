@@ -282,7 +282,7 @@ eval $(keychain --noask --eval --quiet)
 # JAVA #
 ########
 unset JAVA_HOME
-source /etc/profile.d/11_oracle-jdk.sh
+[ -f /etc/profile.d/11_oracle-jdk.sh ] && source /etc/profile.d/11_oracle-jdk.sh
 export ANDROID_HOME=$HOME/.android-sdk
 export ANDROID_NDK=$HOME/.android-ndk
 export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_NDK
