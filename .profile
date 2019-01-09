@@ -166,7 +166,7 @@ xverylaxy() {
 	xlazy $(toupdate | awk '{print $1}')
 }
 xfixupdate() {
-	LOG="$(curl https://repo.voidlinux.eu/void-updates/void-updates/_log.txt)"
+	LOG="$(curl https://vm1.a-lej-de.m.voidlinux.org/void-updates/void-updates/_log.txt)"
 	for PKG in `fgrep abc@pompel.me srcpkgs/*/template | tr / ' ' | awk '{print $2;}'`; do
 		echo "$LOG" | grep $PKG
 	done
@@ -210,7 +210,7 @@ src2rtf() {
 ## To Update ##
 ###############
 toupdate() {
-	curl 'https://repo.voidlinux.eu/void-updates/void-updates/updates_abc%40pompel.me.txt'
+	curl 'https://vm1.a-lej-de.m.voidlinux.org/void-updates/void-updates/updates_abc%40pompel.me.txt'
 }
 
 pdfpages() {
