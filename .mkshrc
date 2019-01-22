@@ -5,7 +5,7 @@
 [[ $- != *i* ]] && return
 
 # Start Xorg if you are on the first VT
-[[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]] && exec startx
+[[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]] && command -v startx && exec startx
 
 # Source global definitions
 [ -f /etc/skel/.mkshrc ] && . /etc/skel/.mkshrc
