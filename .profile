@@ -103,9 +103,17 @@ alias gt="g t"
 alias ga="g a"
 alias groot='cd $(git root)'
 alias t="tig"
-alias alert='notify-send --urgency=low -i shell "command has terminated"'
+if [ "x$SSH_CLIENT" = "x" ]; then
+	alias alert='notify-send --urgency=low -i shell "command has terminated"'
+else
+	alias alert='echo "command has terminated\a"'
+fi
 focus() {
-	local focus=$(ruby -e 'require "subtle/subtlext"; print Subtlext::Client.all.select { |c| c.win == ENV["WINDOWID"].to_i }.first.has_focus?')
+	if [ "x$SSH_CLIENT" = "x" ]; then
+		local focus=$(ruby -e 'require "subtle/subtlext"; print Subtlext::Client.all.select { |c| c.win == ENV["WINDOWID"].to_i }.first.has_focus?')
+	else
+		local focus=true
+	fi
 	[ "$focus" = "true" ]
 }
 ##################

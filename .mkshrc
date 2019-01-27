@@ -31,7 +31,11 @@ fi
 export HISTSIZE=300000
 export HISTFILE=$HOME/Documents/history
 HOST=$(hostname)
-PS1="\$(if [[ \$? == 0 ]]; then echo -n \"\E[32m;)\E[0m\"; else echo -n \"\E[31m:(\E[0m\"; fi)\$(echo -ne \"\033]0;\$(date +%H:%M:%S)+\$PWD\007\") "
+if [ "x$SSH_CLIENT" = "x" ]; then
+	PS1="\$(if [[ \$? == 0 ]]; then echo -n \"\E[32m;)\E[0m\"; else echo -n \"\E[31m:(\E[0m\"; fi)\$(echo -ne \"\033]0;\$(date +%H:%M:%S)+\$PWD\007\") "
+else
+	PS1="$HOST \$(if [[ \$? == 0 ]]; then echo -n \"\E[32m;)\E[0m\"; else echo -n \"\E[31m:(\E[0m\"; fi)\$(echo -ne \"\033]0;\$(date +%H:%M:%S)+\$PWD\007\") "
+fi
 
 # Alert on long running commands
 precmd() { local x=${EPOCHREALTIME%.*}; (( x - ${_OLDTIME:-$x} > 10 )) && ! focus && alert; }
