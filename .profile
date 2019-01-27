@@ -210,7 +210,7 @@ src2rtf() {
 ## To Update ##
 ###############
 toupdate() {
-	curl 'https://vm1.a-lej-de.m.voidlinux.org/void-updates/void-updates/updates_abc%40pompel.me.txt'
+	curl 'https://alpha.de.repo.voidlinux.org/void-updates/void-updates/updates_abc%40pompel.me.txt'
 }
 
 pdfpages() {
