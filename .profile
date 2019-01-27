@@ -32,6 +32,7 @@ export PAGER='less'
 ## Default Editor ##
 ####################
 export EDITOR=nvim
+alias subl=subl3
 
 #########################
 ## Libvirt default URI ##
