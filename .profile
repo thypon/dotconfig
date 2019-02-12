@@ -379,3 +379,14 @@ verify_ssh() {
 # Private Profile if exists #
 #############################
 [ -f $HOME/.private_profile ] && source $HOME/.private_profile
+
+# WEB Services
+cheat() {
+	curl https://cheat.sh/$1
+}
+rate() {
+	curl https://rate.sx/$1
+}
+weather() {
+	curl https://wttr.in/$1
+}
