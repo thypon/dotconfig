@@ -262,6 +262,17 @@ mergedir() {
 	git commit
 }
 
+####################
+# Github Org Clone #
+####################
+org_clone() {
+	last=${@:$#} # last parameter 
+	other=${*%${!#}} # all parameters except the last
+	for F in $(curl https://api.github.com/orgs/$last/repos | jq '.[] | .git_url' | tr -d '"'); do
+		git clone $other $F
+	done
+}
+
 ###################################################
 # Extract a Docker image in the current directory #
 ###################################################
