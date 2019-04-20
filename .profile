@@ -137,7 +137,6 @@ alias l="ls -la"
 ###################
 alias schroot="schroot -p"
 alias pinstall="pip install --user"
-alias virsh="virsh -c qemu:///system"
 
 updateclock() {
 	sudo date -s "$(curl -s --head http://google.com | grep ^Date: | sed 's/Date: //g')"
