@@ -394,7 +394,7 @@ grab "W-space", :WindowFull
 # Toggle sticky mode of window (will be visible on all views)
 grab "W-v", :WindowStick
 
-grab "W-B", "mplay"
+grab "W-B", "mpv-clipboard"
 
 # Toggle picture-in-picture mode
 grab "W-n" do |c|

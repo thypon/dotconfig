@@ -1,9 +1,6 @@
 [submodule ".vim/markdown2ctags"]
-	path = .vim/markdown2ctags
+	path = common/.vim/markdown2ctags
 	url = https://github.com/jszakmeister/markdown2ctags
 [submodule ".vim/bundle/Vundle.vim"]
-	path = .vim/bundle/Vundle.vim
+	path = common/.vim/bundle/Vundle.vim
 	url = https://github.com/VundleVim/Vundle.vim.git
-[submodule ".config/sublime-text-3/Packages/WordCount"]
-	path = .config/sublime-text-3/Packages/WordCount
-	url = https://github.com/titoBouzout/WordCount
