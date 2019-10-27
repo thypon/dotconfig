@@ -3,7 +3,9 @@
 TOPLEVELDIR=$(git rev-parse --show-toplevel)
 
 if [ "$(uname -s)" != "Darwin" ]; then
-	rsync -avp --exclude hooks --exclude .git $TOPLEVELDIR/ $HOME/
+	rsync -avp $TOPLEVELDIR/common/ $HOME/
+	rsync -avp $TOPLEVELDIR/ossnix/ $HOME/
 else
-	rsync -avp --include '.vim**' --exclude '*' $TOPLEVELDIR/ $HOME/
+	rsync -avp $TOPLEVELDIR/common/ $HOME/
+	rsync -avp $TOPLEVELDIR/macos/ $HOME/
 fi
