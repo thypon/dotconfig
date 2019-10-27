@@ -11,7 +11,7 @@
 [ -f /etc/skel/.mkshrc ] && . /etc/skel/.mkshrc
 [ -f /etc/mkshrc ] && . /etc/mkshrc
 
-alias ls='ls --color=auto'
+command -v gls &>/dev/null && alias ls='gls --color=auto' || alias ls='ls --color=auto'
 
 . $HOME/.profile
 

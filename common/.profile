@@ -24,7 +24,7 @@ export PATH="$PATH:$GOPATH/bin"
 ###################
 ## Colorful LESS ##
 ###################
-export LESSOPEN="| /usr/bin/src-hilite-lesspipe.sh %s"
+export LESSOPEN="| src-hilite-lesspipe.sh %s"
 export LESS=' -R '
 export PAGER='less'
 
@@ -32,7 +32,7 @@ export PAGER='less'
 ## Default Editor ##
 ####################
 export EDITOR=nvim
-alias subl=subl3
+command -v subl &>/dev/null || alias subl=subl3
 
 #########################
 ## Libvirt default URI ##
@@ -104,7 +104,7 @@ alias gt="g t"
 alias ga="g a"
 alias groot='cd $(git root)'
 alias t="tig"
-if [ "x$SSH_CLIENT" = "x" ]; then
+if [ "x$SSH_CLIENT" = "x" ] && command -v notify-send; then
 	alias alert='notify-send --urgency=low -i shell "command has terminated"'
 else
 	alias alert='echo "command has terminated\a"'
@@ -170,7 +170,7 @@ xlazy() {
 		xupdate ${pkg} && ./xbps-src -j4 pkg ${pkg} || git reset --hard HEAD~1
 	done
 }
-xverylaxy() {
+xverylazy() {
 	xlazy $(toupdate | awk '{print $1}')
 }
 xfixupdate() {
@@ -295,7 +295,7 @@ export ANSIBLE_HOSTS=~/Documents/ansible_hosts
 ###############
 #  KeyChain   #
 ###############
-eval $(keychain --noask --eval --quiet)
+command -v keychain &>/dev/null && eval $(keychain --noask --eval --quiet)
 
 ########
 # JAVA #
