@@ -63,7 +63,7 @@ stopwatch() {
 ## VPN Functions ##
 ###################
 vpn() {
-       dtach -A "/tmp/vpn$1" sudo /usr/bin/openvpn "/etc/openvpn/$1.conf"
+       dtach -A "/tmp/vpn$1" sudo /usr/bin/openvpn "/etc/openvpn/$1.ovpn"
 }
 
 ###############
