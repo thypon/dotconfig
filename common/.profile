@@ -399,3 +399,8 @@ rate() {
 weather() {
 	curl https://wttr.in/$1
 }
+
+####################################################
+# Disable Annoying macOS BASH deprecation warnings #
+####################################################
+export BASH_SILENCE_DEPRECATION_WARNING=1
