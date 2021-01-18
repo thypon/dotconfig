@@ -45,8 +45,10 @@ export BROWSER="/usr/bin/chromium"
 
 session=${1:-subtle}
 
+SESSION_LAUNCH="dbus-launch --exit-with-session"
+
 case $session in
-	subtle) exec ck-launch-session bash -c "[ -x /usr/bin/dunst ] && dunst -c $HOME/.config/dunst/dunstrc &\
+	subtle) exec $SESSION_LAUNCH bash -c "[ -x /usr/bin/dunst ] && dunst -c $HOME/.config/dunst/dunstrc &\
 						[ -x /usr/bin/xcompmgr ] && xcompmgr -C &\
 						/usr/share/indicator-doom-cpu/indicator-doom-cpu &\
 						[ -x /usr/bin/ckb ] && ckb &\
@@ -54,12 +56,12 @@ case $session in
 						[ -x /usr/bin/anbox ] && anbox session-manager &\
 						[ -x /usr/bin/libinput-gestures ] && sudo -ginput libinput-gestures -c $HOME/.config/gestures &\
 						subtle";;
-	kde) exec ck-launch-session startkde;;
-	mate) exec ck-launch-session mate-session;;
-	cinnamon) exec ck-launch-session cinnamon-session;;
-	xfce) exec ck-launch-session startxfce4;;
-	enlightenment) exec ck-launch-session enlightenment_start;;
-	gnome) exec ck-launch-session gnome-session;;
-	lxqt) exec ck-launch-session lxqt-session;;
-	*) exec ck-launch-session $1;;
+	kde) exec $SESSION_LAUNCH startkde;;
+	mate) exec $SESSION_LAUNCH mate-session;;
+	cinnamon) exec $SESSION_LAUNCH cinnamon-session;;
+	xfce) exec $SESSION_LAUNCH startxfce4;;
+	enlightenment) exec $SESSION_LAUNCH enlightenment_start;;
+	gnome) exec $SESSION_LAUNCH gnome-session;;
+	lxqt) exec $SESSION_LAUNCH lxqt-session;;
+	*) exec $SESSION_LAUNCH $1;;
 esac

@@ -404,3 +404,9 @@ weather() {
 # Disable Annoying macOS BASH deprecation warnings #
 ####################################################
 export BASH_SILENCE_DEPRECATION_WARNING=1
+
+###################
+# Disable Wayland #
+###################
+export QT_QPA_PLATFORM=xcb
+export GDK_BACKEND=x11
