@@ -410,3 +410,8 @@ export BASH_SILENCE_DEPRECATION_WARNING=1
 ###################
 export QT_QPA_PLATFORM=xcb
 export GDK_BACKEND=x11
+
+########################
+# MacOS Open on Unixes #
+########################
+type -p open || alias open=xdg-open
