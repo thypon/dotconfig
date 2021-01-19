@@ -414,4 +414,4 @@ export GDK_BACKEND=x11
 ########################
 # MacOS Open on Unixes #
 ########################
-type -p open || alias open=xdg-open
+type -p open 1>/dev/null || alias open=xdg-open
