@@ -750,7 +750,7 @@ end
 tag "notes", "org-knopflerfish-framework-BundleThread"
 
 tag "virtualmachine" do
-  match   "virtualbox|qemu"
+  match   "virtualbox|qemu|xfreerdp"
   gravity :center
   sticky false
   float false
