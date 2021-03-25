@@ -7,10 +7,10 @@
 # Source global definitions
 [ -f /etc/bashrc ] && . /etc/bashrc
 
+. $HOME/.profile
+
 command -v gls &>/dev/null && alias ls='gls --color=auto' || alias ls='ls --color=auto'
 export PS1="\[$(tput sgr0)\]\033[38;5;15m\033[38;5;112m\A\[$(tput sgr0)\]\033[38;5;15m\033[38;5;15m@\[$(tput sgr0)\]\w\[$(tput sgr0)\]>\[$(tput sgr0)\] \[$(tput sgr0)\]"
-
-. $HOME/.profile
 
 # Unlimited History
 export HISTSIZE=30000
