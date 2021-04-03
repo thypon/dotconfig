@@ -1,4 +1,5 @@
-directory;: /var/music
+directory;: ~/Music
+library: ~/Music/library.blb
 import:
         write: yes
         copy: yes
