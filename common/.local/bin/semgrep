@@ -1,0 +1,9 @@
+#!/bin/bash
+SFTP_PORT=34567
+DIR=$PWD
+REMOTE=semgrep.local
+USER=manager
+
+ncat -l localhost $SFTP_PORT -e /usr/libexec/sftp-server &
+ssh -t -R $SFTP_PORT:localhost:$SFTP_PORT $REMOTE "sudo mkdir -p $DIR; sudo chown -R $USER:users $DIR; sshfs localhost:$DIR $DIR -o directport=$SFTP_PORT,nonempty; cd $DIR; ~/.local/bin/semgrep $@; pkill ssh"
+pkill ncat
