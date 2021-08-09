@@ -3,8 +3,12 @@
 #############################
 ## Setup Ruby Default Path ##
 #############################
-export GEM_HOME=$(ruby -e 'require "rubygems"; print Gem.user_dir')
-export PATH=$PATH:$GEM_HOME/bin
+if which rbenv > /dev/null; then 
+	eval "$(rbenv init -)";
+else
+	export GEM_HOME=$(ruby -e 'require "rubygems"; print Gem.user_dir')
+	export PATH=$PATH:$GEM_HOME/bin
+fi
 
 ###############################
 ## Setup Nodejs Default Path ##
