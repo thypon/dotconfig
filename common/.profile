@@ -422,3 +422,8 @@ export GDK_BACKEND=x11
 # MacOS Open on Unixes #
 ########################
 type -p open 1>/dev/null || alias open=xdg-open
+
+# install python-yq and duti for this script to work
+sublimify_all() {
+	curl "https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml" | yq -r "to_entries | (map(.value.extensions) | flatten) - [null] | unique | .[]"  | xargs -L 1 -I "{}" duti -s com.sublimetext.4 {} all
+}
