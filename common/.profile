@@ -427,3 +427,21 @@ type -p open 1>/dev/null || alias open=xdg-open
 sublimify_all() {
 	curl "https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml" | yq -r "to_entries | (map(.value.extensions) | flatten) - [null] | unique | .[]"  | xargs -L 1 -I "{}" duti -s com.sublimetext.4 {} all
 }
+
+######################
+# Semgrep single PRs #
+######################
+spr() {
+	last="${@:$#}" # last parameter 
+	other="${*%${!#}}" # all parameters except the last
+	BASE_COMMIT=${BASE_COMMIT:-origin/master}
+	NEW_HEAD="$last"
+	TEMPDIR="$(mktemp -d)"
+	pushd "$PWD"
+	git worktree add $TEMPDIR $last
+	cd $TEMPDIR
+	FILES="$(git --no-pager diff --name-only $last $(git merge-base $last $BASE_COMMIT) | xargs ls -d 2>/dev/null)"
+	semgrep $other $FILES
+	popd
+	rm -rf $TEMPDIR
+}
