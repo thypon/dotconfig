@@ -36,7 +36,8 @@ export PAGER='less'
 ## Default Editor ##
 ####################
 export EDITOR=nvim
-command -v subl &>/dev/null || alias subl=subl3
+alias subl=sublime
+command -v subl3 &>/dev/null && alias subl=subl3
 
 #########################
 ## Libvirt default URI ##

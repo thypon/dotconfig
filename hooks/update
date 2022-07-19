@@ -7,5 +7,5 @@ if [ "$(uname -s)" != "Darwin" ]; then
 	rsync -avp $TOPLEVELDIR/ossnix/ $HOME/
 else
 	rsync -avp $TOPLEVELDIR/common/ $HOME/
-	rsync -avp $TOPLEVELDIR/macos/ $HOME/
+	[ -d "$TOPLEVELDIR/macos/" ] && rsync -avp $TOPLEVELDIR/macos/ $HOME/
 fi
