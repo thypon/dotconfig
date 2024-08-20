@@ -223,7 +223,7 @@ src2rtf() {
 ## To Update ##
 ###############
 toupdate() {
-	curl 'https://alpha.de.repo.voidlinux.org/void-updates/void-updates/updates_abc%40pompel.me.txt'
+	curl 'https://repo-default.voidlinux.org/void-updates/void-updates/updates_abc%40pompel.me.txt'
 }
 
 pdfpages() {
@@ -445,4 +445,13 @@ spr() {
 	semgrep $other $FILES
 	popd
 	rm -rf $TEMPDIR
+}
+
+####################
+# Sublime Open PRs #
+####################
+subl_head() {
+	BASE_COMMIT=${BASE_COMMIT:-origin/master}
+	FILES="$(git --no-pager diff --name-only HEAD $(git merge-base HEAD $BASE_COMMIT) | xargs ls -d 2>/dev/null)"
+	subl . $FILES
 }

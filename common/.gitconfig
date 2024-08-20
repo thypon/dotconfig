@@ -1,6 +1,8 @@
 [user]
 	email = abc@pompel.me
 	name = Andrea Brancaleoni
+	signingkey = ...
+	format = ssh
 [credential]
 	helper = store
 [color]
@@ -18,3 +20,10 @@
 	msgsearch = !sh -c 'git log --grep="$0"'
 	c = cherry-pick --continue
 	r = reset
+	commit = commit -S 
+[gpg]
+	format = ssh
+[commit]
+	gpgsign = true
+[diff]
+	external = difft
