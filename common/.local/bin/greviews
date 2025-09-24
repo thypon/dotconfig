@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Get current directory's remote origin
+remote_url=$(git remote get-url origin 2>/dev/null)
+if [[ -z "$remote_url" ]]; then
+    echo "Error: Not in a git repository or no origin remote found"
+    exit 1
+fi
+
+# Extract org/repo from remote URL - more compatible approach
+org_repo=$(echo "$remote_url" | sed -E 's#.*github\.com[:/]([^/]+/[^/\.]+).*#\1#')
+if [[ "$org_repo" == "$remote_url" ]]; then
+    echo "Error: Could not parse GitHub repository from remote URL"
+    exit 1
+fi
+
+# Get current branch and find associated PR
+current_branch=$(git branch --show-current)
+pr_number=$(gh pr list --head "$current_branch" --json number --jq '.[0].number' 2>/dev/null)
+
+if [[ -z "$pr_number" || "$pr_number" == "null" ]]; then
+    echo "Error: No PR found for current branch '$current_branch'"
+    exit 1
+fi
+
+echo "Getting reviews for PR #$pr_number in $org_repo..."
+echo "=== GENERAL REVIEWS ==="
+
+# Get all review IDs and basic info
+if [[ $# -gt 0 ]]; then
+    # Build filter condition to EXCLUDE the specified users
+    filter_condition=""
+    for user in "$@"; do
+        if [[ -n "$filter_condition" ]]; then
+            filter_condition="$filter_condition and "
+        fi
+        filter_condition="$filter_condition.user.login != \"$user\""
+    done
+
+    reviews_data=$(gh api "repos/$org_repo/pulls/$pr_number/reviews" --jq ".[] | select($filter_condition) | {id, user: .user.login, state, body, submitted_at}" | jq)
+else
+    reviews_data=$(gh api "repos/$org_repo/pulls/$pr_number/reviews" --jq '.[] | {id, user: .user.login, state, body, submitted_at}' | jq)
+fi
+
+echo "$reviews_data"
+
+echo -e "\n=== REVIEW COMMENTS WITH DIFF HUNKS ==="
+
+# Get review IDs and fetch comments for each
+if [[ $# -gt 0 ]]; then
+    filter_condition=""
+    for user in "$@"; do
+        if [[ -n "$filter_condition" ]]; then
+            filter_condition="$filter_condition and "
+        fi
+        filter_condition="$filter_condition.user.login != \"$user\""
+    done
+    review_ids=$(gh api "repos/$org_repo/pulls/$pr_number/reviews" --jq ".[] | select($filter_condition) | .id" | jq)
+else
+    review_ids=$(gh api "repos/$org_repo/pulls/$pr_number/reviews" --jq '.[].id' | jq)
+fi
+
+# Iterate through each review ID and get its comments
+while IFS= read -r review_id; do
+    if [[ -n "$review_id" ]]; then
+        echo "--- Review ID: $review_id ---"
+        gh api "repos/$org_repo/pulls/$pr_number/reviews/$review_id/comments" --jq '.[] | {user: .user.login, body, diff_hunk, path, line, created_at}' 2>/dev/null | jq || echo "No comments for this review"
+    fi
+done <<< "$review_ids"
