@@ -27,11 +27,11 @@ echo "Cleaning up github-actions[bot] comments for PR #$pr_number in $org_repo..
 
 # Get and delete regular issue comments from github-actions[bot]
 echo "=== DELETING ISSUE COMMENTS ==="
-issue_comments=$(gh api "repos/$org_repo/issues/$pr_number/comments" --jq '.[] | select(.user.login == "github-actions[bot]") | .id')
+issue_comments=$(gh api "repos/$org_repo/issues/$pr_number/comments" --jq '.[] | select(.user.login == "github-actions[bot]") | .id' | cat)
 if [[ -n "$issue_comments" ]]; then
     echo "$issue_comments" | while read comment_id; do
         echo "Deleting issue comment $comment_id"
-        gh api -X DELETE "repos/$org_repo/issues/comments/$comment_id"
+        gh api -X DELETE "repos/$org_repo/issues/comments/$comment_id" | cat
     done
 else
     echo "No issue comments found from github-actions[bot]"
@@ -39,17 +39,17 @@ fi
 
 # Get github-actions[bot] review IDs and delete their comments
 echo -e "\n=== DELETING REVIEW COMMENTS ==="
-review_ids=$(gh api "repos/$org_repo/pulls/$pr_number/reviews" --jq '.[] | select(.user.login == "github-actions[bot]") | .id')
+review_ids=$(gh api "repos/$org_repo/pulls/$pr_number/reviews" --jq '.[] | select(.user.login == "github-actions[bot]") | .id' | cat)
 if [[ -n "$review_ids" ]]; then
     comment_ids=($(for review_id in $review_ids; do
-        gh api "repos/$org_repo/pulls/$pr_number/reviews/$review_id/comments" --jq '.[].id'
+        gh api "repos/$org_repo/pulls/$pr_number/reviews/$review_id/comments" --jq '.[].id' | cat
     done))
 
     if [[ ${#comment_ids[@]} -gt 0 ]]; then
         echo "Found ${#comment_ids[@]} review comments to delete"
         for comment_id in "${comment_ids[@]}"; do
             echo "Deleting review comment $comment_id"
-            gh api -X DELETE "repos/$org_repo/pulls/comments/$comment_id"
+            gh api -X DELETE "repos/$org_repo/pulls/comments/$comment_id" | cat
         done
     else
         echo "No review comments found in github-actions[bot] reviews"
