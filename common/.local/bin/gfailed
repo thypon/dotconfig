@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Get current directory's remote origin
+remote_url=$(git remote get-url origin 2>/dev/null)
+if [[ -z "$remote_url" ]]; then
+    echo "Error: Not in a git repository or no origin remote found"
+    exit 1
+fi
+
+# Extract org/repo from remote URL - more compatible approach
+org_repo=$(echo "$remote_url" | sed -E 's#.*github\.com[:/]([^/]+/[^/\.]+).*#\1#')
+if [[ "$org_repo" == "$remote_url" ]]; then
+    echo "Error: Could not parse GitHub repository from remote URL"
+    exit 1
+fi
+
+# Get current branch and find associated PR
+current_branch=$(git branch --show-current)
+if [[ -z "$current_branch" ]]; then
+    echo "Error: Could not determine current branch."
+    exit 1
+fi
+
+pr_number=$(gh pr list --head "$current_branch" --json number --jq '.[0].number' 2>/dev/null)
+
+if [[ -z "$pr_number" || "$pr_number" == "null" ]]; then
+    echo "Error: No PR found for current branch '$current_branch'"
+    exit 1
+fi
+
+echo "Getting failed checks for PR #$pr_number in $org_repo..."
+
+# Get failed checks using JSON output
+failed_checks=$(gh pr checks "$pr_number" --json name,link,state | jq -r '.[] | select(.state == "FAILURE" or .state == "ERROR" or .state == "CANCELLED") | "\(.name)\t\(.link)"')
+
+if [[ -z "$failed_checks" ]]; then
+    echo "No failed checks found."
+    exit 0
+fi
+
+echo "Displaying logs for failed checks..."
+
+# Process each failed check
+first_log=true
+while IFS=$'\t' read -r name url; do
+    if [[ -z "$name" || -z "$url" ]]; then
+        continue
+    fi
+
+    # Extract job ID from the URL
+    job_id=$(echo "$url" | sed 's#.*/job/##' | sed 's/?.*//') # Also remove query params if any
+
+    if [[ -z "$job_id" ]];
+    then
+        echo "Could not extract job ID from URL: $url"
+        continue
+    fi
+
+    if [[ "$first_log" == "false" ]]; then
+        echo "" # Add a blank line between logs
+    fi
+    first_log=false
+
+    echo "=== Log for '$name' (Job ID: $job_id) ==="
+    gh run view --job "$job_id" --log
+    if [[ $? -ne 0 ]]; then
+        echo "Failed to retrieve log for '$name'."
+    fi
+    echo "================================================================================"
+
+done <<< "$failed_checks"
+
+echo "Finished displaying logs."
