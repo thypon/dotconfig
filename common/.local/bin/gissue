@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Check for argument
+if [[ -z "$1" ]]; then
+    echo "Usage: $0 <issue-number | issue-url>"
+    exit 1
+fi
+
+input=$1
+issue_number=""
+org_repo=""
+
+# Check if input is a URL
+if [[ "$input" =~ ^https?://github\.com/ ]]; then
+    # Extract org/repo and issue number from URL
+    org_repo=$(echo "$input" | sed -E 's#https?://github.com/([^/]+/[^/]+)/issues/.*#\1#')
+    issue_number=$(echo "$input" | sed -E 's#https?://github.com/[^/]+/[^/]+/issues/([0-9]+).*#\1#')
+
+    if [[ -z "$org_repo" || -z "$issue_number" || "$org_repo" == "$input" || "$issue_number" == "$input" ]]; then
+        echo "Error: Could not parse GitHub issue URL."
+        exit 1
+    fi
+else
+    # Assume input is an issue number and validate it's a number
+    if ! [[ "$input" =~ ^[0-9]+$ ]]; then
+        echo "Error: Invalid issue number format."
+        exit 1
+    fi
+    issue_number=$input
+
+    # Get current directory's remote origin
+    remote_url=$(git remote get-url origin 2>/dev/null)
+    if [[ -z "$remote_url" ]]; then
+        echo "Error: Not in a git repository or no origin remote found"
+        exit 1
+    fi
+
+    # Extract org/repo from remote URL - more compatible approach
+    org_repo=$(echo "$remote_url" | sed -E 's#.*github\.com[:/]([^/]+/[^/\.]+).*#\1#')
+    if [[ "$org_repo" == "$remote_url" ]]; then
+        echo "Error: Could not parse GitHub repository from remote URL"
+        exit 1
+    fi
+fi
+
+echo "Getting issue #$issue_number and comments from $org_repo..."
+echo ""
+
+# Get Issue Details using GraphQL for efficiency
+issue_details=$(gh api graphql -f query="
+query {
+  repository(owner: \"$(echo $org_repo | cut -d'/' -f1)\", name: \"$(echo $org_repo | cut -d'/' -f2)\") {
+    issue(number: $issue_number) {
+      title
+      author { login }
+      createdAt
+      body
+      comments(first: 100) {
+        nodes {
+          author { login }
+          createdAt
+          body
+        }
+      }
+    }
+  }
+}" 2>/dev/null)
+
+if [[ -z "$issue_details" || $(echo "$issue_details" | jq '.data.repository.issue') == "null" ]]; then
+    echo "Error: Failed to fetch issue details. The issue may not exist or you may lack permissions."
+    exit 1
+fi
+
+# Extract and print issue details
+issue_title=$(echo "$issue_details" | jq -r '.data.repository.issue.title')
+issue_author=$(echo "$issue_details" | jq -r '.data.repository.issue.author.login')
+issue_body=$(echo "$issue_details" | jq -r '.data.repository.issue.body')
+issue_created_at=$(echo "$issue_details" | jq -r '.data.repository.issue.createdAt')
+
+echo "Issue #$issue_number: $issue_title"
+echo "Opened by: $issue_author on $issue_created_at"
+echo "================================================================================"
+echo -e "$issue_body"
+echo "================================================================================"
+
+# Print each comment
+echo "$issue_details" | jq -c '.data.repository.issue.comments.nodes[]' | while read -r comment; do
+    comment_author=$(echo "$comment" | jq -r '.author.login')
+    comment_created_at=$(echo "$comment" | jq -r '.createdAt')
+    comment_body=$(echo "$comment" | jq -r '.body')
+
+    echo ""
+    echo "[$comment_author] $comment_created_at"
+    echo "--------------------------------------------------------------------------------"
+    echo -e "$comment_body"
+    echo "--------------------------------------------------------------------------------"
+done
+
+echo -e "\nEnd of conversation."
