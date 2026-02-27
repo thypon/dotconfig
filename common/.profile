@@ -79,7 +79,7 @@ shortprompt() {
 }
 repo_dir() {
         DIR=$PWD
-        pushd $PWD &> /dev/null
+        _SAVED_DIR="$PWD"
         while ! [ "$PWD" = "/" ]; do
                 if [ -d ".repo" ]; then
                         DIR="$PWD"
@@ -87,11 +87,11 @@ repo_dir() {
                 fi
                 cd ..
         done
-        popd &> /dev/null
+        cd "$_SAVED_DIR"
         echo -n $DIR
 }
 repo_prompt() {
-	export PS1='$(local REPO_DIR=$(repo_dir); echo -n ${REPO_DIR##*/}) '
+	export PS1='$(REPO_DIR=$(repo_dir); echo -n ${REPO_DIR##*/}) '
 }
 
 #########################
@@ -109,7 +109,7 @@ alias gt="g t"
 alias ga="g a"
 alias groot='cd $(git root)'
 alias t="tig"
-if [ "x$SSH_CLIENT" = "x" ] && command -v notify-send; then
+if [ "x$SSH_CLIENT" = "x" ] && command -v notify-send &>/dev/null; then
 	alias alert='notify-send --urgency=low -i shell "command has terminated"'
 else
 	alias alert='echo "command has terminated\a"'
@@ -164,7 +164,7 @@ export PATH="$PATH:/opt/freeplane"
 #######################
 xupdate() {
 	upd=$(./xbps-src update-check $1 | tr '-' '\n' | tail -n1)
-	[ $upd == "" ] && echo "package alredy updated" && return 0
+	[ "$upd" = "" ] && echo "package already updated" && return 0
 	sed -i "s/^version=.*/version=$upd/" "srcpkgs/$1/template"
 	sed -i "s/^revision=.*/revision=1/"  "srcpkgs/$1/template"
 	xgensum -i "srcpkgs/$1/template"
@@ -270,10 +270,10 @@ mergedir() {
 # Github Org Clone #
 ####################
 org_clone() {
-	last=${@:$#} # last parameter 
-	other=${*%${!#}} # all parameters except the last
+	last="${@: -1}" # last parameter
+	set -- "${@:1:$(($#-1))}" # drop last parameter; remaining args in $@
 	for F in $(curl https://api.github.com/orgs/$last/repos | jq '.[] | .git_url' | tr -d '"'); do
-		git clone $other $F
+		git clone "$@" $F
 	done
 }
 
@@ -433,17 +433,17 @@ sublimify_all() {
 # Semgrep single PRs #
 ######################
 spr() {
-	last="${@:$#}" # last parameter 
-	other="${*%${!#}}" # all parameters except the last
+	last="${@: -1}" # last parameter
+	set -- "${@:1:$(($#-1))}" # drop last parameter; remaining args (semgrep flags) in $@
 	BASE_COMMIT=${BASE_COMMIT:-origin/master}
 	NEW_HEAD="$last"
 	TEMPDIR="$(mktemp -d)"
-	pushd "$PWD"
+	_SAVED_DIR="$PWD"
 	git worktree add $TEMPDIR $last
 	cd $TEMPDIR
 	FILES="$(git --no-pager diff --name-only $last $(git merge-base $last $BASE_COMMIT) | xargs ls -d 2>/dev/null)"
-	semgrep $other $FILES
-	popd
+	semgrep "$@" $FILES
+	cd "$_SAVED_DIR"
 	rm -rf $TEMPDIR
 }
 
