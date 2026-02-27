@@ -2,10 +2,13 @@
 
 TOPLEVELDIR=$(git rev-parse --show-toplevel)
 
+GITCONFIG_EXCLUDE=""
+[ -f "$HOME/.gitconfig" ] && GITCONFIG_EXCLUDE="--exclude=.gitconfig"
+
 if [ "$(uname -s)" != "Darwin" ]; then
-	rsync -avp $TOPLEVELDIR/common/ $HOME/
-	rsync -avp $TOPLEVELDIR/ossnix/ $HOME/
+	rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/common/ $HOME/
+	rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/ossnix/ $HOME/
 else
-	rsync -avp $TOPLEVELDIR/common/ $HOME/
-	[ -d "$TOPLEVELDIR/macos/" ] && rsync -avp $TOPLEVELDIR/macos/ $HOME/
+	rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/common/ $HOME/
+	[ -d "$TOPLEVELDIR/macos/" ] && rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/macos/ $HOME/
 fi
