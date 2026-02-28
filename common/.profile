@@ -104,7 +104,7 @@ alias pinstall="pip install --user"
 ######################
 ## Setup Local Path ##
 ######################
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
 
 ####################
 ## Setup Opt Path ##
