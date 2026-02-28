@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+# Update a VoidLinux package template to the latest upstream version
+# Usage: xupdate <package>
+upd=$(./xbps-src update-check $1 | tr '-' '\n' | tail -n1)
+[ "$upd" = "" ] && echo "package already updated" && exit 0
+sed -i "s/^version=.*/version=$upd/" "srcpkgs/$1/template"
+sed -i "s/^revision=.*/revision=1/"  "srcpkgs/$1/template"
+xgensum -i "srcpkgs/$1/template"
+xbump $1

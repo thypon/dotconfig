@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Show currency exchange rates from rate.sx
+# Usage: rate <currency>
+curl "https://rate.sx/$1"

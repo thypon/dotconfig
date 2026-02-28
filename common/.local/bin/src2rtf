@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+# Convert a source file to RTF using pygmentize
+# Usage: src2rtf <file>
+noext="${1%.*}"
+pygmentize -f rtf -O full -o "$noext.rtf" "$1"

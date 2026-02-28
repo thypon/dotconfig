@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+# Run semgrep on files changed in a branch vs base commit
+# Usage: spr [semgrep-flags...] <branch>
+last="${@: -1}"
+set -- "${@:1:$(($#-1))}"
+BASE_COMMIT="${BASE_COMMIT:-origin/master}"
+TEMPDIR="$(mktemp -d)"
+_SAVED_DIR="$PWD"
+git worktree add "$TEMPDIR" "$last"
+cd "$TEMPDIR"
+FILES="$(git --no-pager diff --name-only "$last" "$(git merge-base "$last" "$BASE_COMMIT")" | xargs ls -d 2>/dev/null)"
+semgrep "$@" $FILES
+cd "$_SAVED_DIR"
+rm -rf "$TEMPDIR"

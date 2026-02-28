@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Show build log entries for packages maintained by abc@pompel.me
+LOG="$(curl https://vm1.a-lej-de.m.voidlinux.org/void-updates/void-updates/_log.txt)"
+for PKG in `fgrep abc@pompel.me srcpkgs/*/template | tr / ' ' | awk '{print $2;}'`; do
+	echo "$LOG" | grep $PKG || true
+done

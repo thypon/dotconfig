@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+# Open in Sublime Text all files changed in HEAD vs base commit
+BASE_COMMIT="${BASE_COMMIT:-origin/master}"
+FILES="$(git --no-pager diff --name-only HEAD "$(git merge-base HEAD "$BASE_COMMIT")" | xargs ls -d 2>/dev/null)"
+subl . $FILES

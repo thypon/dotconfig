@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+# Clone all repos from a GitHub organisation
+# Usage: org-clone [git-clone-flags...] <org>
+last="${@: -1}"
+set -- "${@:1:$(($#-1))}"
+for F in $(curl https://api.github.com/orgs/$last/repos | jq '.[] | .git_url' | tr -d '"'); do
+	git clone "$@" $F
+done

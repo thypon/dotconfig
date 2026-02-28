@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# cd into a directory and list its contents
+# Usage: cl <dir>
+cd "$@" && ls -la

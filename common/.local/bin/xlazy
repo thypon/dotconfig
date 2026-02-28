@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Update and build a list of VoidLinux packages, resetting on failure
+# Usage: xlazy <pkg1> [pkg2 ...]
+for pkg in "$@"; do
+	xupdate ${pkg} && ./xbps-src -j4 pkg ${pkg} || git reset --hard HEAD~1
+done

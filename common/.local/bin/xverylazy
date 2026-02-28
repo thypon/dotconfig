@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# Update and build all VoidLinux packages that need updating
+xlazy $(toupdate | awk '{print $1}')

@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+# Print the root directory of the nearest .repo ancestor
+DIR=$PWD
+_SAVED_DIR="$PWD"
+while ! [ "$PWD" = "/" ]; do
+	if [ -d ".repo" ]; then
+		DIR="$PWD"
+		break
+	fi
+	cd ..
+done
+cd "$_SAVED_DIR"
+echo -n $DIR

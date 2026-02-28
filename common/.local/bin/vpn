@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Connect to a named OpenVPN config using dtach
+# Usage: vpn <name>
+dtach -A "/tmp/vpn$1" sudo /usr/bin/openvpn "/etc/openvpn/$1.ovpn"

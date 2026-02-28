@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+# Export a Docker image and extract it into the current directory
+# Usage: extractimage <image>
+docker export $(docker run -d --entrypoint="true" $1) | sudo tar xf - -C $PWD
+sudo mkdir -p $PWD/etc/sudoers.d

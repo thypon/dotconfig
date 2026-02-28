@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Look up a cheat sheet from cheat.sh
+# Usage: cheat <topic>
+curl "https://cheat.sh/$1"

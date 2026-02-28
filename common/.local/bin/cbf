@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Copy the contents of a file to the clipboard
+# Usage: cbf <file>
+cat "$1" | cb

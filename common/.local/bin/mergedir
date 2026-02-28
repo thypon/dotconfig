@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+# Merge a remote git repo into a subdirectory of the current repo
+# Usage: mergedir <repo-url> <subdir> <branch>
+REPO="$1"
+SUBDIR="$2"
+BRANCH="$3"
+REMOTE="$(echo $SUBDIR | sed 's|/|-|g' | sed 's|\.||g')"
+git remote add $REMOTE $REPO
+git fetch $REMOTE
+git merge -s ours --no-commit --allow-unrelated-histories $REMOTE/$BRANCH
+git read-tree --prefix=$SUBDIR -u $REMOTE/$BRANCH
+git commit

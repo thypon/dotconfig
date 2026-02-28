@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Show weather for a location from wttr.in
+# Usage: weather <location>
+curl "https://wttr.in/$1"

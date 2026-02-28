@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Set Sublime Text 4 as the default app for all known language extensions
+# Requires: python-yq, duti
+curl "https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml" \
+	| yq -r "to_entries | (map(.value.extensions) | flatten) - [null] | unique | .[]" \
+	| xargs -L 1 -I "{}" duti -s com.sublimetext.4 {} all

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Verify a file signature produced by sig-ssh
+# Usage: verify-ssh <file>
+openssl dgst -verify pub -signature "$1.sig" "$1"

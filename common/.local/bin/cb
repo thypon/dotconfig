@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+# Copy a string or stdin to the clipboard via xclip
+# Usage: cb <string>  OR  echo <string> | cb
+_scs_col="\e[0;32m"; _wrn_col='\e[1;31m'; _trn_col='\e[0;33m'
+if ! type xclip > /dev/null 2>&1; then
+	echo -e "$_wrn_col""You must have the 'xclip' program installed.\e[0m"
+	exit 1
+elif [ "$USER" = "root" ]; then
+	echo -e "$_wrn_col""Must be regular user (not root) to copy a file to the clipboard.\e[0m"
+	exit 1
+fi
+if ! [ "$(tty)" = "not a tty" ] && ! (tty | grep -q '^/dev/'); then
+	input="$(cat /dev/stdin)"
+else
+	input="$*"
+fi
+if [ -z "$input" ]; then
+	echo "Copies a string to the clipboard."
+	echo "Usage: cb <string>"
+	echo "       echo <string> | cb"
+	exit 0
+fi
+echo -n "$input" | xclip -selection c
+if [ ${#input} -gt 80 ]; then input="$(echo $input | cut -c1-80)$_trn_col...\e[0m"; fi
+echo -e "$_scs_col""Copied to clipboard:\e[0m $input"

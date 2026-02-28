@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# List VoidLinux packages maintained by abc@pompel.me that need updating
+curl 'https://repo-default.voidlinux.org/void-updates/void-updates/updates_abc%40pompel.me.txt'

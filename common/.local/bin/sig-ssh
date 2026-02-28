@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Sign a file with an SSH private key using openssl
+# Usage: sig-ssh <file>
+SSH_SIGNATURE="${SSH_SIGNATURE:-$HOME/.ssh/id_rsa}"
+openssl dgst -sign "$SSH_SIGNATURE" "$1" > "$1.sig"
+ssh-keygen -e -f "${SSH_SIGNATURE}.pub" -m PKCS8 > pub
