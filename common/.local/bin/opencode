@@ -1,0 +1,28 @@
+#!/bin/bash
+
+OPENCODE_CLI="/opt/homebrew/bin/opencode"
+
+has_desktop_app() {
+    mdfind 'kMDItemCFBundleIdentifier == "ai.opencode.desktop"' 2>/dev/null | grep -q .
+}
+
+is_cli_mode() {
+    for arg in "$@"; do
+        case "$arg" in
+            --help|-h|--version|-V|update|install|uninstall|config|provider|model|mcp|auth|agent|project|session|file|find|event|tui)
+                return 0
+                ;;
+        esac
+    done
+    return 1
+}
+
+if has_desktop_app && ! is_cli_mode "$@"; then
+    dir="${1:-$(pwd)}"
+    if [[ -d "$dir" ]] || [[ "$dir" == /* ]]; then
+        open "opencode://open-project?directory=$dir"
+        exit 0
+    fi
+fi
+
+exec "$OPENCODE_CLI" "$@"

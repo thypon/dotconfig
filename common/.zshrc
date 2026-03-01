@@ -6,6 +6,8 @@
 
 . $HOME/.profile
 
+export PATH="$HOME/.local/bin:$PATH"
+
 command -v gls &>/dev/null && alias ls='gls --color=auto' || alias ls='ls --color=auto'
 
 if (( $+commands[ag] )); then
