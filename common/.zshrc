@@ -23,12 +23,22 @@ export HISTFILE="$HOME/.zsh_history"
 setopt HIST_IGNORE_DUPS
 setopt SHARE_HISTORY
 
-# Print command name xterm header
-case $TERM in
-	xterm*)
-		export PROMPT="$ "
-		preexec() {
-			echo -ne "\033]0;$1:$PWD\007";
-		}
-	;;
-esac
+HOST=$(hostname)
+if [ "x$SSH_CLIENT" = "x" ]; then
+	export LIBVIRT_DEFAULT_URI='qemu+ssh://pme/system'
+	_ps1_prefix=""
+else
+	export LIBVIRT_DEFAULT_URI='qemu:///system'
+	_ps1_prefix="$HOST "
+fi
+
+# Set xterm title and smiley prompt
+precmd() {
+	local _rc=$?
+	echo -ne "\033]0;$(date +%H:%M:%S)+$PWD\007"
+	if [[ $_rc == 0 ]]; then
+		PROMPT="${_ps1_prefix}%F{green};)%f "
+	else
+		PROMPT="${_ps1_prefix}%F{red}:(%f "
+	fi
+}

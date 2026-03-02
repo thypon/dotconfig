@@ -10,7 +10,15 @@
 . $HOME/.profile
 
 command -v gls &>/dev/null && alias ls='gls --color=auto' || alias ls='ls --color=auto'
-export PS1="\[$(tput sgr0)\]\033[38;5;15m\033[38;5;112m\A\[$(tput sgr0)\]\033[38;5;15m\033[38;5;15m@\[$(tput sgr0)\]\w\[$(tput sgr0)\]>\[$(tput sgr0)\] \[$(tput sgr0)\]"
+
+HOST=$(hostname)
+if [ "x$SSH_CLIENT" = "x" ]; then
+	export LIBVIRT_DEFAULT_URI='qemu+ssh://pme/system'
+	_ps1_prefix=""
+else
+	export LIBVIRT_DEFAULT_URI='qemu:///system'
+	_ps1_prefix="$HOST "
+fi
 
 if hash ag 2>/dev/null; then
   export TAG_SEARCH_PROG=ag  # replace with rg for ripgrep
@@ -25,12 +33,8 @@ export HISTFILESIZE=30000
 # Source bash-preexec.sh if exists
 [ -f /usr/bin/bash-preexec.sh ] && . /usr/bin/bash-preexec.sh
 
-# Print command name xterm header
-case $TERM in
-	xterm*)
-		export PS1="$ "
-		preexec() {
-			echo -ne "\033]0;$*:$PWD\007";
-		}
-	;;
-esac
+# Smiley prompt with xterm title via bash-preexec
+PS1='${_ps1_prefix}$(if [[ $? == 0 ]]; then echo -n "\[\E[32m\];)\[\E[0m\]"; else echo -n "\[\E[31m\]:(\[\E[0m\]"; fi) '
+preexec() {
+	echo -ne "\033]0;$(date +%H:%M:%S)+$PWD\007";
+}
