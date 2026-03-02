@@ -34,7 +34,7 @@ export HISTFILESIZE=30000
 [ -f /usr/bin/bash-preexec.sh ] && . /usr/bin/bash-preexec.sh
 
 # Smiley prompt with xterm title via bash-preexec
-PS1='${_ps1_prefix}$(if [[ $? == 0 ]]; then echo -n "\[\E[32m\];)\[\E[0m\]"; else echo -n "\[\E[31m\]:(\[\E[0m\]"; fi) '
+PS1='${_ps1_prefix}$(if [[ $? == 0 ]]; then echo -ne "\E[32m;)\E[0m"; else echo -ne "\E[31m:(\E[0m"; fi) '
 preexec() {
 	echo -ne "\033]0;$(date +%H:%M:%S)+$PWD\007";
 }
