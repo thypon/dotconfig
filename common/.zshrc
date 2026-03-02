@@ -10,12 +10,6 @@ export PATH="$HOME/.local/bin:$PATH"
 
 command -v gls &>/dev/null && alias ls='gls --color=auto' || alias ls='ls --color=auto'
 
-if (( $+commands[ag] )); then
-  export TAG_SEARCH_PROG=ag  # replace with rg for ripgrep
-  tag() { command tag "$@"; source ${TAG_ALIAS_FILE:-/tmp/tag_aliases} 2>/dev/null; }
-  alias ag=tag  # replace with rg for ripgrep
-fi
-
 # Unlimited History
 export HISTSIZE=30000
 export SAVEHIST=30000
