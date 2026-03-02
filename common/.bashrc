@@ -12,7 +12,7 @@
 command -v gls &>/dev/null && alias ls='gls --color=auto' || alias ls='ls --color=auto'
 
 HOST=$(hostname)
-if [ "x$SSH_CLIENT" = "x" ]; then
+if [ "x$SSH_CLIENT" = "x" ] && [ "x$SSH_CONNECTION" = "x" ]; then
 	export LIBVIRT_DEFAULT_URI='qemu+ssh://pme/system'
 	_ps1_prefix=""
 else

@@ -24,7 +24,7 @@ setopt HIST_IGNORE_DUPS
 setopt SHARE_HISTORY
 
 HOST=$(hostname)
-if [ "x$SSH_CLIENT" = "x" ]; then
+if [ "x$SSH_CLIENT" = "x" ] && [ "x$SSH_CONNECTION" = "x" ]; then
 	export LIBVIRT_DEFAULT_URI='qemu+ssh://pme/system'
 	_ps1_prefix=""
 else
