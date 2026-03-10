@@ -1,6 +1,26 @@
 #!/bin/bash
 
-OPENCODE_CLI="/opt/homebrew/bin/opencode"
+find_opencode_cli() {
+    local paths=(
+        "$HOME/.opencode/bin/opencode"
+        "/opt/homebrew/bin/opencode"
+        "/usr/local/bin/opencode"
+    )
+    for path in "${paths[@]}"; do
+        if [[ -x "$path" ]]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    return 1
+}
+
+OPENCODE_CLI=$(find_opencode_cli)
+
+if [[ -z "$OPENCODE_CLI" ]]; then
+    echo "Error: opencode binary not found" >&2
+    exit 1
+fi
 
 has_desktop_app() {
     mdfind 'kMDItemCFBundleIdentifier == "ai.opencode.desktop"' 2>/dev/null | grep -q .
