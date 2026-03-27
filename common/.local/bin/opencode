@@ -37,7 +37,7 @@ is_cli_mode() {
     return 1
 }
 
-if has_desktop_app && ! is_cli_mode "$@"; then
+if has_desktop_app && ! is_cli_mode "$@" && [[ -z "$SSH_CONNECTION" ]]; then
     dir="${1:-$(pwd)}"
     if [[ -d "$dir" ]] || [[ "$dir" == /* ]]; then
         open "opencode://open-project?directory=$dir"
