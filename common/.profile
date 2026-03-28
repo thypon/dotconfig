@@ -169,6 +169,12 @@ export FT2_SUBPIXEL_HINTING=1
 ###############
 export PATH="$HOME/.vms/bin:$PATH"
 
+###############
+# Bun Install #
+###############
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
 #############################
 # Private Profile if exists #
 #############################
