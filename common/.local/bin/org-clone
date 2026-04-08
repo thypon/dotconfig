@@ -4,6 +4,6 @@ set -eu
 # Usage: org-clone [git-clone-flags...] <org>
 last="${@: -1}"
 set -- "${@:1:$(($#-1))}"
-for F in $(curl https://api.github.com/orgs/$last/repos | jq -r '.[] | .clone_url'); do
+for F in $(curl https://api.github.com/orgs/$last/repos | jq -r '.[] | select(.archived | not) | .clone_url'); do
 	git clone "$@" $F
 done
