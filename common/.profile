@@ -120,17 +120,6 @@ alias meteo='curl -4 http://wttr.in/Milan'
 alias dia='dia --integrated'
 alias broken='grep -Polz "(?s)miwaxe.*[^\t ]broken" srcpkgs/*/template'
 
-####################
-# Github Org Clone #
-####################
-org_clone() {
-	last="${@: -1}" # last parameter
-	set -- "${@:1:$(($#-1))}" # drop last parameter; remaining args in $@
-	for F in $(curl https://api.github.com/orgs/$last/repos | jq '.[] | .git_url' | tr -d '"'); do
-		git clone "$@" $F
-	done
-}
-
 ################
 # Brew Support #
 ################
