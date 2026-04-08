@@ -4,6 +4,23 @@ set -eu
 # Usage: org-clone [git-clone-flags...] <org>
 last="${@: -1}"
 set -- "${@:1:$(($#-1))}"
-for F in $(curl https://api.github.com/orgs/$last/repos | jq -r '.[] | select(.archived | not) | .clone_url'); do
-	git clone "$@" $F
-done
+
+gh repo list "$last" --no-archived --limit 9999 --json name,visibility \
+	| jq -r '.[] | "\(.name):\(.visibility)"' \
+	| while IFS= read -r entry; do
+		name="${entry%%:*}"
+		visibility="${entry##*:}"
+		case "$visibility" in
+			PRIVATE)  dir="private/$name" ;;
+			INTERNAL) dir="internal/$name" ;;
+			*)        dir="$name" ;;
+		esac
+		if [ -d "$dir" ]; then
+			echo "Pulling $last/$name ($visibility)..."
+			git -C "$dir" pull
+		else
+			echo "Cloning $last/$name ($visibility)..."
+			mkdir -p "$(dirname "$dir")"
+			gh repo clone "$last/$name" "$dir"
+		fi
+	done
