@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "provider": {
+    "venice": {
+      "models": {
+        "olafangensan-glm-4.7-flash-heretic": {
+          "limit": {
+            "context": 128000,
+            "output": 24000
+          }
+        }
+      }
+    }
+  },
+  "agent": {
+    "compaction": {
+      "model": "anthropic/claude-sonnet-4-5"
+    }
+  },
+  "plugin": [
+    "@tarquinen/opencode-dcp@latest"
+  ]
+}
