@@ -2,13 +2,36 @@
 
 TOPLEVELDIR=$(git rev-parse --show-toplevel)
 
-GITCONFIG_EXCLUDE=""
-[ -f "$HOME/.gitconfig" ] && GITCONFIG_EXCLUDE="--exclude=.gitconfig"
+link_files() {
+	srcdir="$1"
+	destdir="$2"
+	echo "Linking files from $srcdir to $destdir"
+	find "$srcdir" -type f | while read -r srcfile; do
+		relpath="${srcfile#"$srcdir"/}"
+		# skip .gitconfig if it already exists in home
+		if [ "$relpath" = ".gitconfig" ] && [ -f "$HOME/.gitconfig" ]; then
+			echo "  Skipping $relpath (already exists in home)"
+			continue
+		fi
+		destfile="$destdir/$relpath"
+		destdir_parent="$(dirname "$destfile")"
+		if [ ! -d "$destdir_parent" ]; then
+			echo "  Creating directory $destdir_parent"
+			mkdir -p "$destdir_parent"
+		fi
+		echo "  $relpath -> $destfile"
+		ln -sf "$srcfile" "$destfile"
+	done
+}
+
+link_files "$TOPLEVELDIR/common" "$HOME"
 
 if [ "$(uname -s)" != "Darwin" ]; then
-	rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/common/ $HOME/
-	rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/ossnix/ $HOME/
+	link_files "$TOPLEVELDIR/ossnix" "$HOME"
 else
-	rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/common/ $HOME/
-	[ -d "$TOPLEVELDIR/macos/" ] && rsync -avp $GITCONFIG_EXCLUDE $TOPLEVELDIR/macos/ $HOME/
+	if [ -d "$TOPLEVELDIR/macos" ]; then
+		link_files "$TOPLEVELDIR/macos" "$HOME"
+	else
+		echo "No macos/ directory found, skipping"
+	fi
 fi
