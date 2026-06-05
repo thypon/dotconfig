@@ -9,6 +9,11 @@
             "model": "venice/deepseek-v4-pro",
             "small_model": "venice/deepseek-v4-flash",
             "frontier_model": "venice/qwen-3-7-max"
+        },
+        "minimax": {
+            "model": "minimax/MiniMax-M2.7",
+            "small_model": "minimax/MiniMax-M2.7",
+            "frontier_model": "venice/minimax-m3"
         }
     }
 }
