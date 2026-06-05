@@ -1,0 +1,48 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "model": "dynamic/model",
+  "small_model": "dynamic/small_model",
+  "provider": {
+    "venice": {
+      "models": {
+        "olafangensan-glm-4.7-flash-heretic": {
+          "limit": {
+            "context": 128000,
+            "output": 24000
+          }
+        }
+      }
+    }
+  },
+  "agent": {
+    "plan": {
+      "model": "dynamic/frontier_model",
+      "permissions": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    },
+    "build": {
+      "model": "dynamic/model"
+    },
+    "general": {
+      "model": "dynamic/model"
+    },
+    "explore": {
+      "model": "dynamic/small_model"
+    },
+    "scout": {
+      "model": "dynamic/small_model"
+    },
+    "compaction": {
+      "model": "dynamic/small_model"
+    },
+    "title": {
+      "model": "dynamic/small_model"
+    }
+  },
+  "plugin": [
+    "@tarquinen/opencode-dcp@latest"
+  ]
+}

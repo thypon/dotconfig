@@ -1,0 +1,14 @@
+{
+   "providers": {
+        "anthropic": {
+            "model": "anthropic/claude-sonnet-4-6",
+            "small_model": "anthropic/claude-haiku-4-5",
+            "frontier_model": "anthropic/claude-opus-4-6"
+        },
+        "venice": {
+            "model": "venice/deepseek-v4-pro",
+            "small_model": "venice/deepseek-v4-flash",
+            "frontier_model": "venice/qwen-3-7-max"
+        }
+    }
+}

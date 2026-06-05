@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+# Resolve dynamic-models.jsonc provider into opencode.json
+# Usage: provider <prefix>
+#   Fuzzy-matches provider name by first letters (e.g. "a" -> "anthropic")
+
+import json
+import re
+import sys
+import os
+
+MODELS_PATH = os.path.expanduser("~/.config/opencode/dynamic-models.jsonc")
+TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/opencode.json.tmpl")
+OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
+
+
+def strip_jsonc_comments(text):
+    """Remove // and /* */ comments from JSONC, preserving strings."""
+    # Match strings, single-line comments, or multi-line comments
+    pattern = r'"(?:[^"\\]|\\.)*"|//.*?$|/\*.*?\*/'
+    def replacer(m):
+        s = m.group(0)
+        if s.startswith('"'):
+            return s  # keep strings
+        return ''     # remove comments
+    return re.sub(pattern, replacer, text, flags=re.MULTILINE | re.DOTALL)
+
+
+def load_jsonc(path):
+    with open(path) as f:
+        return json.loads(strip_jsonc_comments(f.read()))
+
+
+def match_provider(providers, prefix):
+    """Match provider by prefix. Returns (name, config) or exits with error."""
+    prefix = prefix.lower()
+    matches = [(k, v) for k, v in providers.items() if k.lower().startswith(prefix)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) == 0:
+        print(f"error: no provider matching '{prefix}'", file=sys.stderr)
+        print(f"available: {', '.join(sorted(providers.keys()))}", file=sys.stderr)
+        sys.exit(1)
+    # Multiple matches
+    names = [m[0] for m in matches]
+    print(f"error: ambiguous prefix '{prefix}' matches: {', '.join(names)}", file=sys.stderr)
+    sys.exit(1)
+
+
+def resolve_template(template, provider_config):
+    """Replace 'dynamic/model', 'dynamic/small_model', 'dynamic/frontier_model' in template."""
+    replacements = {
+        "dynamic/model": provider_config["model"],
+        "dynamic/small_model": provider_config["small_model"],
+        "dynamic/frontier_model": provider_config["frontier_model"],
+    }
+
+    def replace_in_obj(obj):
+        if isinstance(obj, str):
+            return replacements.get(obj, obj)
+        if isinstance(obj, list):
+            return [replace_in_obj(item) for item in obj]
+        if isinstance(obj, dict):
+            return {k: replace_in_obj(v) for k, v in obj.items()}
+        return obj
+
+    return replace_in_obj(template)
+
+
+def main():
+    if len(sys.argv) < 2:
+        models = load_jsonc(MODELS_PATH)
+        providers = models["providers"]
+        print(f"usage: provider <prefix>", file=sys.stderr)
+        print(f"available: {', '.join(sorted(providers.keys()))}", file=sys.stderr)
+        sys.exit(1)
+
+    prefix = sys.argv[1]
+
+    models = load_jsonc(MODELS_PATH)
+    providers = models["providers"]
+    name, config = match_provider(providers, prefix)
+
+    template = load_jsonc(TEMPLATE_PATH)
+    result = resolve_template(template, config)
+
+    with open(OUTPUT_PATH, "w") as f:
+        json.dump(result, f, indent=2)
+        f.write("\n")
+
+    print(f"{name}: model={config['model']} small={config['small_model']} frontier={config['frontier_model']}")
+
+
+if __name__ == "__main__":
+    main()
