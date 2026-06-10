@@ -17,8 +17,8 @@
         },
         "openrouter": {
             "model": "openrouter/deepseek/deepseek-v4-pro",
-            "small_model": "openrouter/minimax/minimax-m3",
-            "frontier_model": "openrouter/moonshotai/kimi-k2.6"
+            "small_model": "openrouter/deepseek/deepseek-v4-flash",
+            "frontier_model": "openrouter/anthropic/claude-opus-4.6"
         }
     }
 }
