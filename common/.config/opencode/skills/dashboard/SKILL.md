@@ -97,6 +97,19 @@ gh search prs --author=@me --state=open \
   --limit 100
 ```
 
+#### Filter out archived repositories
+
+After fetching items, filter out any from archived repos. For each item, extract the repo nameWithOwner and check:
+
+```bash
+# Check if a repo is archived (batched for all unique repos)
+for repo in $(echo "$ALL_REPOS" | sort -u); do
+  echo "$repo $(gh api "repos/$repo" --jq '.archived' 2>/dev/null || echo false)"
+done
+```
+
+Discard any items where the repository is archived. Archived repos have no active work — showing them adds noise.
+
 ### Step 3: Determine last commenter for each item
 
 For each PR or issue, check both PR review comments and issue comments.
@@ -259,6 +272,7 @@ At the bottom, add a short `## Recommendations` section with concrete next steps
 - **Respect rate limits** — if item count >50, sample by most recent updatedAt first.
 - **Do not repeat gh auth check** — assume authed.
 - **Always include verbatim URL column** — paste the raw `url` field from API output. Terminal auto-detects plain URLs as clickable.
+- **Exclude archived repositories** — filter out any PR/issue whose repository `.archived == true`. Batch the check for all unique repos upfront.
 
 ## OS-specific date commands
 
