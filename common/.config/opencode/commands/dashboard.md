@@ -1,5 +1,6 @@
 ---
 description: GitHub workload dashboard (org/me/pr)
+model: dynamic/small_model
 subtask: true
 ---
 
