@@ -1,5 +1,6 @@
 ---
 description: GitHub workload dashboard (org/me/pr)
+subtask: true
 ---
 
 /dashboard $ARGUMENTS

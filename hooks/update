@@ -13,6 +13,13 @@ link_files() {
 			echo "  Skipping $relpath (already exists in home)"
 			continue
 		fi
+		# skip commands/ — managed by provider script (resolved copies)
+		case "$relpath" in
+			.config/opencode/commands/*)
+				echo "  Skipping $relpath (managed by provider)"
+				continue
+				;;
+		esac
 		destfile="$destdir/$relpath"
 		destdir_parent="$(dirname "$destfile")"
 		if [ ! -d "$destdir_parent" ]; then

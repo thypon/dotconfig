@@ -1,5 +1,7 @@
 ---
 description: Expert code review of git changes
+model: dynamic/antagonist_model
+subtask: true
 ---
 
 /review $ARGUMENTS

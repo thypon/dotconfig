@@ -2,26 +2,42 @@
 # Resolve dynamic-models.jsonc provider into opencode.json
 # Usage: provider <prefix>
 #   Fuzzy-matches provider name by first letters (e.g. "a" -> "anthropic")
+#   Also resolves dynamic/* tokens in commands/*.md templates.
 
 import json
 import re
 import sys
 import os
+import shutil
 
+
+def find_repo_root():
+    """Walk up from this script's real path to find the git repo root."""
+    path = os.path.realpath(__file__)
+    path = os.path.dirname(path)
+    while path != "/":
+        if os.path.isdir(os.path.join(path, ".git")):
+            return path
+        path = os.path.dirname(path)
+    sys.exit("error: cannot find repo root")
+
+
+REPO_ROOT = find_repo_root()
 MODELS_PATH = os.path.expanduser("~/.config/opencode/dynamic-models.jsonc")
 TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/opencode.json.tmpl")
 OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
+COMMANDS_SRC = os.path.join(REPO_ROOT, "common", ".config", "opencode", "commands")
+COMMANDS_DST = os.path.expanduser("~/.config/opencode/commands")
 
 
 def strip_jsonc_comments(text):
     """Remove // and /* */ comments from JSONC, preserving strings."""
-    # Match strings, single-line comments, or multi-line comments
     pattern = r'"(?:[^"\\]|\\.)*"|//.*?$|/\*.*?\*/'
     def replacer(m):
         s = m.group(0)
         if s.startswith('"'):
-            return s  # keep strings
-        return ''     # remove comments
+            return s
+        return ''
     return re.sub(pattern, replacer, text, flags=re.MULTILINE | re.DOTALL)
 
 
@@ -40,20 +56,21 @@ def match_provider(providers, prefix):
         print(f"error: no provider matching '{prefix}'", file=sys.stderr)
         print(f"available: {', '.join(sorted(providers.keys()))}", file=sys.stderr)
         sys.exit(1)
-    # Multiple matches
     names = [m[0] for m in matches]
     print(f"error: ambiguous prefix '{prefix}' matches: {', '.join(names)}", file=sys.stderr)
     sys.exit(1)
 
 
-def resolve_template(template, provider_config):
-    """Replace 'dynamic/model', 'dynamic/small_model', 'dynamic/frontier_model' in template."""
-    replacements = {
+def make_replacements(provider_config):
+    return {
         "dynamic/model": provider_config["model"],
         "dynamic/small_model": provider_config["small_model"],
         "dynamic/frontier_model": provider_config["frontier_model"],
+        "dynamic/antagonist_model": provider_config["antagonist_model"],
     }
 
+
+def resolve_template(template, replacements):
     def replace_in_obj(obj):
         if isinstance(obj, str):
             return replacements.get(obj, obj)
@@ -62,8 +79,36 @@ def resolve_template(template, provider_config):
         if isinstance(obj, dict):
             return {k: replace_in_obj(v) for k, v in obj.items()}
         return obj
-
     return replace_in_obj(template)
+
+
+def resolve_text(text, replacements):
+    """Replace all dynamic/* tokens in a plain text string."""
+    for key, value in replacements.items():
+        text = text.replace(key, value)
+    return text
+
+
+def resolve_and_copy(dir_src, dir_dst, replacements):
+    """Copy dir_src to dir_dst, resolving dynamic/* tokens in all files."""
+    if not os.path.isdir(dir_src):
+        print(f"warning: source dir not found: {dir_src}", file=sys.stderr)
+        return
+    os.makedirs(dir_dst, exist_ok=True)
+    for entry in os.listdir(dir_src):
+        src = os.path.join(dir_src, entry)
+        dst = os.path.join(dir_dst, entry)
+        if os.path.isdir(src):
+            resolve_and_copy(src, dst, replacements)
+        else:
+            if os.path.islink(dst):
+                os.unlink(dst)
+            with open(src) as f:
+                content = f.read()
+            resolved = resolve_text(content, replacements)
+            with open(dst, "w") as f:
+                f.write(resolved)
+            print(f"  resolved: {dst}")
 
 
 def main():
@@ -79,15 +124,18 @@ def main():
     models = load_jsonc(MODELS_PATH)
     providers = models["providers"]
     name, config = match_provider(providers, prefix)
+    replacements = make_replacements(config)
 
     template = load_jsonc(TEMPLATE_PATH)
-    result = resolve_template(template, config)
+    result = resolve_template(template, replacements)
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(result, f, indent=2)
         f.write("\n")
 
-    print(f"{name}: model={config['model']} small={config['small_model']} frontier={config['frontier_model']}")
+    resolve_and_copy(COMMANDS_SRC, COMMANDS_DST, replacements)
+
+    print(f"{name}: model={config['model']} small={config['small_model']} frontier={config['frontier_model']} antagonist={config['antagonist_model']}")
 
 
 if __name__ == "__main__":
