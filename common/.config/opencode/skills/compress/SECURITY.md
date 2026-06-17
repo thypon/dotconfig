@@ -2,7 +2,7 @@
 
 ## Snyk High Risk Rating
 
-`caveman-compress` receives a Snyk High Risk rating due to static analysis heuristics. This document explains what the skill does and does not do.
+`compress` receives a Snyk High Risk rating due to static analysis heuristics. This document explains what the skill does and does not do.
 
 ### What triggers the rating
 

@@ -1,10 +1,10 @@
 ---
-name: caveman-commit
+name: commit
 description: >
   Ultra-compressed commit message generator. Cuts noise from commit messages while preserving
   intent and reasoning. Conventional Commits format. Subject ≤50 chars, body only when "why"
   isn't obvious. Use when user says "write a commit", "commit message", "generate commit",
-  "/commit", or invokes /caveman-commit. Auto-triggers when staging changes.
+  "/commit", or invokes /commit. Auto-triggers when staging changes.
 ---
 
 Write commit messages terse and exact. Conventional Commits format. No fluff. Why over what.
@@ -67,4 +67,4 @@ Always include body for: breaking changes, security fixes, data migrations, anyt
 3. Run `git add` on relevant changed files (only intended changes, never secrets or temp files)
 4. Run `git commit -m "message"` with the generated message
 
-"stop caveman-commit" or "normal mode": revert to verbose commit style.
+"stop commit" or "normal mode": revert to verbose commit style.
