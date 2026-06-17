@@ -5,4 +5,4 @@ model: dynamic/small_model
 
 /caveman-commit $ARGUMENTS
 
-Write a commit message.
+Generate a commit message and commit it. Use git status and git diff to understand changes. Write a terse Conventional Commits message, add relevant files, and run git commit.
