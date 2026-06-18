@@ -3,6 +3,6 @@ description: Dry code review of current changes
 model: dynamic/antagonist_model
 ---
 
-/review $ARGUMENTS
+Review current git diff. Use the review skill.
 
-Review current git diff. No fluff. Flag bugs, SOLID violations, security risks, error handling gaps, perf issues.
+Terse output. No fluff. Fragments OK. Format: severity + file:line, problem, fix.

@@ -1,5 +1,5 @@
 ---
-name: code-review-expert
+name: review
 description: "Expert code review of current git changes with a senior engineer lens. Detects SOLID violations, security risks, and proposes actionable improvements."
 ---
 
@@ -9,14 +9,16 @@ description: "Expert code review of current git changes with a senior engineer l
 
 Perform a structured review of the current git changes with focus on SOLID, architecture, removal candidates, and security risks. Default to review-only output unless the user asks to implement changes.
 
+**Output style: caveman.** Terse. No fluff. Fragments OK. Drop articles, pleasantries, hedging. One finding = one line: `<file>:L<line>: <severity>: <problem>. <fix>.`
+
 ## Severity Levels
 
 | Level | Name | Description | Action |
 |-------|------|-------------|--------|
-| **P0** | Critical | Security vulnerability, data loss risk, correctness bug | Must block merge |
-| **P1** | High | Logic error, significant SOLID violation, performance regression | Should fix before merge |
-| **P2** | Medium | Code smell, maintainability concern, minor SOLID violation | Fix in this PR or create follow-up |
-| **P3** | Low | Style, naming, minor suggestion | Optional improvement |
+| **bug** | Critical | Security vulnerability, data loss risk, correctness bug | Must block merge |
+| **risk** | High | Logic error, SOLID violation, performance regression, race | Should fix before merge |
+| **nit** | Medium | Code smell, maintainability concern, minor SOLID violation | Fix in this PR or create follow-up |
+| **q** | Low | Style, naming, minor suggestion, genuine question | Optional improvement |
 
 ## Workflow
 
@@ -73,76 +75,35 @@ Perform a structured review of the current git changes with focus on SOLID, arch
 
 ### 6) Output format
 
-Structure your review as follows:
+**Format:** `<file>:L<line>: <severity>: <problem>. <fix>.`
 
-```markdown
-## Code Review Summary
+**Severity:**
+- `bug:` — broken behavior, will cause incident
+- `risk:` — works but fragile (race, missing null check, swallowed error)
+- `nit:` — style, naming, micro-optim. Author can ignore
+- `q:` — genuine question, not a suggestion
 
-**Files reviewed**: X files, Y lines changed
-**Overall assessment**: [APPROVE / REQUEST_CHANGES / COMMENT]
+**Drop:** "I noticed that...", "It seems like...", "You might want to...", "This is just a suggestion but...", restating what line does, hedging ("perhaps", "maybe", "I think").
 
----
+**Keep:** exact line numbers, exact symbol/function/variable names in backticks, concrete fix, the *why* if fix not obvious from problem.
 
-## Findings
+**Auto-clarity:** Drop terse for: security findings (CVE-class needs full explanation), architectural disagreements (need rationale), onboarding contexts (author new, needs "why"). Normal paragraph then resume terse.
 
-### P0 - Critical
-(none or list)
-
-### P1 - High
-1. **[file:line]** Brief title
-  - Description of issue
-  - Suggested fix
-
-### P2 - Medium
-2. (continue numbering across sections)
-  - ...
-
-### P3 - Low
-...
-
----
-
-## Removal/Iteration Plan
-(if applicable)
-
-## Additional Suggestions
-(optional improvements, not blocking)
+**Header:**
+```
+Files: X, Lines: Y | Verdict: APPROVE/REQUEST_CHANGES/COMMENT
 ```
 
-**Inline comments**: Use this format for file-specific findings:
+**Clean review:** state what checked, what skipped, residual risk.
+
+### 7) Next steps
+
 ```
-::code-comment{file="path/to/file.ts" line="42" severity="P1"}
-Description of the issue and suggested fix.
-::
-```
-
-**Clean review**: If no issues found, explicitly state:
-- What was checked
-- Any areas not covered (e.g., "Did not verify database migrations")
-- Residual risks or recommended follow-up tests
-
-### 7) Next steps confirmation
-
-After presenting findings, ask user how to proceed:
-
-```markdown
----
-
-## Next Steps
-
-I found X issues (P0: _, P1: _, P2: _, P3: _).
-
-**How would you like to proceed?**
-
-1. **Fix all** - I'll implement all suggested fixes
-2. **Fix P0/P1 only** - Address critical and high priority issues
-3. **Fix specific items** - Tell me which issues to fix
-4. **No changes** - Review complete, no implementation needed
-
-Please choose an option or provide specific instructions.
+X issues: bug:_, risk:_, nit:_, q:_
+Fix all / Fix bugs+risks / Fix specific / No changes?
 ```
 
-**Important**: Do NOT implement any changes until user explicitly confirms. This is a review-first workflow.
+Do NOT implement until user confirms.
 
 ## Resources
 
