@@ -36,6 +36,22 @@
     "scout": {
       "model": "dynamic/small_model"
     },
+    "review": {
+      "description": "Read-only code review, caveman terse output",
+      "mode": "primary",
+      "model": "dynamic/antagonist_model",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "git status*": "allow",
+          "rg *": "allow",
+          "grep *": "allow"
+        }
+      }
+    },
     "compaction": {
       "model": "dynamic/small_model"
     },
