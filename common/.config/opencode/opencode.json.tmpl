@@ -14,6 +14,26 @@
           }
         }
       }
+    },
+    "amazon-bedrock": {
+      "options": {
+        "region": "us-west-2",
+        "profile": "claude-code-bedrock-sso"
+      },
+      "models": {
+        "claude-opus": {
+          "id": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/a4v3qtnkelgp",
+          "name": "Claude Opus (Bedrock)"
+        },
+        "claude-sonnet": {
+          "id": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/i85wjhfzw5r3",
+          "name": "Claude Sonnet (Bedrock)"
+        },
+        "claude-haiku": {
+          "id": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/u8agk44ql7te",
+          "name": "Claude Haiku (Bedrock)"
+        }
+      }
     }
   },
   "agent": {
@@ -61,7 +81,6 @@
   },
   "plugin": [
     "@tarquinen/opencode-dcp@3.1.13",
-    "opencode-hashline@1.4.0",
-    "./plugins/ast-grep.ts"
+    "opencode-hashline@1.4.0"
   ]
 }
