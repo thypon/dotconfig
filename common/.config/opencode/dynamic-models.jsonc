@@ -28,7 +28,7 @@
             "model": "amazon-bedrock/claude-sonnet",
             "small_model": "amazon-bedrock/claude-haiku",
             "frontier_model": "amazon-bedrock/claude-opus",
-            "antagonist_model": "amazon-bedrock/openai/gpt-5.5"
+            "antagonist_model": "openrouter/openai/gpt-5.5"
         }
     }
 }
