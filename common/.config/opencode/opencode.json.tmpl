@@ -63,7 +63,9 @@
       "permission": {
         "edit": "deny",
         "bash": {
-          "*": "deny",
+          "*": "ask",
+          "gh issue view*": "allow",
+          "gh pr view*": "allow",
           "git diff*": "allow",
           "git log*": "allow",
           "git status*": "allow",
