@@ -39,7 +39,8 @@
   "agent": {
     "plan": {
       "model": "dynamic/frontier_model",
-      "permissions": {
+      "prompt": "{file:agents/plan.txt}",
+      "permission": {
         "edit": "ask",
         "bash": "ask"
       }
@@ -51,7 +52,8 @@
       "model": "dynamic/model"
     },
     "explore": {
-      "model": "dynamic/small_model"
+      "model": "dynamic/small_model",
+      "prompt": "{file:agents/explore.txt}"
     },
     "scout": {
       "model": "dynamic/small_model"
@@ -60,6 +62,7 @@
       "description": "Read-only code review, caveman terse output",
       "mode": "primary",
       "model": "dynamic/antagonist_model",
+      "prompt": "{file:agents/review.txt}",
       "permission": {
         "edit": "deny",
         "bash": {
