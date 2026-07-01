@@ -13,8 +13,8 @@
             "antagonist_model": "venice/qwen-3-7-max"
         },
         "minimax": {
-            "model": "minimax/MiniMax-M2.7",
-            "small_model": "minimax/MiniMax-M2.7",
+            "model": "venice/MiniMax-M2.7",
+            "small_model": "venice/MiniMax-M2.7",
             "frontier_model": "venice/minimax-m3",
             "antagonist_model": "venice/zai-org-glm-5-2"
         },
