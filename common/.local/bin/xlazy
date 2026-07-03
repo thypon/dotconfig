@@ -1,7 +1,120 @@
 #!/bin/sh
 set -eu
-# Update and build a list of VoidLinux packages, resetting on failure
+# Update and build Void Linux packages from a void-packages checkout.
 # Usage: xlazy <pkg1> [pkg2 ...]
+
+die() {
+	printf '%s\n' "xlazy: $*" >&2
+	exit 1
+}
+
+add_line() {
+	if [ -n "$1" ]; then
+		printf '%s\n%s' "$1" "$2"
+	else
+		printf '%s' "$2"
+	fi
+}
+
+print_list() {
+	label=$1
+	items=$2
+
+	[ -n "$items" ] || return 0
+	printf '%s\n' "xlazy: $label:" >&2
+	printf '%s\n' "$items" | while IFS= read -r item; do
+		printf '%s\n' "  $item" >&2
+	done
+}
+
+rollback_failed() {
+	[ -n "$rollback" ] || return 0
+
+	printf '%s\n' "xlazy: failed package paths can be restored from their pre-build commits:" >&2
+	printf '%s\n' "$rollback" | while IFS=' ' read -r pkg commit; do
+		[ -n "$pkg" ] || continue
+		printf '%s\n' "  srcpkgs/$pkg <- $commit" >&2
+	done
+
+	if ! { printf '%s' "xlazy: restore failed package paths only? [y/N] " >/dev/tty && IFS= read -r answer </dev/tty; } 2>/dev/null; then
+		printf '%s\n' "xlazy: non-interactive shell; not restoring failed package paths" >&2
+		return 0
+	fi
+
+	case $answer in
+		[Yy] | [Yy][Ee][Ss]) ;;
+		*)
+			printf '%s\n' "xlazy: leaving failed package paths unchanged" >&2
+			return 0
+			;;
+	esac
+
+	rollback_status=0
+	while IFS=' ' read -r pkg commit; do
+		[ -n "$pkg" ] || continue
+		if git checkout "$commit" -- "srcpkgs/$pkg"; then
+			printf '%s\n' "xlazy: restored srcpkgs/$pkg from $commit" >&2
+		else
+			printf '%s\n' "xlazy: failed to restore srcpkgs/$pkg from $commit" >&2
+			rollback_status=1
+		fi
+	done <<EOF
+$rollback
+EOF
+
+	return "$rollback_status"
+}
+
+repo=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
+[ -x "$repo/xbps-src" ] || die "not in a void-packages repository: missing xbps-src"
+[ -d "$repo/srcpkgs" ] || die "not in a void-packages repository: missing srcpkgs"
+
+[ "$#" -gt 0 ] || die "usage: xlazy <pkg1> [pkg2 ...]"
+
+cd "$repo"
+
+built=
+updated=
+missing=
+update_failed=
+build_failed=
+rollback=
+status=0
+
 for pkg in "$@"; do
-	xupdate ${pkg} && ./xbps-src -j4 pkg ${pkg} || git reset --hard HEAD~1
+	if [ ! -d "srcpkgs/$pkg" ]; then
+		missing=$(add_line "$missing" "$pkg")
+		status=1
+		continue
+	fi
+
+	before=$(git rev-parse --verify HEAD) || die "failed to read current git commit"
+	if ! xupdate "$pkg"; then
+		update_failed=$(add_line "$update_failed" "$pkg")
+		rollback=$(add_line "$rollback" "$pkg $before")
+		status=1
+		continue
+	fi
+	updated=$(add_line "$updated" "$pkg")
+
+	if ! ./xbps-src -j4 pkg "$pkg"; then
+		build_failed=$(add_line "$build_failed" "$pkg")
+		rollback=$(add_line "$rollback" "$pkg $before")
+		status=1
+		continue
+	fi
+
+	built=$(add_line "$built" "$pkg")
 done
+
+print_list "updated packages" "$updated"
+print_list "built packages" "$built"
+print_list "unknown packages" "$missing"
+print_list "update failures" "$update_failed"
+print_list "build failures" "$build_failed"
+
+if [ "$status" -ne 0 ]; then
+	rollback_failed || status=1
+fi
+
+exit "$status"

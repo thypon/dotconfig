@@ -1,4 +1,23 @@
 #!/bin/sh
 set -eu
 # Update and build all VoidLinux packages that need updating
-xlazy $(toupdate | awk '{print $1}')
+
+die() {
+	printf '%s\n' "xverylazy: $*" >&2
+	exit 1
+}
+
+repo=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
+[ -x "$repo/xbps-src" ] || die "not in a void-packages repository: missing xbps-src"
+[ -d "$repo/srcpkgs" ] || die "not in a void-packages repository: missing srcpkgs"
+
+cd "$repo"
+
+updates=$(toupdate) || die "failed to list updates"
+packages=$(printf '%s\n' "$updates" | awk 'NF { print $1 }') || die "failed to parse updates"
+[ -n "$packages" ] || {
+	printf '%s\n' "xverylazy: no packages to update" >&2
+	exit 0
+}
+
+xlazy $packages
