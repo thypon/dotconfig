@@ -1,4 +1,4 @@
-Always perform math and base conversions in python. Use "uv run" to execute python.
+Always perform math and base conversions in python. Use "uv run" to execute python. Use "bun" to execute nodejs scripts.
 If orbstack ubuntu VM is present, execute code inside that via "ssh ubuntu@orb".
 Never make more than one major change per iteration.
 Follow TDD for implementation.
