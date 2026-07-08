@@ -7,6 +7,8 @@ description: >
   and pr mode (your PRs with CI status).
   Use when user says "/dashboard", "show dashboard", "check my reviews", "check my PRs",
   "what's on my plate", "review backlog".
+metadata:
+  model: dynamic/small_model
 ---
 
 # Dashboard

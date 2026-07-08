@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# Resolve dynamic-models.jsonc provider into opencode.json
+# Resolve dynamic-models.jsonc provider into opencode.json + pi settings.json
 # Usage: provider <prefix>
 #   Fuzzy-matches provider name by first letters (e.g. "a" -> "anthropic")
-#   Also resolves dynamic/* tokens in commands/*.md templates.
+#   Resolves dynamic/* tokens in template files and commands/prompts.
 
 import json
 import re
@@ -23,11 +23,29 @@ def find_repo_root():
 
 
 REPO_ROOT = find_repo_root()
-MODELS_PATH = os.path.expanduser("~/.config/opencode/dynamic-models.jsonc")
+
+# Shared models (single source of truth)
+MODELS_PATH = os.path.expanduser("~/.config/dynamic-models.jsonc")
+
+# OpenCode paths
 TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/opencode.json.tmpl")
 OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
 COMMANDS_SRC = os.path.join(REPO_ROOT, "common", ".config", "opencode", "commands")
 COMMANDS_DST = os.path.expanduser("~/.config/opencode/commands")
+OPENCODE_CONFIG_DIR = os.path.expanduser("~/.config/opencode")
+
+# pi paths
+PI_CONFIG_SRC = os.path.join(REPO_ROOT, "common", ".config", "pi")
+PI_CONFIG_LINK = os.path.expanduser("~/.config/pi")
+PI_SETTINGS_TMPL = os.path.join(PI_CONFIG_SRC, "settings.json.tmpl")
+PI_SETTINGS_DST = os.path.expanduser("~/.pi/agent/settings.json")
+PI_PROMPTS_SRC = os.path.join(PI_CONFIG_SRC, "prompts")
+PI_PROMPTS_DST = os.path.expanduser("~/.pi/agent/prompts")
+PI_SKILLS_DST = os.path.expanduser("~/.pi/agent/skills")
+PI_EXTENSIONS_DST = os.path.expanduser("~/.pi/agent/extensions")
+PI_EXTENSIONS_SRC = os.path.join(PI_CONFIG_SRC, "extensions")
+SHARED_SKILLS = os.path.join(REPO_ROOT, "common", ".config", "skills")
+OPENCODE_SKILLS = os.path.expanduser("~/.config/opencode/skills")
 
 
 def strip_jsonc_comments(text):
@@ -63,6 +81,7 @@ def match_provider(providers, prefix):
 
 def make_replacements(provider_config):
     return {
+        "dynamic/provider": provider_config.get("name", ""),
         "dynamic/model": provider_config["model"],
         "dynamic/small_model": provider_config["small_model"],
         "dynamic/frontier_model": provider_config["frontier_model"],
@@ -71,6 +90,7 @@ def make_replacements(provider_config):
 
 
 def resolve_template(template, replacements):
+    """Recursively replace string values that exactly match replacement keys."""
     def replace_in_obj(obj):
         if isinstance(obj, str):
             return replacements.get(obj, obj)
@@ -89,12 +109,31 @@ def resolve_text(text, replacements):
     return text
 
 
+def ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+
+
+def ensure_symlink(target, link):
+    """Create symlink if not exists. Replace wrong symlink or real dir."""
+    if os.path.islink(link):
+        current = os.readlink(link)
+        if current == target:
+            return
+        os.unlink(link)
+    elif os.path.isdir(link):
+        shutil.rmtree(link)
+    elif os.path.exists(link):
+        os.unlink(link)
+    os.symlink(target, link)
+    print(f"  linked: {link} -> {target}")
+
+
 def resolve_and_copy(dir_src, dir_dst, replacements):
     """Copy dir_src to dir_dst, resolving dynamic/* tokens in all files."""
     if not os.path.isdir(dir_src):
         print(f"warning: source dir not found: {dir_src}", file=sys.stderr)
         return
-    os.makedirs(dir_dst, exist_ok=True)
+    ensure_dir(dir_dst)
     for entry in os.listdir(dir_src):
         src = os.path.join(dir_src, entry)
         dst = os.path.join(dir_dst, entry)
@@ -111,20 +150,11 @@ def resolve_and_copy(dir_src, dir_dst, replacements):
             print(f"  resolved: {dst}")
 
 
-def main():
-    if len(sys.argv) < 2:
-        models = load_jsonc(MODELS_PATH)
-        providers = models["providers"]
-        print(f"usage: provider <prefix>", file=sys.stderr)
-        print(f"available: {', '.join(sorted(providers.keys()))}", file=sys.stderr)
-        sys.exit(1)
-
-    prefix = sys.argv[1]
-
-    models = load_jsonc(MODELS_PATH)
-    providers = models["providers"]
-    name, config = match_provider(providers, prefix)
-    replacements = make_replacements(config)
+def setup_opencode(replacements):
+    """Resolve opencode.json template and copy commands."""
+    if not os.path.exists(TEMPLATE_PATH):
+        print("warning: opencode.json.tmpl not found, skipping opencode setup", file=sys.stderr)
+        return
 
     template = load_jsonc(TEMPLATE_PATH)
     result = resolve_template(template, replacements)
@@ -132,10 +162,84 @@ def main():
     with open(OUTPUT_PATH, "w") as f:
         json.dump(result, f, indent=2)
         f.write("\n")
+    print(f"  resolved: {OUTPUT_PATH}")
 
     resolve_and_copy(COMMANDS_SRC, COMMANDS_DST, replacements)
 
-    print(f"{name}: model={config['model']} small={config['small_model']} frontier={config['frontier_model']} antagonist={config['antagonist_model']}")
+    # Ensure skills symlink to shared
+    ensure_symlink(SHARED_SKILLS, OPENCODE_SKILLS)
+
+
+def setup_pi(replacements):
+    """Resolve pi settings.json template, copy prompts, set up symlinks."""
+    # Ensure ~/.config/pi symlink to repo
+    ensure_symlink(PI_CONFIG_SRC, PI_CONFIG_LINK)
+
+    if not os.path.exists(PI_SETTINGS_TMPL):
+        print("warning: pi settings.json.tmpl not found, skipping pi setup", file=sys.stderr)
+        return
+
+    template = load_jsonc(PI_SETTINGS_TMPL)
+    result = resolve_template(template, replacements)
+
+    ensure_dir(os.path.dirname(PI_SETTINGS_DST))
+    with open(PI_SETTINGS_DST, "w") as f:
+        json.dump(result, f, indent=2)
+        f.write("\n")
+    print(f"  resolved: {PI_SETTINGS_DST}")
+
+    resolve_and_copy(PI_PROMPTS_SRC, PI_PROMPTS_DST, replacements)
+
+    # Symlink skills → shared
+    ensure_symlink(SHARED_SKILLS, PI_SKILLS_DST)
+
+    # Symlink extensions → ~/.config/pi/extensions (which is repo symlink)
+    ensure_symlink(PI_EXTENSIONS_SRC, PI_EXTENSIONS_DST)
+
+
+def main():
+    if len(sys.argv) < 2:
+        # Just ensure symlinks without provider resolution
+        ensure_symlink(SHARED_SKILLS, OPENCODE_SKILLS)
+        if os.path.exists(PI_CONFIG_SRC):
+            ensure_symlink(PI_CONFIG_SRC, PI_CONFIG_LINK)
+            ensure_symlink(SHARED_SKILLS, PI_SKILLS_DST)
+            ensure_symlink(PI_EXTENSIONS_SRC, PI_EXTENSIONS_DST)
+
+        try:
+            models = load_jsonc(MODELS_PATH)
+        except FileNotFoundError:
+            print("error: dynamic-models.jsonc not found. Create symlink:", file=sys.stderr)
+            print("  ln -s REPO/common/.config/dynamic-models.jsonc ~/.config/dynamic-models.jsonc", file=sys.stderr)
+            sys.exit(1)
+
+        providers = models["providers"]
+        print(f"usage: provider <prefix>", file=sys.stderr)
+        print(f"available: {', '.join(sorted(providers.keys()))}", file=sys.stderr)
+        print(f"\nsymlinks created. Run with provider prefix to resolve templates.", file=sys.stderr)
+        sys.exit(1)
+
+    prefix = sys.argv[1]
+
+    # Ensure shared models symlink exists
+    if not os.path.exists(MODELS_PATH):
+        models_repo = os.path.join(REPO_ROOT, "common", ".config", "dynamic-models.jsonc")
+        if os.path.exists(models_repo):
+            ensure_symlink(models_repo, MODELS_PATH)
+
+    models = load_jsonc(MODELS_PATH)
+    providers = models["providers"]
+    name, config = match_provider(providers, prefix)
+    config["name"] = name
+    replacements = make_replacements(config)
+
+    print(f"--- opencode ---")
+    setup_opencode(replacements)
+
+    print(f"\n--- pi ---")
+    setup_pi(replacements)
+
+    print(f"\n{name}: model={config['model']} small={config['small_model']} frontier={config['frontier_model']} antagonist={config['antagonist_model']}")
 
 
 if __name__ == "__main__":

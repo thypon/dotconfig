@@ -1,0 +1,28 @@
+{
+  "$schema": "https://pi.dev/settings.schema.json",
+  "defaultProvider": "dynamic/provider",
+  "defaultModel": "dynamic/model",
+  "defaultThinkingLevel": "medium",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 32000,
+    "keepRecentTokens": 12000
+  },
+  "enabledModels": [
+    "dynamic/model",
+    "dynamic/small_model",
+    "dynamic/frontier_model",
+    "dynamic/antagonist_model"
+  ],
+  "packages": ["@davecodes/pi-dcp"],
+  "extensions": [
+    "./extensions/model-router.ts",
+    "./extensions/brave-search.ts",
+    "./extensions/ast-grep.ts",
+    "./extensions/aws-bedrock-auth.ts",
+    "./extensions/hashline.ts"
+  ],
+  "skills": ["../skills"],
+  "prompts": ["./prompts"],
+  "enableSkillCommands": true
+}

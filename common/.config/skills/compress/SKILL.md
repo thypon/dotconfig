@@ -5,6 +5,8 @@ description: >
   to save input tokens. Preserves all technical substance, code, URLs, and structure.
   Compressed version overwrites the original file. Human-readable backup saved as FILE.original.md.
   Trigger: /compress <filepath> or "compress memory file"
+metadata:
+  model: dynamic/small_model
 ---
 
 # Compress

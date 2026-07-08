@@ -1,6 +1,8 @@
 ---
 name: review
 description: "Expert code review of current git changes with a senior engineer lens. Detects SOLID violations, security risks, and proposes actionable improvements."
+metadata:
+  model: dynamic/model
 ---
 
 # Code Review Expert
