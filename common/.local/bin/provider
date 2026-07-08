@@ -115,6 +115,8 @@ def ensure_dir(path):
 
 def ensure_symlink(target, link):
     """Create symlink if not exists. Replace wrong symlink or real dir."""
+    if os.path.realpath(target) == os.path.realpath(link):
+        return
     if os.path.islink(link):
         current = os.readlink(link)
         if current == target:
