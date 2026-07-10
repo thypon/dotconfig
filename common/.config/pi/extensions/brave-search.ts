@@ -102,7 +102,7 @@ export default async function braveSearchExtension(pi: any) {
     }),
     async execute(toolCallId: string, params: any, _signal: any, _onUpdate: any, ctx: any) {
       const output = await braveSearch(params.query, params.count ?? 10, params.freshness)
-      return { content: output }
+      return { content: [{ type: "text", text: output }] }
     },
   })
 

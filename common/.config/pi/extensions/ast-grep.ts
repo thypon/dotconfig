@@ -298,9 +298,9 @@ export default function astGrepExtension(pi: any) {
           if (hint) output += `\n\n${hint}`
         }
 
-        return { content: output }
+        return { content: [{ type: "text", text: output }] }
       } catch (e) {
-        return { content: `Error: ${e instanceof Error ? e.message : String(e)}` }
+        return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }] }
       }
     },
   })
@@ -331,9 +331,9 @@ export default function astGrepExtension(pi: any) {
           globs: params.globs,
           updateAll: params.dryRun !== true,
         })
-        return { content: formatReplaceResult(result, params.dryRun === true) }
+        return { content: [{ type: "text", text: formatReplaceResult(result, params.dryRun === true) }] }
       } catch (e) {
-        return { content: `Error: ${e instanceof Error ? e.message : String(e)}` }
+        return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }] }
       }
     },
   })
