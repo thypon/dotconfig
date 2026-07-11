@@ -1,0 +1,8 @@
+{
+  "name": "pi-permissions",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "^0.0.65"
+  }
+}

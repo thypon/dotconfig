@@ -41,6 +41,24 @@ link_files() {
 	done
 }
 
+# Install extension dependencies (pnpm install in permissions extension dir)
+_pnpm_install() {
+	if [ ! -f "$TOPLEVELDIR/common/.config/pi/extensions/permissions/pnpm-lock.yaml" ]; then
+		return 0
+	fi
+	local pnpm_cmd
+	if command -v pnpm >/dev/null 2>&1; then
+		pnpm_cmd="pnpm"
+	elif command -v corepack >/dev/null 2>&1; then
+		pnpm_cmd="corepack pnpm"
+	else
+		echo "  (pnpm not found, skipping install)"
+		return 0
+	fi
+	echo "Installing permissions extension deps..."
+	(cd "$TOPLEVELDIR/common/.config/pi/extensions/permissions" && $pnpm_cmd install --frozen-lockfile) || true
+}
+
 link_files "$TOPLEVELDIR/common" "$HOME"
 
 if [ "$(uname -s)" != "Darwin" ]; then
@@ -52,3 +70,5 @@ else
 		echo "No macos/ directory found, skipping"
 	fi
 fi
+
+_pnpm_install
