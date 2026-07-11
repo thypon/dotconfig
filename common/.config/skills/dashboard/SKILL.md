@@ -9,6 +9,9 @@ description: >
   "what's on my plate", "review backlog".
 metadata:
   model: dynamic/small_model
+policy-deny:
+  - fs:write:.
+  - fs:write:/tmp
 ---
 
 # Dashboard

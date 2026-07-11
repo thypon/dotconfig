@@ -3,6 +3,9 @@ description: Dry code review of current changes
 argument-hint: <extra-args>
 metadata:
   model: dynamic/model
+policy-deny:
+  - fs:write:.
+  - fs:write:/tmp
 ---
 
 Review current git diff. Use the review skill.

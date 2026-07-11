@@ -3,6 +3,9 @@ description: GitHub workload dashboard (org/me/pr)
 argument-hint: <orgs|me|pr>
 metadata:
   model: dynamic/small_model
+policy-deny:
+  - fs:write:.
+  - fs:write:/tmp
 ---
 
 /dashboard $@

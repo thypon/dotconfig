@@ -3,6 +3,9 @@ description: Dry security review of current changes
 argument-hint: <extra-args>
 metadata:
   model: dynamic/model
+policy-deny:
+  - fs:write:.
+  - fs:write:/tmp
 ---
 
 /security-review $@

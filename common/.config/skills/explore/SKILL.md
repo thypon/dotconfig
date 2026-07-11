@@ -3,6 +3,9 @@ name: explore
 description: File search specialist for navigating and exploring codebases. Use Glob, Grep, Read, and Bash to find files and answer questions about codebase structure.
 metadata:
   model: dynamic/small_model
+policy-deny:
+  - fs:write:.
+  - fs:write:/tmp
 ---
 
 # Explore

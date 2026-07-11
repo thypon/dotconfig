@@ -3,6 +3,9 @@ name: plan
 description: Think, read, search, delegate explore agents to construct well-formed plan. Ask clarifying questions before making assumptions.
 metadata:
   model: dynamic/model
+policy-deny:
+  - fs:write:.
+  - fs:write:/tmp
 ---
 
 # Plan

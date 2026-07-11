@@ -3,6 +3,9 @@ description: Think, research, and construct well-formed plan
 argument-hint: [task description]
 metadata:
   model: dynamic/model
+policy-deny:
+  - fs:write:.
+  - fs:write:/tmp
 ---
 
 /plan $@
