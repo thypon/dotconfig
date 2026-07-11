@@ -21,6 +21,16 @@ link_files() {
 				;;
 		esac
 		destfile="$destdir/$relpath"
+		# skip if any ancestor of dest is a symlink (prevents self-referencing
+		# links when provider creates directory symlinks like ~/.config/pi)
+		destdir_parent="$(dirname "$destfile")"
+		while [ "$destdir_parent" != "$HOME" ] && [ "$destdir_parent" != "/" ]; do
+			if [ -L "$destdir_parent" ]; then
+				echo "  Skipping $relpath (ancestor is symlink)"
+				continue 2
+			fi
+			destdir_parent="$(dirname "$destdir_parent")"
+		done
 		destdir_parent="$(dirname "$destfile")"
 		if [ ! -d "$destdir_parent" ]; then
 			echo "  Creating directory $destdir_parent"
