@@ -1,6 +1,8 @@
 ---
 description: Create PR from recent commits
 argument-hint: <extra-args>
+metadata:
+  model: dynamic/small_model
 ---
 
 /pr $@

@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { homedir } from "node:os"
 
 const SHARED_SKILLS = join(homedir(), ".config", "skills")
+const SHARED_PROMPTS = join(homedir(), ".config", "pi", "prompts")
 const SETTINGS_PATH = join(homedir(), ".pi", "agent", "settings.json")
 const MODELS_PATH = join(homedir(), ".config", "dynamic-models.jsonc")
 
@@ -147,8 +148,34 @@ async function resolveAndStorePending(
   )
 }
 
+// Pre-scan prompts directory to build a name→modelToken map
+function buildPromptModelMap(): Map<string, string> {
+  const map = new Map<string, string>()
+  try {
+    const entries = readdirSync(SHARED_PROMPTS)
+    for (const entry of entries) {
+      if (!entry.endsWith(".md")) continue
+      const name = entry.replace(/\.md$/, "")
+      const content = readFileSync(join(SHARED_PROMPTS, entry), "utf8")
+      const fm = parseYamlFrontmatter(content)
+      const modelToken = fm?.metadata?.model
+      if (modelToken && typeof modelToken === "string" && modelToken.startsWith("dynamic/")) {
+        map.set(name, modelToken)
+      }
+    }
+  } catch { /* prompts dir might not exist */ }
+  return map
+}
+
 export default async function modelRouterExtension(pi: any) {
   console.error("[model-router] loaded")
+
+  // Pre-build the prompt model map
+  const promptModelMap = buildPromptModelMap()
+  if (promptModelMap.size > 0) {
+    const names = [...promptModelMap.keys()].join(", ")
+    console.error(`[model-router] prompts with dynamic models: ${names}`)
+  }
 
   pi.on("before_provider_request", async (event: any, _ctx: any) => {
     if (pendingModelId == null) return
@@ -162,19 +189,32 @@ export default async function modelRouterExtension(pi: any) {
   })
 
   pi.on("input", async (event: any, ctx: any) => {
-    const match = event.text?.match(/\/skill:(\S+)/)
-    if (!match) return { action: "continue" }
+    // Check for /skill:name syntax (skill invocation)
+    const skillMatch = event.text?.match(/\/skill:(\S+)/)
+    if (skillMatch) {
+      const skillName = skillMatch[1].replace(/[^\w-]/g, "")
+      if (!skillName) return { action: "continue" }
 
-    const skillName = match[1].replace(/[^\w-]/g, "")
-    if (!skillName) return { action: "continue" }
+      const skillFile = join(SHARED_SKILLS, skillName, "SKILL.md")
+      if (!(await fileExists(skillFile))) return { action: "continue" }
 
-    const skillFile = join(SHARED_SKILLS, skillName, "SKILL.md")
-    if (!(await fileExists(skillFile))) return { action: "continue" }
+      const frontmatter = parseYamlFrontmatter(readFileSync(skillFile, "utf8"))
+      const modelToken = frontmatter?.metadata?.model
+      if (modelToken && typeof modelToken === "string" && modelToken.startsWith("dynamic/")) {
+        await resolveAndStorePending(modelToken, ctx, `/skill:${skillName}`)
+      }
 
-    const frontmatter = parseYamlFrontmatter(readFileSync(skillFile, "utf8"))
-    const modelToken = frontmatter?.metadata?.model
-    if (modelToken && typeof modelToken === "string" && modelToken.startsWith("dynamic/")) {
-      await resolveAndStorePending(modelToken, ctx, `/skill:${skillName}`)
+      return { action: "continue" }
+    }
+
+    // Check for prompt slash commands: /commit, /review, /dashboard, etc.
+    const promptMatch = event.text?.match(/^\/(\w[\w-]*)/)
+    if (promptMatch) {
+      const promptName = promptMatch[1]
+      const modelToken = promptModelMap.get(promptName)
+      if (modelToken) {
+        await resolveAndStorePending(modelToken, ctx, `/${promptName}`)
+      }
     }
 
     return { action: "continue" }
@@ -184,7 +224,12 @@ export default async function modelRouterExtension(pi: any) {
     if (event.toolName !== "read") return
 
     const path = event.input?.path || event.input?.filePath
-    if (!path || !path.endsWith("SKILL.md")) return
+    if (!path) return
+
+    // Check if reading a SKILL.md or a prompts/*.md
+    const isSkillFile = path.endsWith("SKILL.md")
+    const isPromptFile = path.startsWith(SHARED_PROMPTS) && path.endsWith(".md")
+    if (!isSkillFile && !isPromptFile) return
 
     let content: string
     try {
@@ -196,7 +241,8 @@ export default async function modelRouterExtension(pi: any) {
     const frontmatter = parseYamlFrontmatter(content)
     const modelToken = frontmatter?.metadata?.model
     if (modelToken && typeof modelToken === "string" && modelToken.startsWith("dynamic/")) {
-      await resolveAndStorePending(modelToken, ctx, "SKILL.md read")
+      const label = isSkillFile ? "SKILL.md read" : `prompt: ${path.split("/").pop()?.replace(".md", "")}`
+      await resolveAndStorePending(modelToken, ctx, label)
     }
   })
 }

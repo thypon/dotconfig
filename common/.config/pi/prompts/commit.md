@@ -1,6 +1,8 @@
 ---
 description: Generate terse commit message
 argument-hint: <extra-args>
+metadata:
+  model: dynamic/small_model
 ---
 
 /commit $@

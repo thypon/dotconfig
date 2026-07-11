@@ -1,6 +1,8 @@
 ---
 description: Dry security review of current changes
 argument-hint: <extra-args>
+metadata:
+  model: dynamic/model
 ---
 
 /security-review $@
