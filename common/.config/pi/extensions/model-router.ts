@@ -115,10 +115,53 @@ async function resolveDynamicModel(token: string): Promise<string | null> {
   return null
 }
 
+let pendingModelId: string | null = null
+
+async function resolveAndStorePending(
+  token: string,
+  ctx: any,
+  label: string
+): Promise<void> {
+  const resolved = await resolveDynamicModel(token)
+  if (!resolved) return
+
+  const slashIdx = resolved.indexOf("/")
+  if (slashIdx < 0) {
+    console.error(`[model-router] ${label}: invalid model string "${resolved}"`)
+    return
+  }
+  const provider = resolved.slice(0, slashIdx)
+  const modelId = resolved.slice(slashIdx + 1)
+
+  const modelObj = ctx.modelRegistry?.find?.(provider, modelId)
+  if (!modelObj) {
+    console.error(
+      `[model-router] ${label}: model "${resolved}" not found in registry, using default`
+    )
+    return
+  }
+
+  pendingModelId = modelObj.id
+  console.error(
+    `[model-router] ${label} → model: ${resolved}`
+  )
+}
+
 export default async function modelRouterExtension(pi: any) {
   console.error("[model-router] loaded")
 
-  pi.on("input", async (event: any) => {
+  pi.on("before_provider_request", async (event: any, _ctx: any) => {
+    if (pendingModelId == null) return
+
+    console.error(`[model-router] override model → ${pendingModelId}`)
+    const overridden = typeof event.payload === "object" && event.payload !== null
+      ? { ...event.payload, model: pendingModelId }
+      : event.payload
+    pendingModelId = null
+    return overridden
+  })
+
+  pi.on("input", async (event: any, ctx: any) => {
     const match = event.text?.match(/\/skill:(\S+)/)
     if (!match) return { action: "continue" }
 
@@ -131,17 +174,13 @@ export default async function modelRouterExtension(pi: any) {
     const frontmatter = parseYamlFrontmatter(readFileSync(skillFile, "utf8"))
     const modelToken = frontmatter?.metadata?.model
     if (modelToken && typeof modelToken === "string" && modelToken.startsWith("dynamic/")) {
-      const resolved = await resolveDynamicModel(modelToken)
-      if (resolved) {
-        console.error(`[model-router] /skill:${skillName} → model: ${resolved}`)
-        pi.setModel(resolved)
-      }
+      await resolveAndStorePending(modelToken, ctx, `/skill:${skillName}`)
     }
 
     return { action: "continue" }
   })
 
-  pi.on("tool_call", async (event: any) => {
+  pi.on("tool_call", async (event: any, ctx: any) => {
     if (event.toolName !== "read") return
 
     const path = event.input?.path || event.input?.filePath
@@ -157,11 +196,7 @@ export default async function modelRouterExtension(pi: any) {
     const frontmatter = parseYamlFrontmatter(content)
     const modelToken = frontmatter?.metadata?.model
     if (modelToken && typeof modelToken === "string" && modelToken.startsWith("dynamic/")) {
-      const resolved = await resolveDynamicModel(modelToken)
-      if (resolved) {
-        console.error(`[model-router] SKILL.md read → model: ${resolved}`)
-        pi.setModel(resolved)
-      }
+      await resolveAndStorePending(modelToken, ctx, "SKILL.md read")
     }
   })
 }
