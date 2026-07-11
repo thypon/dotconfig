@@ -131,7 +131,6 @@ function formatFileWithHashes(content: string, hashLen?: number, userPrefix?: st
 function stripHashes(content: string, userPrefix?: string | false): string {
   const prefix = userPrefix === false ? "" : (userPrefix ?? DEFAULT_PREFIX)
   if (!prefix) return content
-
   const revLine = `${prefix}REV:`
   const lines = content.split(/\r?\n/)
   const stripped: string[] = []
@@ -582,8 +581,12 @@ export default function (_pi: unknown) {
         throw new Error(`Hashline edit failed for "${displayPath}": ${reason}`)
       }
 
-      // Strip hashes before writing — write raw content
-      const rawContent = stripHashes(nextContent, config.prefix === false ? "" : config.prefix)
+// Strip hashes before writing — write raw content
+      const stripPrefix = config.prefix === false ? "" : config.prefix
+      const nc = nextContent
+      const rawContent = stripHashes(nc, "#HL ")
+      console.error("[hashline] nc:", JSON.stringify(nc.substring(0, 40)))
+      console.error("[hashline] raw:", JSON.stringify(rawContent.substring(0, 40)))
 
       try {
         writeFileSync(realAbs, rawContent, "utf-8")
@@ -631,40 +634,31 @@ export default function (_pi: unknown) {
     if (!toolName) return
     if (!isFileReadTool(toolName, event?.input)) return
 
-    const result = event?.result
-    if (!result || typeof result.content !== "string" && !result?.output?.content) return
-
-    const content = typeof result.content === "string" ? result.content : result.output?.content
-    if (!content || typeof content !== "string") return
+    const contentArr = event?.content
+    if (!Array.isArray(contentArr) || contentArr.length === 0) return
+    const textContent = contentArr[0]?.text ?? contentArr[0] as string
+    if (typeof textContent !== "string" || !textContent) return
 
     debug("annotating read output, tool:", toolName, "input:", event?.input)
 
-    if (config.maxFileSize > 0 && getByteLength(content) > config.maxFileSize) return
+    if (config.maxFileSize > 0 && getByteLength(textContent) > config.maxFileSize) return
 
     const filePath = event?.input?.path || event?.input?.file || event?.input?.filePath
     if (typeof filePath === "string") {
-      const cached = cache.get(filePath, content)
+      const cached = cache.get(filePath, textContent)
       if (cached) {
-        if (typeof result.content === "string") {
-          event.result.content = cached
-        } else if (result.output) {
-          event.result.output.content = cached
-        }
+        event.content[0] = { type: "text", text: cached }
         return
       }
     }
 
-    const hashLen = getAdaptiveHashLength(content.split(/\r?\n/).length, config.hashLength || undefined)
-    const annotated = formatFileWithHashes(content, hashLen, config.prefix, config.fileRev)
+    const hashLen = getAdaptiveHashLength(textContent.split(/\r?\n/).length, config.hashLength || undefined)
+    const annotated = formatFileWithHashes(textContent, hashLen, config.prefix, config.fileRev)
 
-    if (typeof result.content === "string") {
-      event.result.content = annotated
-    } else if (result.output) {
-      event.result.output.content = annotated
-    }
+    event.content[0] = { type: "text", text: annotated }
 
     if (typeof filePath === "string") {
-      cache.set(filePath, content, annotated)
+      cache.set(filePath, textContent, annotated)
     }
   })
 

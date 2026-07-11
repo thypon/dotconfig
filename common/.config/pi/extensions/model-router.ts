@@ -49,6 +49,24 @@ function parseYamlFrontmatter(text: string): Record<string, any> {
     }
 
     if (currentIsMultiline) {
+      // Exit multiline if this line is a new root-level key
+      const keyMatch = line.match(/^(\w[\w-]*):\s*(.*)/)
+      if (keyMatch && line.search(/\S/) <= currentIndent - 2) {
+        currentIsMultiline = false
+        currentKey = keyMatch[1]
+        const value = keyMatch[2]
+        if (value === ">" || value === "|") {
+          currentIsMultiline = true
+          currentIndent = line.search(/\S/) + 2
+          result[currentKey] = ""
+        } else if (value === "") {
+          currentIndent = line.search(/\S/) + 2
+          result[currentKey] = {}
+        } else {
+          result[currentKey] = value.replace(/^"(.*)"$/, "$1")
+        }
+        continue
+      }
       const content = trimmed
       result[currentKey] = result[currentKey] ? `${result[currentKey]} ${content}` : content
       continue

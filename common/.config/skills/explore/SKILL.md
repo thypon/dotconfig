@@ -2,7 +2,7 @@
 name: explore
 description: File search specialist for navigating and exploring codebases. Use Glob, Grep, Read, and Bash to find files and answer questions about codebase structure.
 metadata:
-  model: dynamic/small_model
+  model: openrouter/deepseek/deepseek-v4-flash
 ---
 
 # Explore

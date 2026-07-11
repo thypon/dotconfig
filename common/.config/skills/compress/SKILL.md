@@ -6,7 +6,7 @@ description: >
   Compressed version overwrites the original file. Human-readable backup saved as FILE.original.md.
   Trigger: /compress <filepath> or "compress memory file"
 metadata:
-  model: dynamic/small_model
+  model: openrouter/deepseek/deepseek-v4-flash
 ---
 
 # Compress
