@@ -2,7 +2,7 @@
 name: plan
 description: Think, read, search, delegate explore agents to construct well-formed plan. Ask clarifying questions before making assumptions.
 metadata:
-  model: openrouter/deepseek/deepseek-v4-pro
+  model: dynamic/model
 ---
 
 # Plan

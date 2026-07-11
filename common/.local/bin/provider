@@ -168,8 +168,8 @@ def setup_opencode(replacements):
 
     resolve_and_copy(COMMANDS_SRC, COMMANDS_DST, replacements)
 
-    # Copy skills → resolved (so dynamic/* tokens become concrete model IDs)
-    resolve_and_copy(SHARED_SKILLS, OPENCODE_SKILLS, replacements)
+    # Ensure skills symlink to shared
+    ensure_symlink(SHARED_SKILLS, OPENCODE_SKILLS)
 
 
 def setup_pi(replacements):
@@ -192,8 +192,8 @@ def setup_pi(replacements):
 
     resolve_and_copy(PI_PROMPTS_SRC, PI_PROMPTS_DST, replacements)
 
-    # Copy skills → resolved (so dynamic/* tokens become concrete model IDs)
-    resolve_and_copy(SHARED_SKILLS, PI_SKILLS_DST, replacements)
+    # Symlink skills → shared
+    ensure_symlink(SHARED_SKILLS, PI_SKILLS_DST)
 
     # Symlink extensions → ~/.config/pi/extensions (which is repo symlink)
     ensure_symlink(PI_EXTENSIONS_SRC, PI_EXTENSIONS_DST)

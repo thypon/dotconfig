@@ -6,7 +6,7 @@ description: >
   isn't obvious. Use when user says "write a commit", "commit message", "generate commit",
   "/commit", or invokes /commit. Auto-triggers when staging changes.
 metadata:
-  model: openrouter/deepseek/deepseek-v4-flash
+  model: dynamic/small_model
 ---
 
 Write commit messages terse and exact. Conventional Commits format. No fluff. Why over what.

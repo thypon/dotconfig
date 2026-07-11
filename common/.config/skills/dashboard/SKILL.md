@@ -8,7 +8,7 @@ description: >
   Use when user says "/dashboard", "show dashboard", "check my reviews", "check my PRs",
   "what's on my plate", "review backlog".
 metadata:
-  model: openrouter/deepseek/deepseek-v4-flash
+  model: dynamic/small_model
 ---
 
 # Dashboard
