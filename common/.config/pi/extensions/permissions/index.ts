@@ -154,7 +154,11 @@ function createContainerizedBashOps(
 ): BashOperations {
   return {
     async exec(command, cwd, { onData, signal, timeout }) {
-      const workdir = cwd || mountCwd || WORKSPACE_DIR;
+      const workdir = cwd && cwd.startsWith(mountCwd + "/")
+        ? WORKSPACE_DIR + cwd.slice(mountCwd.length)
+        : cwd && cwd.startsWith(mountCwd)
+        ? WORKSPACE_DIR
+        : WORKSPACE_DIR;
 
       const escapedCmd = command
         .replace(/\\/g, "\\\\")
@@ -372,6 +376,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("user_bash", () => {
+    if (containerEnabled && containerRunning) {
+      return { operations: createContainerizedBashOps(containerName, containerCwd) };
+    }
     if (!sandboxEnabled || !sandboxInitialized) return;
     return { operations: createSandboxedBashOps() };
   });
@@ -583,9 +590,10 @@ proxyRunning = true;
     if (!sandboxEnabled || !sandboxInitialized || !activeConfig) return;
 
     const toolName = event.toolName;
-    if (toolName !== "write" && toolName !== "edit" && toolName !== "read") return;
+    if (toolName !== "write" && toolName !== "edit" && toolName !== "read" &&
+        toolName !== "grep" && toolName !== "find" && toolName !== "ls") return;
 
-    const path = event.input?.path || event.input?.filePath;
+    const path = event.input?.path || event.input?.filePath || event.input?.directory;
     if (!path) return;
 
     const resolved = path.startsWith("~")
@@ -610,7 +618,7 @@ proxyRunning = true;
       }
     }
 
-    if (toolName === "read") {
+    if (toolName === "read" || toolName === "grep" || toolName === "find" || toolName === "ls") {
       const denyRead = activeConfig.filesystem?.denyRead ?? [];
       for (const deny of denyRead) {
         if (matchesPath(resolved, deny, ctx.cwd)) {
