@@ -1,27 +1,11 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { type Socket } from "node:net";
-import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { createConnection, createServer } from "node:net";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { createSecureContext, connect as tlsConnect } from "node:tls";
-import { TLSSocket } from "node:tls";
-import { randomUUID } from "node:crypto";
-import type { Server } from "node:http";
+import { homedir } from "node:os";
 
-let caDir = ""
-
-export function getCaDir(): string {
-  return caDir
-}
-
-export function setCaDir(dir: string): void {
-  caDir = dir
-}
-
-function caKeyPath(): string { return join(caDir, "ca.key") }
-function caCertPath(): string { return join(caDir, "ca.crt") }
-function certsDir(): string { return join(caDir, "certs") }
+const MITMDUMP = "/opt/homebrew/bin/mitmdump";
+const MITMPROXY_CA_CERT = join(homedir(), ".mitmproxy", "mitmproxy-ca-cert.pem");
 
 export interface DomainCredentials {
   [header: string]: string;
@@ -31,255 +15,138 @@ export interface CredentialMap {
   [domain: string]: DomainCredentials;
 }
 
-let proxyServer: Server | null = null;
+let proxyProcess: ReturnType<typeof spawn> | null = null;
 let proxyPort = 0;
-let proxyCredentialMap: CredentialMap = {};
 
-function ensureCA(): { key: string; cert: string } {
-  if (!caDir || !existsSync(caKeyPath()) || !existsSync(caCertPath())) {
-    throw new Error("CA not available. Generate CA inside container first.")
-  }
-  if (!existsSync(certsDir())) mkdirSync(certsDir(), { recursive: true })
-  return {
-    key: readFileSync(caKeyPath(), "utf8"),
-    cert: readFileSync(caCertPath(), "utf8"),
-  }
-}
-
-function getDomainCert(domain: string): { key: string; cert: string } {
-  const safeName = domain.replace(/[^a-zA-Z0-9.-]/g, "_")
-  const certPath = join(certsDir(), `${safeName}.crt`)
-  const keyPath = join(certsDir(), `${safeName}.key`)
-
-  if (existsSync(keyPath) && existsSync(certPath)) {
-    return {
-      key: readFileSync(keyPath, "utf8"),
-      cert: readFileSync(certPath, "utf8"),
-    }
-  }
-
-  const caKey = readFileSync(caKeyPath(), "utf8")
-  const caCert = readFileSync(caCertPath(), "utf8")
-
-  const tmpKey = join(certsDir(), `.tmp-${safeName}.key`)
-  const tmpCsr = join(certsDir(), `.tmp-${safeName}.csr`)
-  const tmpExt = join(certsDir(), `.tmp-${safeName}.ext`)
-
-  try {
-    execSync(
-      `openssl genrsa -out "${tmpKey}" 2048`,
-      { stdio: "pipe", timeout: 10000 },
-    )
-    execSync(
-      `openssl req -new -key "${tmpKey}" -out "${tmpCsr}" -subj "/CN=${domain}"`,
-      { stdio: "pipe", timeout: 10000 },
-    )
-
-    const extContent = [
-      "authorityKeyIdentifier=keyid,issuer",
-      "basicConstraints=CA:FALSE",
-      "keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment",
-      `subjectAltName=DNS:${domain}`,
-    ].join("\n")
-    writeFileSync(tmpExt, extContent)
-
-    execSync(
-      `openssl x509 -req -in "${tmpCsr}" -CA "${caCertPath()}" -CAkey "${caKeyPath()}" ` +
-      `-CAcreateserial -out "${certPath}" -days 825 -sha256 -extfile "${tmpExt}"`,
-      { stdio: "pipe", timeout: 10000 },
-    )
-
-    writeFileSync(keyPath, readFileSync(tmpKey))
-  } finally {
-    try { unlinkSync(tmpKey) } catch {}
-    try { unlinkSync(tmpCsr) } catch {}
-    try { unlinkSync(tmpExt) } catch {}
-  }
-
-  return {
-    key: readFileSync(keyPath, "utf8"),
-    cert: readFileSync(certPath, "utf8"),
-  }
-}
-
-interface ProxyRequest {
-  method: string;
-  path: string;
-  headers: Record<string, string>;
-  body: Buffer;
-}
-
-function parseHttpRequest(data: Buffer): ProxyRequest | null {
-  const str = data.toString("utf8")
-  const lines = str.split("\r\n")
-  const requestLine = lines[0]
-  if (!requestLine) return null
-
-  const [method, path] = requestLine.split(" ")
-  if (!method || !path) return null
-
-  const headers: Record<string, string> = {}
-  let i = 1
-  for (; i < lines.length; i++) {
-    const line = lines[i]
-    if (line === "") break
-    const colonIdx = line.indexOf(": ")
-    if (colonIdx > 0) {
-      headers[line.slice(0, colonIdx).toLowerCase()] = line.slice(colonIdx + 2)
-    }
-  }
-
-  const bodyStart = str.indexOf("\r\n\r\n") + 4
-  const body = Buffer.from(str.slice(bodyStart), "utf8")
-
-  return { method, path, headers, body }
-}
-
-function handleMITM(
-  clientSocket: Socket,
-  domain: string,
-  port: number,
-  onRequest: (req: ProxyRequest) => ProxyRequest,
-): void {
-  clientSocket.on("error", () => {})
-
-  try {
-    const { key, cert } = getDomainCert(domain)
-    const secureContext = createSecureContext({ key, cert })
-
-    const tlsSocket = new TLSSocket(clientSocket, {
-      secureContext,
-      isServer: true,
-    })
-
-    tlsSocket.on("error", () => {})
-
-    let buffer = Buffer.alloc(0)
-
-    tlsSocket.on("data", (chunk: Buffer) => {
-      buffer = Buffer.concat([buffer, chunk])
-
-      if (!buffer.toString().includes("\r\n\r\n")) return
-
-      const req = parseHttpRequest(buffer)
-      if (!req) return
-
-      const modified = onRequest(req)
-
-      const upstreamHeaders: Record<string, string> = {}
-      for (const [k, v] of Object.entries(modified.headers)) {
-        upstreamHeaders[k] = v
-      }
-      delete upstreamHeaders["proxy-connection"]
-      delete upstreamHeaders["proxy-authorization"]
-
-      const upstreamSocket = tlsConnect({
-        host: domain,
-        port,
-        servername: domain,
-        rejectUnauthorized: false,
-      })
-
-      upstreamSocket.on("error", () => {
-        tlsSocket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n")
-      })
-
-      upstreamSocket.on("connect", () => {
-        const headerLines = [
-          `${modified.method} ${modified.path} HTTP/1.1`,
-          `Host: ${domain}`,
-          ...Object.entries(upstreamHeaders).map(([k, v]) => `${k}: ${v}`),
-          "",
-          "",
-        ]
-        const raw = headerLines.join("\r\n")
-
-        upstreamSocket.write(raw)
-        if (modified.body.length > 0) {
-          upstreamSocket.write(modified.body)
-        }
-
-        tlsSocket.pipe(upstreamSocket).pipe(tlsSocket)
-      })
-    })
-  } catch {
-    clientSocket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n")
-  }
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function startCredentialProxy(
   credentialMap: CredentialMap,
   port = 0,
 ): Promise<number> {
-  return new Promise((resolve, reject) => {
-    if (proxyServer) {
-      resolve(proxyPort)
-      return
+  return new Promise(async (resolve, reject) => {
+    if (proxyProcess) {
+      resolve(proxyPort);
+      return;
     }
 
-    ensureCA()
-    proxyCredentialMap = credentialMap
+    // Find a free port if port=0
+    let targetPort = port;
+    if (targetPort === 0) {
+      const portServer = createServer();
+      targetPort = await new Promise<number>((resolvePort, rejectPort) => {
+        portServer.listen(0, "127.0.0.1", () => {
+          const addr = portServer.address();
+          if (addr && typeof addr === "object") resolvePort(addr.port);
+          else rejectPort(new Error("could not determine port"));
+        });
+        portServer.on("error", rejectPort);
+      });
+      portServer.close();
+    }
 
-    proxyServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-      if (req.method === "GET" && req.url === "/health") {
-        res.writeHead(200, { "Content-Type": "text/plain" })
-        res.end("ok")
-        return
+    const args: string[] = [
+      "-p", String(targetPort),
+      "--ssl-insecure",
+      "--listen-host", "127.0.0.1",
+    ];
+
+    for (const [domain, creds] of Object.entries(credentialMap)) {
+      const domainPattern = `/~d ${escapeRegex(domain)}`;
+      for (const [header, value] of Object.entries(creds)) {
+        args.push(
+          "--modify-headers",
+          `${domainPattern}/${header}/${value}`,
+        );
       }
+    }
 
-      res.writeHead(404)
-      res.end("Not Found")
-    })
+    const child = spawn(MITMDUMP, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: false,
+    });
 
-    proxyServer.on("connect", (req: IncomingMessage, clientSocket: Socket, _head: Buffer) => {
-      const [domain, portStr] = (req.url ?? "").split(":")
-      const targetPort = parseInt(portStr) || 443
+    console.error(`[credential-proxy] spawned mitmdump pid=${child.pid} port=${targetPort}`);
 
-      if (!domain) {
-        clientSocket.end("HTTP/1.1 400 Bad Request\r\n\r\n")
-        return
+    let resolved = false;
+    let pollTimer: ReturnType<typeof setTimeout>;
+
+    const cleanup = () => clearTimeout(pollTimer);
+
+    const handleError = (err: Error) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      reject(err);
+    };
+
+    child.on("error", (err) => handleError(new Error(`mitmdump failed: ${err.message}`)));
+    child.on("exit", (code) => {
+      if (!resolved) {
+        resolved = true;
+        cleanup();
+        reject(new Error(`mitmdump exited with code ${code}`));
       }
+    });
 
-      const domainCreds = proxyCredentialMap[domain] ?? {}
+    const tryPort = (): Promise<boolean> => {
+      return new Promise((resolveConnect) => {
+        const sock = createConnection({ host: "127.0.0.1", port: targetPort }, () => {
+          sock.destroy();
+          resolveConnect(true);
+        });
+        sock.on("error", () => resolveConnect(false));
+        setTimeout(() => { sock.destroy(); resolveConnect(false); }, 500);
+      });
+    };
 
-      clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n")
-
-      handleMITM(clientSocket, domain, targetPort, (proxiedReq) => {
-        const headers = { ...proxiedReq.headers }
-        for (const [hdr, val] of Object.entries(domainCreds)) {
-          headers[hdr.toLowerCase()] = val
+    let pollAttempts = 0;
+    const poll = () => {
+      if (resolved) return;
+      if (pollAttempts > 60) {
+        handleError(new Error("timed out waiting for mitmdump"));
+        return;
+      }
+      pollAttempts++;
+      tryPort().then((alive) => {
+        if (resolved) return;
+        if (alive) {
+          resolved = true;
+          proxyPort = targetPort;
+          proxyProcess = child;
+          resolve(proxyPort);
+        } else {
+          pollTimer = setTimeout(poll, 500);
         }
-        return { ...proxiedReq, headers }
-      })
-    })
-
-    proxyServer.on("error", reject)
-
-    proxyServer.listen(port, "127.0.0.1", () => {
-      const addr = proxyServer!.address()
-      if (addr && typeof addr === "object") {
-        proxyPort = addr.port
-        resolve(proxyPort)
-      } else {
-        reject(new Error("Failed to get proxy port"))
-      }
-    })
-  })
+      });
+    };
+    poll();
+  });
 }
 
 export function stopCredentialProxy(): Promise<void> {
   return new Promise((resolve) => {
-    if (!proxyServer) {
-      resolve()
-      return
+    if (!proxyProcess) {
+      resolve();
+      return;
     }
-    proxyServer.close(() => {
-      proxyServer = null
-      proxyPort = 0
-      proxyCredentialMap = {}
-      resolve()
-    })
-  })
+    proxyProcess.kill("SIGTERM");
+    proxyProcess.on("exit", () => {
+      proxyProcess = null;
+      proxyPort = 0;
+      resolve();
+    });
+    setTimeout(() => {
+      if (proxyProcess) {
+        proxyProcess.kill("SIGKILL");
+        proxyProcess = null;
+        proxyPort = 0;
+        resolve();
+      }
+    }, 3000);
+  });
 }
 
 export function getCredentialProxyPort(): number {
@@ -287,13 +154,13 @@ export function getCredentialProxyPort(): number {
 }
 
 export function getCredentialProxyEnv(): Record<string, string> {
-  if (!proxyPort || !caDir) return {}
-  const proxyUrl = `http://127.0.0.1:${proxyPort}`
+  if (!proxyPort || !existsSync(MITMPROXY_CA_CERT)) return {};
+  const proxyUrl = `http://127.0.0.1:${proxyPort}`;
   return {
     HTTPS_PROXY: proxyUrl,
     https_proxy: proxyUrl,
     HTTP_PROXY: proxyUrl,
     http_proxy: proxyUrl,
-    NODE_EXTRA_CA_CERTS: caCertPath(),
+    NODE_EXTRA_CA_CERTS: MITMPROXY_CA_CERT,
   };
 }

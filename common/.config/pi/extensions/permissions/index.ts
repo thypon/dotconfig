@@ -43,7 +43,6 @@ import {
   stopCredentialProxy,
   getCredentialProxyEnv,
   getCredentialProxyPort,
-  setCaDir,
 } from "./credential-proxy";
 import {
   buildCredentialMap,
@@ -387,6 +386,7 @@ export default function (pi: ExtensionAPI) {
     console.error("[permissions] session_start");
     const noSandbox = pi.getFlag("no-sandbox") as boolean;
     const useContainer = pi.getFlag("container") as boolean;
+    console.error(`[permissions] flags: noSandbox=${noSandbox} useContainer=${useContainer}`);
 
     if (noSandbox) {
       sandboxEnabled = false;
@@ -394,8 +394,10 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (useContainer) {
+      console.error("[permissions] container block entered");
       try {
         const runtime = detectContainerRuntime();
+        console.error("[permissions] container runtime:", runtime);
         if (!runtime) {
           ctx.ui.notify("Container requested but apple/container not available", "error");
           return;
@@ -408,49 +410,40 @@ export default function (pi: ExtensionAPI) {
         const ports = portsFlag ? portsFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined;
 
         const imageTag = await resolveImageTag(containerCwd);
+        console.error("[permissions] imageTag:", imageTag);
         await buildContainerImage(containerCwd, imageTag);
+        console.error("[permissions] image built or skipped");
 
         const credMap = buildCredentialMap();
+        console.error("[permissions] credMap domains:", Object.keys(credMap));
         const cleanEnv = stripCredentialsFromEnv(process.env as Record<string, string>);
+        console.error("[permissions] cleanEnv keys:", Object.keys(cleanEnv).length);
+        console.error("[permissions] starting proxy...");
 
-        const caDir = join(homedir(), tmpdir(), `pi-ca-${containerName}`);
-        try { execSync(`mkdir -p "${caDir}"`) } catch {}
+        const mitmproxyCert = join(homedir(), ".mitmproxy", "mitmproxy-ca-cert.pem");
+        const certVolumes: Record<string, string> = {};
+        if (existsSync(mitmproxyCert)) {
+          certVolumes[mitmproxyCert] = "/usr/local/share/ca-certificates/mitmproxy-ca-cert.crt:ro";
+        }
 
         ctx.ui.notify(`Starting container ${containerName} (${imageTag})...`, "info");
+
+        const proxyPort = await startCredentialProxy(credMap);
+        const proxyEnv = getCredentialProxyEnv();
+        proxyRunning = true;
+
+        const containerEnv = { ...cleanEnv, ...proxyEnv };
 
         await startContainer({
           image: imageTag,
           cwd: containerCwd,
           name: containerName,
           ports,
-          env: cleanEnv,
+          env: containerEnv,
           ssh: false,
-          volumes: { [caDir]: "/pi-ca" },
+          volumes: certVolumes,
         });
 
-        containerRunning = true;
-
-        try {
-          const caResult = await execInContainer(
-            containerName,
-            `apt-get update -qq 2>/dev/null && ` +
-            `apt-get install -y -qq openssl 2>/dev/null && ` +
-            `openssl genrsa -out /pi-ca/ca.key 2048 2>/dev/null && ` +
-            `openssl req -new -x509 -days 3650 -key /pi-ca/ca.key -out /pi-ca/ca.crt ` +
-            `-subj /CN=PiContainerCA 2>/dev/null`,
-          );
-          if (caResult.exitCode !== 0) {
-            console.error("[permissions] CA generation failed (exit", caResult.exitCode, "):", caResult.output);
-          }
-        } catch {
-          // openssl may not be available in container; CA-less proxy
-        }
-
-        setCaDir(caDir);
-        const proxyPort = await startCredentialProxy(credMap);
-        const proxyEnv = getCredentialProxyEnv();
-
-proxyRunning = true;
         containerEnabled = true;
         containerRunning = true;
 
@@ -460,7 +453,7 @@ proxyRunning = true;
         );
         ctx.ui.notify(`Container ${containerName} ready (proxy :${proxyPort})`, "info");
 
-          console.error("[permissions] container:", containerName, imageTag);
+        console.error("[permissions] container:", containerName, imageTag);
       } catch (err) {
         containerEnabled = false;
         containerRunning = false;
