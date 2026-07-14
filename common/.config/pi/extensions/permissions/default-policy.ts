@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
@@ -75,6 +75,7 @@ This policy is auto-generated. Edit to customize.
 `;
 
 export function ensureDefaultPolicy(): void {
+  try { mkdirSync("/tmp/claude", { recursive: true }); } catch {}
   if (!existsSync(DEFAULT_POLICY_MD_PATH)) {
     writeFileSync(DEFAULT_POLICY_MD_PATH, DEFAULT_POLICY_TEMPLATE, "utf8");
   }
