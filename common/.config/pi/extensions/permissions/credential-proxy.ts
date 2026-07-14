@@ -49,6 +49,7 @@ export function startCredentialProxy(
 
     const args: string[] = [
       "-p", String(targetPort),
+      "--ssl-insecure",
       "--listen-host", "127.0.0.1",
     ];
 
