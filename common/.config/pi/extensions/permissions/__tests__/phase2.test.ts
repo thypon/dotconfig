@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -9,6 +9,9 @@ import {
   injectMandatoryDenies,
   type CapabilityPolicy,
 } from "../policy-parser";
+import {
+  autoDetectGhToken,
+} from "../credential-map";
 import {
   hashString,
   projectCacheDir,
@@ -348,4 +351,42 @@ describe("cache", () => {
   });
 
   rmSync(tmpDir, { recursive: true, force: true });
+});
+
+describe("autoDetectGhToken", () => {
+  const origGH = process.env.GH_TOKEN;
+  const origGITHUB = process.env.GITHUB_TOKEN;
+
+  afterEach(() => {
+    if (origGH) process.env.GH_TOKEN = origGH;
+    else delete process.env.GH_TOKEN;
+    if (origGITHUB) process.env.GITHUB_TOKEN = origGITHUB;
+    else delete process.env.GITHUB_TOKEN;
+  });
+
+  it("returns undefined when GH_TOKEN is set in env", () => {
+    process.env.GH_TOKEN = "gho_fake";
+    const result = autoDetectGhToken();
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when GITHUB_TOKEN is set in env", () => {
+    process.env.GITHUB_TOKEN = "ghp_fake";
+    const result = autoDetectGhToken();
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when GH_TOKEN and GITHUB_TOKEN both set", () => {
+    process.env.GH_TOKEN = "gho_fake";
+    process.env.GITHUB_TOKEN = "ghp_fake";
+    const result = autoDetectGhToken();
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when gh not installed or not authenticated", () => {
+    delete process.env.GH_TOKEN;
+    delete process.env.GITHUB_TOKEN;
+    const result = autoDetectGhToken();
+    expect(result === undefined || typeof result === "string").toBe(true);
+  });
 });

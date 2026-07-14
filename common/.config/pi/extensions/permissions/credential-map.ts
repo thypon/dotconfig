@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -52,6 +53,20 @@ export function autoDetectCredentials(): CredentialMap {
   }
 
   return map;
+}
+
+export function autoDetectGhToken(): string | undefined {
+  if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return undefined;
+  try {
+    const token = execSync("gh auth token", {
+      encoding: "utf8",
+      timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return token || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function loadOverrideCredentials(): CredentialMap {

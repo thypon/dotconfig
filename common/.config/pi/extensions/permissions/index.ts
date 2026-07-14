@@ -51,6 +51,7 @@ import {
 import {
   buildCredentialMap,
   stripCredentialsFromEnv,
+  autoDetectGhToken,
 } from "./credential-map";
 
 const SHARED_SKILLS = join(homedir(), ".config", "skills");
@@ -416,6 +417,14 @@ export default function (pi: ExtensionAPI) {
         const credMap = buildCredentialMap();
         const cleanEnv = stripCredentialsFromEnv(process.env as Record<string, string>);
 
+        const ghToken = autoDetectGhToken();
+        if (ghToken) {
+          const tokenRule = { env: "GH_TOKEN", domain: "api.github.com", header: "Authorization", prefix: "Bearer " };
+          const headerValue = `Bearer ${ghToken}`;
+          if (!credMap["api.github.com"]) credMap["api.github.com"] = {};
+          credMap["api.github.com"]["authorization"] = headerValue;
+        }
+
         networkName = `pi-net-${Date.now()}`;
         createNetwork(networkName);
 
@@ -434,6 +443,10 @@ export default function (pi: ExtensionAPI) {
         const proxyEnv = getCredentialProxyEnv();
         const caEnv = getCaCertEnv();
         const containerEnv = { ...cleanEnv, ...proxyEnv, ...caEnv };
+
+        if (ghToken) {
+          containerEnv.GH_TOKEN = ghToken;
+        }
 
         await startContainer({
           image: imageTag,
