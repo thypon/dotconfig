@@ -35,14 +35,18 @@ import {
   execInContainer,
   stopContainer,
   isContainerRunning,
+  createNetwork,
+  removeNetwork,
   type ContainerConfig,
 } from "./container";
 import {
   type CredentialMap,
+  ensureCA,
+  getCaCertPath,
   startCredentialProxy,
   stopCredentialProxy,
   getCredentialProxyEnv,
-  getCredentialProxyPort,
+  getCaCertEnv,
 } from "./credential-proxy";
 import {
   buildCredentialMap,
@@ -292,6 +296,7 @@ export default function (pi: ExtensionAPI) {
   let containerRunning = false;
   let containerName = "";
   let containerCwd = "";
+  let networkName = "";
   let proxyRunning = false;
   let activeConfig: SandboxRuntimeConfig | null = null;
   let activePolicyHash: string | null = null;
@@ -383,10 +388,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event, ctx) => {
-    console.error("[permissions] session_start");
     const noSandbox = pi.getFlag("no-sandbox") as boolean;
     const useContainer = pi.getFlag("container") as boolean;
-    console.error(`[permissions] flags: noSandbox=${noSandbox} useContainer=${useContainer}`);
 
     if (noSandbox) {
       sandboxEnabled = false;
@@ -394,10 +397,8 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (useContainer) {
-      console.error("[permissions] container block entered");
       try {
         const runtime = detectContainerRuntime();
-        console.error("[permissions] container runtime:", runtime);
         if (!runtime) {
           ctx.ui.notify("Container requested but apple/container not available", "error");
           return;
@@ -410,29 +411,29 @@ export default function (pi: ExtensionAPI) {
         const ports = portsFlag ? portsFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined;
 
         const imageTag = await resolveImageTag(containerCwd);
-        console.error("[permissions] imageTag:", imageTag);
         await buildContainerImage(containerCwd, imageTag);
-        console.error("[permissions] image built or skipped");
 
         const credMap = buildCredentialMap();
-        console.error("[permissions] credMap domains:", Object.keys(credMap));
         const cleanEnv = stripCredentialsFromEnv(process.env as Record<string, string>);
-        console.error("[permissions] cleanEnv keys:", Object.keys(cleanEnv).length);
-        console.error("[permissions] starting proxy...");
 
-        const mitmproxyCert = join(homedir(), ".mitmproxy", "mitmproxy-ca-cert.pem");
+        networkName = `pi-net-${Date.now()}`;
+        createNetwork(networkName);
+
+        ensureCA();
+        const caCertPath = getCaCertPath();
         const certVolumes: Record<string, string> = {};
-        if (existsSync(mitmproxyCert)) {
-          certVolumes[mitmproxyCert] = "/usr/local/share/ca-certificates/mitmproxy-ca-cert.crt:ro";
+        if (existsSync(caCertPath)) {
+          certVolumes[caCertPath] = "/usr/local/share/ca-certificates/pi-ca.crt:ro";
         }
 
-        ctx.ui.notify(`Starting container ${containerName} (${imageTag})...`, "info");
+        ctx.ui.notify(`Starting proxy + container ${containerName} (${imageTag})...`, "info");
 
-        const proxyPort = await startCredentialProxy(credMap);
-        const proxyEnv = getCredentialProxyEnv();
+        const proxySession = await startCredentialProxy(credMap, networkName);
         proxyRunning = true;
 
-        const containerEnv = { ...cleanEnv, ...proxyEnv };
+        const proxyEnv = getCredentialProxyEnv();
+        const caEnv = getCaCertEnv();
+        const containerEnv = { ...cleanEnv, ...proxyEnv, ...caEnv };
 
         await startContainer({
           image: imageTag,
@@ -442,18 +443,28 @@ export default function (pi: ExtensionAPI) {
           env: containerEnv,
           ssh: false,
           volumes: certVolumes,
+          network: networkName,
         });
+
+        try {
+          await execInContainer(containerName,
+            "mkdir -p /usr/local/share/ca-certificates && " +
+            "cp /usr/local/share/ca-certificates/pi-ca.crt /usr/local/share/ca-certificates/pi-ca.crt 2>/dev/null; " +
+            "update-ca-certificates 2>/dev/null || true",
+            "/"
+          );
+        } catch (err) {
+          ctx.ui.notify(`CA trust store install failed: ${err instanceof Error ? err.message : err}`, "warning");
+        }
 
         containerEnabled = true;
         containerRunning = true;
 
         ctx.ui.setStatus(
           "permissions",
-          ctx.ui.theme.fg("accent", `🐳 Container: ${containerName} (${imageTag}) proxy:${proxyPort}`),
+          ctx.ui.theme.fg("accent", `🐳 Container: ${containerName} (${imageTag}) proxy:${proxySession.name}:${proxySession.port}`),
         );
-        ctx.ui.notify(`Container ${containerName} ready (proxy :${proxyPort})`, "info");
-
-        console.error("[permissions] container:", containerName, imageTag);
+        ctx.ui.notify(`Container ${containerName} ready (proxy ${proxySession.name}:${proxySession.port})`, "info");
       } catch (err) {
         containerEnabled = false;
         containerRunning = false;
@@ -489,7 +500,6 @@ export default function (pi: ExtensionAPI) {
       activeConfig = resolveConfig(ctx.cwd, null);
 
       await SandboxManager.initialize(activeConfig);
-      console.error("[permissions] sandbox initialized");
 
       sandboxEnabled = true;
       sandboxInitialized = true;
@@ -599,14 +609,12 @@ export default function (pi: ExtensionAPI) {
       const denyWrite = activeConfig.filesystem?.denyWrite ?? [];
       for (const deny of denyWrite) {
         if (matchesPath(resolved, deny, ctx.cwd)) {
-          console.error("[permissions] tool_call blocked write:", toolName, resolved, "denied by:", deny);
           return { block: true, reason: `Write denied by policy: ${deny}` };
         }
       }
       const allowWrite = activeConfig.filesystem?.allowWrite ?? [];
       const allowed = allowWrite.some(p => matchesPath(resolved, p, ctx.cwd));
       if (!allowed) {
-        console.error("[permissions] tool_call blocked write:", toolName, resolved, "not in allowWrite:", allowWrite);
         return { block: true, reason: `Write not in allowWrite policy` };
       }
     }
@@ -632,14 +640,18 @@ export default function (pi: ExtensionAPI) {
     }
     if (containerRunning && containerName) {
       try {
-        console.error("[permissions] stopping container:", containerName);
         await stopContainer(containerName);
-        console.error("[permissions] container stopped:", containerName);
       } catch {
         // Ignore cleanup errors
       }
       containerRunning = false;
       containerEnabled = false;
+    }
+    if (networkName) {
+      try {
+        removeNetwork(networkName);
+        networkName = "";
+      } catch {}
     }
     if (sandboxInitialized) {
       try {

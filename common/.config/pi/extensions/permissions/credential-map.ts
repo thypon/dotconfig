@@ -78,7 +78,15 @@ export function buildCredentialMap(): CredentialMap {
 }
 
 export function getCredentialEnvBlacklist(): string[] {
-  return KNOWN_CREDENTIALS.map(r => r.env);
+  return [
+    ...KNOWN_CREDENTIALS.map(r => r.env),
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "NO_PROXY",
+    "no_proxy",
+  ];
 }
 
 export function stripCredentialsFromEnv(env: Record<string, string>): Record<string, string> {
