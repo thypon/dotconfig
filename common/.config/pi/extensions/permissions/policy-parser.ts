@@ -17,11 +17,17 @@ const TOKEN_HANDLERS: Record<string, TokenHandler> = {
   "fs:write": (target, config) => {
     config.filesystem?.allowWrite?.push(target);
   },
+  "mach": (target, config) => {
+    config.network?.allowMachLookup?.push(target);
+  },
+  "unix-socket": (target, config) => {
+    config.network?.allowUnixSockets?.push(target);
+  },
 };
 
 export function capabilityToSandboxConfig(policy: CapabilityPolicy): SandboxRuntimeConfig {
   const config: SandboxRuntimeConfig = {
-    network: { allowedDomains: [], deniedDomains: [] },
+    network: { allowedDomains: [], deniedDomains: [], allowMachLookup: [], allowUnixSockets: [] },
     filesystem: { denyRead: [], allowRead: [], allowWrite: [], denyWrite: [] },
   };
 
@@ -46,12 +52,12 @@ export function capabilityToSandboxConfig(policy: CapabilityPolicy): SandboxRunt
 }
 
 function parseToken(token: string, list: "allow" | "deny"): { prefix: string; target: string } {
-  for (const prefix of ["network", "fs:read", "fs:write"]) {
+  for (const prefix of ["network", "fs:read", "fs:write", "mach", "unix-socket"]) {
     if (token.startsWith(prefix + ":")) {
       return { prefix, target: token.slice(prefix.length + 1) };
     }
   }
-  throw new Error(`Invalid policy token in ${list} list: "${token}". Expected "network:<domain>", "fs:read:<path>", or "fs:write:<path>"`);
+  throw new Error(`Invalid policy token in ${list} list: "${token}". Expected "network:<domain>", "fs:read:<path>", "fs:write:<path>", or "mach:<service>"`);
 }
 
 export function mergeConfigs(base: SandboxRuntimeConfig, ...overrides: Partial<SandboxRuntimeConfig>[]): SandboxRuntimeConfig {
@@ -60,9 +66,10 @@ export function mergeConfigs(base: SandboxRuntimeConfig, ...overrides: Partial<S
       allowedDomains: [...(base.network?.allowedDomains ?? [])],
       deniedDomains: [...(base.network?.deniedDomains ?? [])],
       allowLocalBinding: base.network?.allowLocalBinding,
-      allowUnixSockets: base.network?.allowUnixSockets ? [...base.network.allowUnixSockets] : undefined,
+      allowUnixSockets: base.network?.allowUnixSockets ? [...base.network.allowUnixSockets] : [],
       allowAllUnixSockets: base.network?.allowAllUnixSockets,
       tlsTerminate: base.network?.tlsTerminate,
+      allowMachLookup: base.network?.allowMachLookup ? [...base.network.allowMachLookup] : [],
     },
     filesystem: {
       denyRead: [...(base.filesystem?.denyRead ?? [])],
@@ -100,6 +107,13 @@ export function mergeConfigs(base: SandboxRuntimeConfig, ...overrides: Partial<S
       }
       if (override.network.allowAllUnixSockets !== undefined) merged.network!.allowAllUnixSockets = override.network.allowAllUnixSockets;
       if (override.network.tlsTerminate !== undefined) merged.network!.tlsTerminate = override.network.tlsTerminate;
+      if (override.network.allowMachLookup) {
+        for (const m of override.network.allowMachLookup) {
+          if (!merged.network!.allowMachLookup!.includes(m)) {
+            merged.network!.allowMachLookup!.push(m);
+          }
+        }
+      }
     }
     if (override.filesystem) {
       if (override.filesystem.denyRead) {

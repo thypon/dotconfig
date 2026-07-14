@@ -20,6 +20,8 @@ export const DEFAULT_CONFIG: SandboxRuntimeConfig = {
       "raw.githubusercontent.com",
     ],
     deniedDomains: [],
+    allowMachLookup: [],
+    allowUnixSockets: [],
   },
   filesystem: {
     denyRead: ["~/.ssh", "~/.aws", "~/.gnupg"],

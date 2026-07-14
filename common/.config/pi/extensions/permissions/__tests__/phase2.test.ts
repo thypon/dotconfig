@@ -85,6 +85,70 @@ describe("capabilityToSandboxConfig", () => {
     expect(config.filesystem!.allowWrite).toEqual([]);
     expect(config.filesystem!.denyWrite).toEqual([]);
   });
+
+  it("parses mach: token into allowMachLookup", () => {
+    const policy: CapabilityPolicy = {
+      allow: ["mach:com.apple.trustd.agent"],
+    };
+    const config = capabilityToSandboxConfig(policy);
+    expect(config.network!.allowMachLookup).toEqual(["com.apple.trustd.agent"]);
+  });
+
+  it("parses multiple mach: tokens", () => {
+    const policy: CapabilityPolicy = {
+      allow: [
+        "mach:com.apple.trustd.agent",
+        "mach:com.apple.FontObjectsServer",
+      ],
+    };
+    const config = capabilityToSandboxConfig(policy);
+    expect(config.network!.allowMachLookup).toHaveLength(2);
+    expect(config.network!.allowMachLookup).toContain("com.apple.trustd.agent");
+    expect(config.network!.allowMachLookup).toContain("com.apple.FontObjectsServer");
+  });
+
+  it("mach: in deny is silently ignored", () => {
+    const policy: CapabilityPolicy = {
+      deny: ["mach:com.apple.trustd.agent"],
+    };
+    const config = capabilityToSandboxConfig(policy);
+    expect(config.network!.allowMachLookup).toEqual([]);
+  });
+
+  it("combines mach: with other tokens", () => {
+    const policy: CapabilityPolicy = {
+      allow: [
+        "network:github.com",
+        "mach:com.apple.trustd.agent",
+        "fs:write:.",
+      ],
+    };
+    const config = capabilityToSandboxConfig(policy);
+    expect(config.network!.allowedDomains).toEqual(["github.com"]);
+    expect(config.network!.allowMachLookup).toEqual(["com.apple.trustd.agent"]);
+    expect(config.filesystem!.allowWrite).toEqual(["."]);
+  });
+
+  it("parses unix-socket: token into allowUnixSockets", () => {
+    const policy: CapabilityPolicy = {
+      allow: ["unix-socket:/var/run/myapp.sock"],
+    };
+    const config = capabilityToSandboxConfig(policy);
+    expect(config.network!.allowUnixSockets).toEqual(["/var/run/myapp.sock"]);
+  });
+
+  it("parses unix-socket: with dynamic path from env var", () => {
+    process.env.TEST_SOCK = "/tmp/test-agent.sock";
+    try {
+      const policy: CapabilityPolicy = {
+        allow: ["unix-socket:$TEST_SOCK"],
+      };
+      const config = capabilityToSandboxConfig(policy);
+      expect(config.network!.allowUnixSockets).toEqual(["$TEST_SOCK"]);
+    } finally {
+      delete process.env.TEST_SOCK;
+    }
+  });
 });
 
 describe("mergeConfigs", () => {
@@ -164,6 +228,27 @@ describe("mergeConfigs", () => {
     const base = makeBase();
     const merged = mergeConfigs(base, {});
     expect(merged.network!.allowedDomains).toEqual(["github.com", "npmjs.org"]);
+  });
+
+  it("merges allowMachLookup (union)", () => {
+    const base = makeBase();
+    base.network!.allowMachLookup = ["com.apple.trustd.agent"];
+    const merged = mergeConfigs(base, {
+      network: { allowMachLookup: ["com.apple.FontObjectsServer"] },
+    } as any);
+    expect(merged.network!.allowMachLookup).toEqual([
+      "com.apple.trustd.agent",
+      "com.apple.FontObjectsServer",
+    ]);
+  });
+
+  it("allowMachLookup deduplicates", () => {
+    const base = makeBase();
+    base.network!.allowMachLookup = ["com.apple.trustd.agent"];
+    const merged = mergeConfigs(base, {
+      network: { allowMachLookup: ["com.apple.trustd.agent"] },
+    } as any);
+    expect(merged.network!.allowMachLookup).toEqual(["com.apple.trustd.agent"]);
   });
 });
 

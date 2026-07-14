@@ -535,6 +535,10 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
+  function expandEnvTokens(tokens: string[]): string[] {
+    return tokens.map(t => t.replace(/\$\{?(\w+)\}?/g, (_m, name) => process.env[name] ?? ""));
+  }
+
   pi.on("input", async (event: any, ctx: any) => {
     const text = event.text ?? "";
     let policyAllow: string[] = [];
@@ -572,6 +576,8 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (contextLabel) {
+      policyAllow = expandEnvTokens(policyAllow);
+      policyDeny = expandEnvTokens(policyDeny);
       const hasPolicy = policyAllow.length > 0 || policyDeny.length > 0;
       const metaPolicy = hasPolicy ? { allow: policyAllow, deny: policyDeny } : null;
 
