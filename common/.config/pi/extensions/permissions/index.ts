@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
+import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
@@ -26,9 +27,32 @@ import {
   DEFAULT_POLICY_MD_PATH,
   ensureDefaultPolicy,
 } from "./default-policy";
+import {
+  detectContainerRuntime,
+  resolveImageTag,
+  buildContainerImage,
+  startContainer,
+  execInContainer,
+  stopContainer,
+  isContainerRunning,
+  type ContainerConfig,
+} from "./container";
+import {
+  type CredentialMap,
+  startCredentialProxy,
+  stopCredentialProxy,
+  getCredentialProxyEnv,
+  getCredentialProxyPort,
+  setCaDir,
+} from "./credential-proxy";
+import {
+  buildCredentialMap,
+  stripCredentialsFromEnv,
+} from "./credential-map";
 
 const SHARED_SKILLS = join(homedir(), ".config", "skills");
 const SHARED_PROMPTS = join(homedir(), ".config", "pi", "prompts");
+const WORKSPACE_DIR = "/workspace";
 
 function resolvePath(path: string, cwd: string): string {
   if (path.startsWith("~")) return path.replace(/^~/, homedir());
@@ -124,6 +148,69 @@ function createSandboxedBashOps(): BashOperations {
   };
 }
 
+function createContainerizedBashOps(
+  name: string,
+  mountCwd: string,
+): BashOperations {
+  return {
+    async exec(command, cwd, { onData, signal, timeout }) {
+      const workdir = cwd || mountCwd || WORKSPACE_DIR;
+
+      const escapedCmd = command
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+
+      return new Promise((resolve, reject) => {
+        const child = spawn("container", [
+          "exec", "-w", workdir, name, "bash", "-c", escapedCmd,
+        ], {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+
+        let timedOut = false;
+        let timeoutHandle: NodeJS.Timeout | undefined;
+
+        if (timeout !== undefined && timeout > 0) {
+          timeoutHandle = setTimeout(() => {
+            timedOut = true;
+            if (child.pid) {
+              try { process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+            }
+          }, timeout * 1000);
+        }
+
+        child.stdout?.on("data", onData);
+        child.stderr?.on("data", onData);
+
+        child.on("error", (err) => {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          reject(err);
+        });
+
+        const onAbort = () => {
+          if (child.pid) {
+            try { process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+          }
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
+
+        child.on("close", (code) => {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          signal?.removeEventListener("abort", onAbort);
+
+          if (signal?.aborted) {
+            reject(new Error("aborted"));
+          } else if (timedOut) {
+            reject(new Error(`timeout:${timeout}`));
+          } else {
+            resolve({ exitCode: code });
+          }
+        });
+      });
+    },
+  };
+}
+
 function resolveConfig(cwd: string, metaPolicy: Record<string, any> | null): SandboxRuntimeConfig {
   ensureDefaultPolicy();
 
@@ -182,12 +269,27 @@ export default function (pi: ExtensionAPI) {
     type: "boolean",
     default: false,
   });
+  pi.registerFlag("container", {
+    description: "Run bash commands in apple/container (macOS 26+) instead of sandbox",
+    type: "boolean",
+    default: false,
+  });
+  pi.registerFlag("container-ports", {
+    description: "Forward ports to container (comma-separated, e.g. 8080:80,3000:3000)",
+    type: "string",
+    default: "",
+  });
 
   const localCwd = process.cwd();
   const localBash = createBashTool(localCwd);
 
   let sandboxEnabled = false;
   let sandboxInitialized = false;
+  let containerEnabled = false;
+  let containerRunning = false;
+  let containerName = "";
+  let containerCwd = "";
+  let proxyRunning = false;
   let activeConfig: SandboxRuntimeConfig | null = null;
   let activePolicyHash: string | null = null;
   let activePolicyMeta: Record<string, any> | null = null;
@@ -251,6 +353,13 @@ export default function (pi: ExtensionAPI) {
     ...localBash,
     label: "bash (sandboxed)",
     async execute(id, params, signal, onUpdate, _ctx) {
+      if (containerEnabled && containerRunning) {
+        const ctrBash = createBashTool(localCwd, {
+          operations: createContainerizedBashOps(containerName, containerCwd),
+        });
+        return ctrBash.execute(id, params, signal, onUpdate);
+      }
+
       if (!sandboxEnabled || !sandboxInitialized) {
         return localBash.execute(id, params, signal, onUpdate);
       }
@@ -268,12 +377,92 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event, ctx) => {
-    console.error("[permissions] session_start", ctx.cwd);
+    console.error("[permissions] session_start");
     const noSandbox = pi.getFlag("no-sandbox") as boolean;
+    const useContainer = pi.getFlag("container") as boolean;
 
     if (noSandbox) {
       sandboxEnabled = false;
       ctx.ui.notify("Sandbox disabled via --no-sandbox", "warning");
+    }
+
+    if (useContainer) {
+      try {
+        const runtime = detectContainerRuntime();
+        if (!runtime) {
+          ctx.ui.notify("Container requested but apple/container not available", "error");
+          return;
+        }
+
+        containerCwd = ctx.cwd;
+        containerName = `pi-permissions-${Date.now()}`;
+
+        const portsFlag = pi.getFlag("container-ports") as string;
+        const ports = portsFlag ? portsFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined;
+
+        const imageTag = await resolveImageTag(containerCwd);
+        await buildContainerImage(containerCwd, imageTag);
+
+        const credMap = buildCredentialMap();
+        const cleanEnv = stripCredentialsFromEnv(process.env as Record<string, string>);
+
+        const caDir = join(homedir(), tmpdir(), `pi-ca-${containerName}`);
+        try { execSync(`mkdir -p "${caDir}"`) } catch {}
+
+        ctx.ui.notify(`Starting container ${containerName} (${imageTag})...`, "info");
+
+        await startContainer({
+          image: imageTag,
+          cwd: containerCwd,
+          name: containerName,
+          ports,
+          env: cleanEnv,
+          ssh: false,
+          volumes: { [caDir]: "/pi-ca" },
+        });
+
+        containerRunning = true;
+
+        try {
+          const caResult = await execInContainer(
+            containerName,
+            `apt-get update -qq 2>/dev/null && ` +
+            `apt-get install -y -qq openssl 2>/dev/null && ` +
+            `openssl genrsa -out /pi-ca/ca.key 2048 2>/dev/null && ` +
+            `openssl req -new -x509 -days 3650 -key /pi-ca/ca.key -out /pi-ca/ca.crt ` +
+            `-subj /CN=PiContainerCA 2>/dev/null`,
+          );
+          if (caResult.exitCode !== 0) {
+            console.error("[permissions] CA generation failed (exit", caResult.exitCode, "):", caResult.output);
+          }
+        } catch {
+          // openssl may not be available in container; CA-less proxy
+        }
+
+        setCaDir(caDir);
+        const proxyPort = await startCredentialProxy(credMap);
+        const proxyEnv = getCredentialProxyEnv();
+
+proxyRunning = true;
+        containerEnabled = true;
+        containerRunning = true;
+
+        ctx.ui.setStatus(
+          "permissions",
+          ctx.ui.theme.fg("accent", `🐳 Container: ${containerName} (${imageTag}) proxy:${proxyPort}`),
+        );
+        ctx.ui.notify(`Container ${containerName} ready (proxy :${proxyPort})`, "info");
+
+          console.error("[permissions] container:", containerName, imageTag);
+      } catch (err) {
+        containerEnabled = false;
+        containerRunning = false;
+        ctx.ui.notify(
+          `Container start failed: ${err instanceof Error ? err.message : err}`,
+          "error",
+        );
+        return;
+      }
       return;
     }
 
@@ -432,6 +621,25 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async () => {
+    if (proxyRunning) {
+      try {
+        await stopCredentialProxy();
+      } catch {
+        // Ignore cleanup errors
+      }
+      proxyRunning = false;
+    }
+    if (containerRunning && containerName) {
+      try {
+        console.error("[permissions] stopping container:", containerName);
+        await stopContainer(containerName);
+        console.error("[permissions] container stopped:", containerName);
+      } catch {
+        // Ignore cleanup errors
+      }
+      containerRunning = false;
+      containerEnabled = false;
+    }
     if (sandboxInitialized) {
       try {
         await SandboxManager.reset();
