@@ -8,6 +8,7 @@ const DEFAULT_IMAGE = "ubuntu:24.04";
 const WORKSPACE_DIR = "/workspace";
 const PROXY_DOCKERFILE_DIR = join(homedir(), ".pi", "agent", "container-proxy");
 const PROXY_IMAGE_NAME = "pi-proxy";
+const AGENT_DOCKERFILE = join(homedir(), ".pi", "Dockerfile");
 
 export interface ContainerConfig {
   image: string;
@@ -36,11 +37,14 @@ function resolveDockerfile(cwd: string): string | null {
   if (existsSync(piDockerfile)) return piDockerfile;
   const rootDockerfile = join(cwd, "Dockerfile");
   if (existsSync(rootDockerfile)) return rootDockerfile;
+  if (existsSync(AGENT_DOCKERFILE)) return AGENT_DOCKERFILE;
   return null;
 }
 
 function dockerfileHash(dockerfilePath: string): string {
-  const content = readFileSync(dockerfilePath, "utf8");
+  const content = existsSync(dockerfilePath)
+    ? readFileSync(dockerfilePath, "utf8")
+    : "";
   return createHash("sha256").update(content).digest("hex").slice(0, 12);
 }
 
@@ -59,6 +63,9 @@ export async function resolveImageTag(cwd: string): Promise<string> {
 export async function buildContainerImage(cwd: string, imageTag: string): Promise<void> {
   const dockerfile = resolveDockerfile(cwd);
   if (!dockerfile) return;
+
+  // Skip rebuild if an image for this Dockerfile hash already exists.
+  if (imageList().some(line => line.trim() === imageTag)) return;
 
   const contextDir = join(dockerfile, "..");
   const result = spawnSync("container", ["build", "-t", imageTag, contextDir], {
