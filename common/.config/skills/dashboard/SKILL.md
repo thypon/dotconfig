@@ -9,6 +9,8 @@ description: >
   "what's on my plate", "review backlog".
 metadata:
   model: dynamic/small_model
+policy-allow:
+  - credential:api.github.com
 policy-deny:
   - fs:write:.
   - fs:write:/tmp

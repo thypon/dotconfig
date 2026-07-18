@@ -5,6 +5,7 @@ metadata:
   model: dynamic/small_model
 policy-allow:
   - mach:com.apple.trustd.agent
+  - credential:api.github.com
 policy-deny:
   - fs:write:.
   - fs:write:/tmp

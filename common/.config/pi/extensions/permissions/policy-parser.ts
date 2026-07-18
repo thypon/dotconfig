@@ -52,7 +52,7 @@ export function capabilityToSandboxConfig(policy: CapabilityPolicy): SandboxRunt
 }
 
 function parseToken(token: string, list: "allow" | "deny"): { prefix: string; target: string } {
-  for (const prefix of ["network", "fs:read", "fs:write", "mach", "unix-socket"]) {
+  for (const prefix of ["network", "fs:read", "fs:write", "mach", "unix-socket", "credential"]) {
     if (token.startsWith(prefix + ":")) {
       return { prefix, target: token.slice(prefix.length + 1) };
     }

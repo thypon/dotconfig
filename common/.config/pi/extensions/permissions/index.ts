@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { join, resolve, dirname, basename } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -42,16 +42,17 @@ import {
 import {
   type CredentialMap,
   ensureCA,
-  getCaCertPath,
   startCredentialProxy,
   stopCredentialProxy,
   getCredentialProxyEnv,
-  getCaCertEnv,
+  getProxyCaCertPath,
+  setAllowedCredentials,
 } from "./credential-proxy";
 import {
   buildCredentialMap,
   stripCredentialsFromEnv,
   autoDetectGhToken,
+  fakeCredentialEnv,
 } from "./credential-map";
 
 const SHARED_SKILLS = join(homedir(), ".config", "skills");
@@ -59,9 +60,28 @@ const SHARED_PROMPTS = join(homedir(), ".config", "pi", "prompts");
 const WORKSPACE_DIR = "/workspace";
 
 function resolvePath(path: string, cwd: string): string {
-  if (path.startsWith("~")) return path.replace(/^~/, homedir());
-  if (path.startsWith("/")) return path;
-  return `${cwd}/${path}`;
+  // Normalize with path.resolve so ".", "..", and redundant slashes are
+  // collapsed. Without this, a pattern like "." resolves to "<cwd>/." which
+  // never matches real file paths (e.g. "<cwd>/foo.txt"), causing legitimate
+  // writes to be blocked by the policy.
+  if (path.startsWith("~")) return resolve(path.replace(/^~/, homedir()));
+  if (path.startsWith("/")) return resolve(path);
+  return resolve(cwd, path);
+}
+
+function resolveRealPath(p: string): string {
+  // Resolve symlinks so files reached through symlinks into an allowed
+  // directory (e.g. ~/.pi/agent/extensions -> <cwd>/common/.config/pi/...)
+  // are evaluated by their real location. For not-yet-existing targets (new
+  // files), resolve the deepest existing ancestor and re-append the rest.
+  try {
+    return realpathSync(p);
+  } catch {
+    const dir = dirname(p);
+    const base = basename(p);
+    if (!dir || dir === p) return p;
+    return join(resolveRealPath(dir), base);
+  }
 }
 
 function matchesPath(target: string, pattern: string, cwd: string): boolean {
@@ -303,6 +323,7 @@ export default function (pi: ExtensionAPI) {
   let activePolicyHash: string | null = null;
   let activePolicyMeta: Record<string, any> | null = null;
   let activePolicyContext: string | null = null;
+  let lastCredentialDomains: string[] | null = null;
   let globalPolicySrc: string | null = null;
   let projectPolicySrc: string | null = null;
 
@@ -428,24 +449,44 @@ export default function (pi: ExtensionAPI) {
         networkName = `pi-net-${Date.now()}`;
         createNetwork(networkName);
 
-        ensureCA();
-        const caCertPath = getCaCertPath();
-        const certVolumes: Record<string, string> = {};
-        if (existsSync(caCertPath)) {
-          certVolumes[caCertPath] = "/usr/local/share/ca-certificates/pi-ca.crt:ro";
-        }
-
         ctx.ui.notify(`Starting proxy + container ${containerName} (${imageTag})...`, "info");
 
+        // Start the proxy FIRST so we can extract the CA mitmproxy actually
+        // generates and trust THAT in the main container. mitmproxy ignores
+        // any CA we try to force on it and signs with its own; trusting the
+        // extracted CA makes the relationship correct by construction.
         const proxySession = await startCredentialProxy(credMap, networkName);
         proxyRunning = true;
 
-        const proxyEnv = getCredentialProxyEnv();
-        const caEnv = getCaCertEnv();
-        const containerEnv = { ...cleanEnv, ...proxyEnv, ...caEnv };
+        const proxyCaPath = getProxyCaCertPath();
+        const certVolumes: Record<string, string> = {};
+        if (proxyCaPath && existsSync(proxyCaPath)) {
+          certVolumes[proxyCaPath] = "/usr/local/share/ca-certificates/mitmproxy-ca.crt:ro";
+        }
 
-        if (ghToken) {
-          containerEnv.GH_TOKEN = ghToken;
+        const proxyEnv = getCredentialProxyEnv();
+        // Real credentials never enter the container env. Every known
+        // credential gets a fake placeholder (__PI_PROXY_INJECTED__).
+        // Tools like gh send this fake token; the proxy addon replaces it
+        // with the real value when the active context has the
+        // credential:<domain> permission, or leaves it (→ 401) when not.
+        const containerEnv = {
+          ...cleanEnv,
+          ...proxyEnv,
+          ...fakeCredentialEnv(credMap),
+        };
+
+        // Host TMPDIR points at a macOS path (/var/folders/...) that does not
+        // exist inside the Linux container. mktemp and update-ca-certificates
+        // silently fail when it leaks through, so the MITM CA never gets
+        // trusted and every TLS request (gh, curl, git) is rejected.
+        containerEnv.TMPDIR = "/tmp";
+        containerEnv.TMP = "/tmp";
+        containerEnv.TEMP = "/tmp";
+
+        // Point Node at the in-container copy of the proxy CA.
+        if (proxyCaPath && existsSync(proxyCaPath)) {
+          containerEnv.NODE_EXTRA_CA_CERTS = "/usr/local/share/ca-certificates/mitmproxy-ca.crt";
         }
 
         await startContainer({
@@ -460,15 +501,30 @@ export default function (pi: ExtensionAPI) {
         });
 
         try {
-          await execInContainer(containerName,
-            "mkdir -p /usr/local/share/ca-certificates && " +
-            "cp /usr/local/share/ca-certificates/pi-ca.crt /usr/local/share/ca-certificates/pi-ca.crt 2>/dev/null; " +
-            "update-ca-certificates 2>/dev/null || true",
+          // Verify the bundle actually trusts our CA. The bundle stores certs
+          // as base64 PEM, so grepping for the plaintext CN ("PiContainerCA")
+          // is a false negative - use openssl verify against the bundle (the proxy CA).
+          const caInstall = await execInContainer(containerName,
+            "test -s /usr/local/share/ca-certificates/mitmproxy-ca.crt && " +
+            "TMPDIR=/tmp update-ca-certificates && " +
+            "openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt " +
+            "/usr/local/share/ca-certificates/mitmproxy-ca.crt 2>/dev/null | grep -q 'OK'",
             "/"
           );
+          if (caInstall.exitCode !== 0) {
+            throw new Error(`exit ${caInstall.exitCode}: ${caInstall.output.trim()}`);
+          }
         } catch (err) {
-          ctx.ui.notify(`CA trust store install failed: ${err instanceof Error ? err.message : err}`, "warning");
+          ctx.ui.notify(
+            `CA trust store install failed — gh/git TLS will reject the MITM proxy: ${err instanceof Error ? err.message : err}`,
+            "error",
+          );
         }
+
+        // Default: no credentials exposed (off-by-default per design).
+        // The input handler grants credential:<domain> when the active
+        // context declares it in policy-allow.
+        await setAllowedCredentials([]);
 
         containerEnabled = true;
         containerRunning = true;
@@ -588,20 +644,49 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
+    // Split credential: tokens out of the sandbox policy tokens so
+    // capabilityToSandboxConfig does not throw. Credential tokens drive
+    // the proxy addon control file, not the seatbelt sandbox.
+    const credentialTokens = policyAllow.filter(t => t.startsWith("credential:"));
+    const capabilityAllow = policyAllow.filter(t => !t.startsWith("credential:"));
+
     if (contextLabel) {
-      policyAllow = expandEnvTokens(policyAllow);
-      policyDeny = expandEnvTokens(policyDeny);
-      const hasPolicy = policyAllow.length > 0 || policyDeny.length > 0;
-      const metaPolicy = hasPolicy ? { allow: policyAllow, deny: policyDeny } : null;
+      const expandedAllow = expandEnvTokens(capabilityAllow);
+      const expandedDeny = expandEnvTokens(policyDeny);
+      const hasPolicy = expandedAllow.length > 0 || expandedDeny.length > 0;
+      const metaPolicy = hasPolicy ? { allow: expandedAllow, deny: expandedDeny } : null;
+
+      const credentialDomains = credentialTokens.map(t => t.slice("credential:".length));
+
+      // DEBUG: trace credential gating
+      ctx.ui.notify(`[cred-debug] context=${contextLabel} credTokens=${JSON.stringify(credentialTokens)} domains=${JSON.stringify(credentialDomains)} container=${containerEnabled}/${containerRunning} last=${JSON.stringify(lastCredentialDomains)}`, "info");
 
       if (contextLabel !== activePolicyContext || hasPolicy !== (activePolicyMeta !== null)) {
         activePolicyContext = contextLabel;
         await reinitSandbox(ctx, ctx.cwd, metaPolicy);
       }
+
+      // Container-mode credential gating: only the proxy addon injects
+      // real auth, and only for domains the context declares.
+      if (containerEnabled && containerRunning) {
+        const same = lastCredentialDomains &&
+          lastCredentialDomains.length === credentialDomains.length &&
+          lastCredentialDomains.every((d, i) => d === credentialDomains[i]);
+        if (!same) {
+          lastCredentialDomains = credentialDomains;
+          await setAllowedCredentials(credentialDomains);
+          ctx.ui.notify(`[cred-debug] setAllowedCredentials(${JSON.stringify(credentialDomains)}) done`, "info");
+        }
+      }
     } else {
       if (activePolicyContext !== null) {
         activePolicyContext = null;
         await reinitSandbox(ctx, ctx.cwd, null);
+      }
+      // Credentials off when no context is active.
+      if (containerEnabled && containerRunning && lastCredentialDomains !== null) {
+        lastCredentialDomains = null;
+        await setAllowedCredentials([]);
       }
     }
 
@@ -618,21 +703,18 @@ export default function (pi: ExtensionAPI) {
     const path = event.input?.path || event.input?.filePath || event.input?.directory;
     if (!path) return;
 
-    const resolved = path.startsWith("~")
-      ? path.replace(/^~/, homedir())
-      : path.startsWith("/")
-        ? path
-        : `${ctx.cwd}/${path}`;
+    const resolved = resolvePath(path, ctx.cwd);
+    const realTarget = resolveRealPath(resolved);
 
     if (toolName === "write" || toolName === "edit") {
       const denyWrite = activeConfig.filesystem?.denyWrite ?? [];
       for (const deny of denyWrite) {
-        if (matchesPath(resolved, deny, ctx.cwd)) {
+        if (matchesPath(realTarget, deny, ctx.cwd)) {
           return { block: true, reason: `Write denied by policy: ${deny}` };
         }
       }
       const allowWrite = activeConfig.filesystem?.allowWrite ?? [];
-      const allowed = allowWrite.some(p => matchesPath(resolved, p, ctx.cwd));
+      const allowed = allowWrite.some(p => matchesPath(realTarget, p, ctx.cwd));
       if (!allowed) {
         return { block: true, reason: `Write not in allowWrite policy` };
       }
@@ -641,7 +723,7 @@ export default function (pi: ExtensionAPI) {
     if (toolName === "read" || toolName === "grep" || toolName === "find" || toolName === "ls") {
       const denyRead = activeConfig.filesystem?.denyRead ?? [];
       for (const deny of denyRead) {
-        if (matchesPath(resolved, deny, ctx.cwd)) {
+        if (matchesPath(realTarget, deny, ctx.cwd)) {
           return { block: true, reason: `Read denied by policy: ${deny}` };
         }
       }

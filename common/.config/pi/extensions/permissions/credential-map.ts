@@ -114,3 +114,41 @@ export function stripCredentialsFromEnv(env: Record<string, string>): Record<str
   }
   return clean;
 }
+
+/**
+ * Format-aware fake tokens set in the container environment. Real credentials
+ * never enter the container — tools send these fakes in their auth headers,
+ * and the proxy addon replaces the entire header with the real credential
+ * when the active context is allowed, or leaves it (→ upstream 401) when not.
+ * Each fake matches the expected format so tools that validate locally
+ * (e.g. gh checks gho_ prefix) do not reject before sending.
+ */
+export const FAKE_TOKEN = "__PI_PROXY_INJECTED__";
+
+const FAKE_TOKENS: Record<string, string> = {
+  GITHUB_TOKEN:          "gho_piproxyinjectedfaketoken000000000000",
+  GH_TOKEN:              "gho_piproxyinjectedfaketoken000000000000",
+  OPENAI_API_KEY:        "sk-piproxyinjectedfaketoken0000000000000000",
+  ANTHROPIC_API_KEY:     "sk-ant-piproxyinjectedfaketoken00000000000",
+  BRAVE_API_KEY:         "BSA" + "0".repeat(35),
+  DEEPSEEK_API_KEY:      "sk-piproxyinjectedfaketoken0000000000000000",
+  MISTRAL_API_KEY:       "piproxyinjectedfaketoken00000000000000000",
+  NPM_TOKEN:             "npm_piproxyinjectedfaketoken0000000000000",
+  PYPI_TOKEN:            "pypi-AgEIcHJveHlpbmp" + "0".repeat(20),
+  HF_TOKEN:              "hf_piproxyinjectedfaketoken00000000000000",
+  HUGGINGFACE_TOKEN:     "hf_piproxyinjectedfaketoken00000000000000",
+  CLOUDFLARE_API_TOKEN:  "piproxyinjectedfaketoken00000000000000000",
+  SENTRY_AUTH_TOKEN:     "sntry_piproxyinjectedfaketoken0000000000",
+  VERCEL_TOKEN:          "piproxyinjectedfaketoken00000000000000000",
+  FLY_API_TOKEN:         "fo1_piproxyinjectedfaketoken0000000000000",
+};
+
+export function fakeCredentialEnv(credMap: CredentialMap): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const rule of KNOWN_CREDENTIALS) {
+    if (credMap[rule.domain]) {
+      env[rule.env] = FAKE_TOKENS[rule.env] ?? FAKE_TOKEN;
+    }
+  }
+  return env;
+}
