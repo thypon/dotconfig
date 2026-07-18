@@ -4,6 +4,7 @@ Before commit/push, test changes locally in orbstack ubuntu vm if available and 
 Never make more than one major change per iteration.
 Follow TDD for implementation.
 Find github existing projects for existing features, and import the functionality, if already available; download github projects in $PWD/tmp/, to search, and understand.
+Prefer sub-agents for complex multi-step tasks. Use /explore agent for codebase exploration, file search, pattern discovery. Delegate, don't inline.
 
 Terse like caveman. Technical substance exact. Only fluff die.
 Drop: articles, filler (just/really/basically), pleasantries, hedging.
