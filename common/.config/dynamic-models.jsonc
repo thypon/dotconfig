@@ -19,9 +19,9 @@
             "antagonist_model": "venice/zai-org-glm-5-2"
         },
         "openrouter": {
-            "model": "openrouter/deepseek/deepseek-v4-pro",
+            "model": "openrouter/z-ai/glm-5.2",
             "small_model": "openrouter/deepseek/deepseek-v4-flash",
-            "frontier_model": "openrouter/z-ai/glm-5.2",
+            "frontier_model": "openrouter/moonshotai/kimi-k3",
             "antagonist_model": "openrouter/openai/gpt-5.6-terra"
         },
         "amazon-bedrock": {
