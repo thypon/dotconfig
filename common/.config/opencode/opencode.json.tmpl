@@ -1,7 +1,9 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "share": "disabled",
+  "autoupdate": false,
   "lsp": true,
+  "default_agent": "plan",
   "model": "dynamic/model",
   "small_model": "dynamic/small_model",
   "provider": {
@@ -60,11 +62,87 @@
   },
   "agent": {
     "plan": {
+      "mode": "primary",
       "model": "dynamic/frontier_model",
       "prompt": "{file:agents/plan.txt}",
       "permission": {
         "edit": "ask",
-        "bash": "ask"
+        "bash": {
+          "*": "ask",
+          "gh issue view*": "allow",
+          "gh issue list*": "allow",
+          "gh pr view*": "allow",
+          "gh pr list*": "allow",
+          "gh pr diff*": "allow",
+          "gh pr checks*": "allow",
+          "gh pr status*": "allow",
+          "gh repo view*": "allow",
+          "gh search *": "allow",
+          "gh api --method GET *": "allow",
+          "gh api *": "ask",
+          "head *": "allow",
+          "tail *": "allow",
+          "cat *": "allow",
+          "less *": "allow",
+          "more *": "allow",
+          "bat *": "allow",
+          "grep *": "allow",
+          "rg *": "allow",
+          "ag *": "allow",
+          "ack *": "allow",
+          "sort *": "allow",
+          "uniq *": "allow",
+          "wc *": "allow",
+          "cut *": "allow",
+          "tr *": "allow",
+          "awk *": "allow",
+          "sed *": "allow",
+          "jq *": "allow",
+          "yq *": "allow",
+          "xq *": "allow",
+          "strings *": "allow",
+          "od *": "allow",
+          "hexdump *": "allow",
+          "xxd *": "allow",
+          "file *": "allow",
+          "stat *": "allow",
+          "ls *": "allow",
+          "find *": "allow",
+          "fd *": "allow",
+          "tree *": "allow",
+          "du *": "allow",
+          "df *": "allow",
+          "diff *": "allow",
+          "comm *": "allow",
+          "cmp *": "allow",
+          "paste *": "allow",
+          "column *": "allow",
+          "expand *": "allow",
+          "unexpand *": "allow",
+          "fold *": "allow",
+          "fmt *": "allow",
+          "nl *": "allow",
+          "tac *": "allow",
+          "rev *": "allow",
+          "shuf *": "allow",
+          "split *": "allow",
+          "csplit *": "allow",
+          "tee *": "allow",
+          "xargs *": "allow",
+          "basename *": "allow",
+          "dirname *": "allow",
+          "realpath *": "allow",
+          "readlink *": "allow",
+          "test *": "allow",
+          "[ *": "allow",
+          "true": "allow",
+          "false": "allow",
+          "echo *": "allow",
+          "printf *": "allow"
+        },
+        "external_directory": {
+          "*": "ask"
+        }
       }
     },
     "build": {
@@ -107,6 +185,7 @@
     }
   },
   "plugin": [
-    "@tarquinen/opencode-dcp@3.1.14"
+    "@tarquinen/opencode-dcp@3.1.14",
+    "opencode-sandbox@0.3.2"
   ]
 }
