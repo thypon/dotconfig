@@ -9,6 +9,11 @@ import re
 import sys
 import os
 import shutil
+import socket
+import subprocess
+import urllib.request
+import urllib.error
+from functools import cmp_to_key
 
 
 def find_repo_root():
@@ -30,6 +35,11 @@ MODELS_PATH = os.path.expanduser("~/.config/dynamic-models.jsonc")
 # OpenCode paths
 TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/opencode.json.tmpl")
 OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
+
+# DS4 local server (OpenAI-compatible DeepSeek V4 Flash)
+DS4_HOST = "localhost"
+DS4_PORT = 8000
+DS4_MODEL_FLASH = "ds4/deepseek-v4-flash"
 COMMANDS_SRC = os.path.join(REPO_ROOT, "common", ".config", "opencode", "commands")
 COMMANDS_DST = os.path.expanduser("~/.config/opencode/commands")
 OPENCODE_CONFIG_DIR = os.path.expanduser("~/.config/opencode")
@@ -80,13 +90,32 @@ def match_provider(providers, prefix):
 
 
 def make_replacements(provider_config):
+    small = provider_config["small_model"]
+    if ds4_available() and "deepseek-v4-flash" in small:
+        small = DS4_MODEL_FLASH
+        print(f"  ds4: local server up, routing small_model -> {DS4_MODEL_FLASH}")
     return {
         "dynamic/provider": provider_config.get("name", ""),
         "dynamic/model": provider_config["model"],
-        "dynamic/small_model": provider_config["small_model"],
+        "dynamic/small_model": small,
         "dynamic/frontier_model": provider_config["frontier_model"],
         "dynamic/antagonist_model": provider_config["antagonist_model"],
     }
+
+
+def ds4_available():
+    """Probe DS4 local server (localhost:8000). Returns True if /v1/models responds."""
+    try:
+        with socket.create_connection((DS4_HOST, DS4_PORT), timeout=0.4) as _:
+            pass
+    except OSError:
+        return False
+    try:
+        req = urllib.request.Request(f"http://{DS4_HOST}:{DS4_PORT}/v1/models", method="GET")
+        with urllib.request.urlopen(req, timeout=1.0) as r:
+            return r.status == 200
+    except Exception:
+        return False
 
 
 def resolve_template(template, replacements):
@@ -173,7 +202,6 @@ def setup_opencode(replacements):
 
 
 def setup_pi(replacements):
-    """Resolve pi settings.json template, copy prompts, set up symlinks."""
     # Ensure ~/.config/pi symlink to repo
     ensure_symlink(PI_CONFIG_SRC, PI_CONFIG_LINK)
 
@@ -199,6 +227,196 @@ def setup_pi(replacements):
     ensure_symlink(PI_EXTENSIONS_SRC, PI_EXTENSIONS_DST)
 
 
+# ---------------------------------------------------------------------------
+# Update subcommand: bump model versions + opencode plugins to latest
+# ---------------------------------------------------------------------------
+
+# Dated version suffix (YYYYMMDD-ish) or dotted version, used to rank versions
+# of the same model prefix. e.g. deepseek-v4-flash-0731 vs deepseek-v4-flash.
+VERSION_RE = re.compile(r'(.*?)(?:[-.](\d{4,}))?$')
+
+# Map known model prefix (sans version) -> human label, used for reporting only
+# (no behaviour dependency; purely cosmetic)
+
+
+def split_prefix_version(model_id):
+    """Split 'deepseek-v4-flash-0731' -> ('deepseek-v4-flash', 731).
+    Bare 'deepseek-v4-flash' -> ('deepseek-v4-flash', 0).
+    'glm-5.2' -> ('glm-5', 2). 'gpt-5.6-terra' -> ('gpt-5.6-terra', 0)."""
+    # try trailing -NNNN (4+ digits, dated)
+    m = re.match(r'^(.*?)-(\d{4,})$', model_id)
+    if m:
+        return m.group(1), int(m.group(2))
+    # try trailing .N (single trailing dotted component, numeric only)
+    m = re.match(r'^(.*)\.(\d+)$', model_id)
+    if m and m.group(2).isdigit():
+        return m.group(1), int(m.group(2))
+    return model_id, 0
+
+
+def list_opencode_models():
+    """Run `opencode models` once and return list of all model ids."""
+    out = subprocess.run(["opencode", "models"], capture_output=True, text=True)
+    if out.returncode != 0:
+        print(f"error: opencode models failed: {out.stderr.strip()}", file=sys.stderr)
+        return []
+    return [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
+
+
+_ALL_MODELS_CACHE = None
+def all_opencode_models():
+    global _ALL_MODELS_CACHE
+    if _ALL_MODELS_CACHE is None:
+        _ALL_MODELS_CACHE = list_opencode_models()
+    return _ALL_MODELS_CACHE
+
+
+def avail_for(model_id):
+    """Return available model ids sharing the provider prefix of model_id."""
+    prov = model_id.split('/', 1)[0]
+    return [m for m in all_opencode_models() if m.split('/', 1)[0] == prov]
+
+
+def latest_for_prefix(target):
+    """Given a target id, find the latest version sharing the same prefix
+    (minus version) among available models. Returns latest id or None."""
+    tprefix, tver = split_prefix_version(target)
+    tbase = tprefix.split('/', 1)[-1]
+    candidates = []
+    for m in avail_for(target):
+        mprefix, mver = split_prefix_version(m)
+        mbase = mprefix.split('/', 1)[-1]
+        if mbase == tbase and mver >= tver:
+            candidates.append((mver, m))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
+
+
+def parse_model_refs(obj):
+    """Yield (dict_path, key) for every leaf string under known model keys."""
+    model_keys = {"model", "small_model", "frontier_model", "antagonist_model"}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in model_keys and isinstance(v, str):
+                yield obj, k
+            else:
+                yield from parse_model_refs(v)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from parse_model_refs(item)
+
+
+def update_models(apply):
+    """Update dynamic-models.jsonc model versions to latest available per prefix."""
+    models = load_jsonc(MODELS_PATH)
+    providers = models["providers"]
+
+    # collect every model id referenced
+    all_refs = []
+    for pname, pcfg in providers.items():
+        for k in ("model", "small_model", "frontier_model", "antagonist_model"):
+            v = pcfg.get(k)
+            if isinstance(v, str):
+                all_refs.append((pcfg, k, v))
+
+    changes = []
+    for pcfg, key, current in all_refs:
+        latest = latest_for_prefix(current)
+        if latest and latest != current:
+            changes.append((current, latest))
+            if apply:
+                pcfg[key] = latest
+        elif not latest:
+            # not found in opencode models: keep current
+            pass
+
+    if not changes:
+        print("models: all up to date")
+        return
+
+    print(f"models ({'apply' if apply else 'dry-run'}):")
+    for old, new in changes:
+        print(f"  {old}\n    -> {new}")
+
+    if apply:
+        with open(MODELS_PATH, "w") as f:
+            # preserve the jsonc style as best-effort plain json
+            json.dump(models, f, indent=4)
+            f.write("\n")
+        print(f"  written: {MODELS_PATH}")
+
+
+def npm_latest(spec):
+    """Resolve npm spec 'pkg@version' or 'pkg' -> latest version string."""
+    pkg = spec.split('@', 1)[0] if spec.startswith('@') else spec.split('@', 1)[0]
+    # handle scoped: @scope/pkg@ver
+    if spec.startswith('@'):
+        parts = spec.lstrip('@').split('@', 1)
+        pkg = '@' + parts[0]
+    try:
+        out = subprocess.run(
+            ["npm", "view", pkg, "version"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def update_plugins(apply):
+    """Update opencode.json.tmpl plugin entries to latest npm versions."""
+    template = load_jsonc(TEMPLATE_PATH)
+    plugins = template.get("plugin", [])
+    if not plugins:
+        print("plugins: none configured")
+        return
+
+    changes = []
+    for i, spec in enumerate(plugins):
+        if not isinstance(spec, str) or '@' not in spec:
+            continue
+        # split pkg@version (handle scoped)
+        if spec.startswith('@'):
+            parts = spec.lstrip('@').rsplit('@', 1)
+            pkg = '@' + parts[0]
+            cur = parts[1] if len(parts) > 1 else ''
+        else:
+            pkg, _, cur = spec.partition('@')
+        latest = npm_latest(spec)
+        if latest and latest != cur:
+            changes.append((i, spec, f"{pkg}@{latest}"))
+
+    if not changes:
+        print("plugins: all up to date")
+        return
+
+    print(f"plugins ({'apply' if apply else 'dry-run'}):")
+    for _i, old, new in changes:
+        print(f"  {old}\n    -> {new}")
+
+    if apply:
+        for i, _old, new in changes:
+            plugins[i] = new
+        with open(TEMPLATE_PATH, "w") as f:
+            json.dump(template, f, indent=2)
+            f.write("\n")
+        print(f"  written: {TEMPLATE_PATH}")
+
+
+def cmd_update():
+    apply = "--apply" in sys.argv
+    print("--- plugins ---")
+    update_plugins(apply)
+    print("\n--- models ---")
+    update_models(apply)
+    if not apply:
+        print("\n(dry-run: pass --apply to write changes)")
+
+
 def main():
     if len(sys.argv) < 2:
         # Just ensure symlinks without provider resolution
@@ -222,6 +440,10 @@ def main():
         sys.exit(1)
 
     prefix = sys.argv[1]
+
+    if prefix == "update":
+        cmd_update()
+        return
 
     # Ensure shared models symlink exists
     if not os.path.exists(MODELS_PATH):

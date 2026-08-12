@@ -2,7 +2,7 @@
 description: Create PR from recent commits
 argument-hint: <extra-args>
 metadata:
-  model: dynamic/small_model
+  model: ds4/deepseek-v4-flash
 policy-allow:
   - mach:com.apple.trustd.agent
   - unix-socket:$SSH_AUTH_SOCK

@@ -2,7 +2,7 @@
 description: Dry security review of current changes
 argument-hint: <extra-args>
 metadata:
-  model: dynamic/model
+  model: openrouter/z-ai/glm-5.2
 policy-deny:
   - fs:write:.
   - fs:write:/tmp

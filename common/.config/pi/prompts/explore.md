@@ -2,7 +2,7 @@
 description: Explore codebase structure and find files
 argument-hint: [search query]
 metadata:
-  model: dynamic/small_model
+  model: ds4/deepseek-v4-flash
 policy-deny:
   - fs:write:.
   - fs:write:/tmp

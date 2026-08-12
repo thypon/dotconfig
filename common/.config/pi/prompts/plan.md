@@ -2,7 +2,7 @@
 description: Think, research, and construct well-formed plan
 argument-hint: [task description]
 metadata:
-  model: dynamic/model
+  model: openrouter/z-ai/glm-5.2
 policy-deny:
   - fs:write:.
   - fs:write:/tmp

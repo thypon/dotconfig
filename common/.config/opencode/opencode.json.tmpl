@@ -10,6 +10,23 @@
         "timeout": 600000
       }
     },
+    "ds4": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DS4 Local",
+      "options": {
+        "baseURL": "http://localhost:8000/v1",
+        "apiKey": "ds4-local"
+      },
+      "models": {
+        "deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash (local ds4)",
+          "limit": {
+            "context": 100000,
+            "output": 32768
+          }
+        }
+      }
+    },
     "venice": {
       "models": {
         "olafangensan-glm-4.7-flash-heretic": {

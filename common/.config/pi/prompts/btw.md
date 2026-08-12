@@ -2,7 +2,7 @@
 description: Side question without polluting conversation
 argument-hint: <question>
 metadata:
-  model: dynamic/small_model
+  model: ds4/deepseek-v4-flash
 policy-deny:
   - fs:write:.
   - fs:write:/tmp
