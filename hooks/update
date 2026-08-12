@@ -36,9 +36,30 @@ link_files() {
 			echo "  Creating directory $destdir_parent"
 			mkdir -p "$destdir_parent"
 		fi
+		# copy opencode plugins (opencode does not load symlinked plugin files)
+		case "$relpath" in
+			.config/opencode/plugins/*)
+				rm -f "$destfile"
+				echo "  $relpath -> $destfile (copy)"
+				cp "$srcfile" "$destfile"
+				continue
+				;;
+		esac
 		echo "  $relpath -> $destfile"
 		ln -sf "$srcfile" "$destfile"
 	done
+}
+
+# Resolve a pnpm command, or echo a message and return 1 if unavailable.
+_resolve_pnpm() {
+	if command -v pnpm >/dev/null 2>&1; then
+		echo "pnpm"
+	elif command -v corepack >/dev/null 2>&1; then
+		echo "corepack pnpm"
+	else
+		echo "  (pnpm not found, skipping install)" >&2
+		return 1
+	fi
 }
 
 # Install extension dependencies (pnpm install in permissions extension dir)
@@ -47,16 +68,22 @@ _pnpm_install() {
 		return 0
 	fi
 	local pnpm_cmd
-	if command -v pnpm >/dev/null 2>&1; then
-		pnpm_cmd="pnpm"
-	elif command -v corepack >/dev/null 2>&1; then
-		pnpm_cmd="corepack pnpm"
-	else
-		echo "  (pnpm not found, skipping install)"
-		return 0
-	fi
+	pnpm_cmd="$(_resolve_pnpm)" || return 0
 	echo "Installing permissions extension deps..."
 	(cd "$TOPLEVELDIR/common/.config/pi/extensions/permissions" && $pnpm_cmd install --frozen-lockfile) || true
+}
+
+# Install plugin dependencies (pnpm install in opencode config dir, where
+# plugins/ are linked and package.json declares @opencode-ai/plugin)
+_pnpm_install_plugins() {
+	local plugins_dest="$HOME/.config/opencode"
+	if [ ! -f "$plugins_dest/package.json" ]; then
+		return 0
+	fi
+	local pnpm_cmd
+	pnpm_cmd="$(_resolve_pnpm)" || return 0
+	echo "Installing opencode plugins deps..."
+	(cd "$plugins_dest" && $pnpm_cmd install) || true
 }
 
 link_files "$TOPLEVELDIR/common" "$HOME"
@@ -72,3 +99,4 @@ else
 fi
 
 _pnpm_install
+_pnpm_install_plugins
