@@ -65,6 +65,39 @@ EOF
 	return "$rollback_status"
 }
 
+host_arch=$(uname -m)
+
+pkg_archs=
+pkg_nocross=
+load_pkg_meta() {
+	pkg_archs=
+	pkg_nocross=
+	out=$(./xbps-src -p archs,nocross show "$1" 2>/dev/null) || return 1
+	pkg_archs=$(printf '%s\n' "$out" | awk -F'\t' '$1=="archs:" && $NF!=""{printf "%s ", $NF}')
+	if printf '%s\n' "$out" | awk -F'\t' '$1=="nocross:" && $NF!=""{f=1} END{exit !f}'; then
+		pkg_nocross=1
+	fi
+}
+
+arch_allowed() {
+	md_arch=$1
+	[ -z "$pkg_archs" ] && return 0
+	match=
+	nonegation=
+	set -f
+	for f in $pkg_archs; do
+		set +f
+		case "$f" in \~*) nonegation= ;; *) nonegation=1 ;; esac
+		f=${f#\~}
+		case "$md_arch" in $f) match=1; break ;; esac
+	done
+	set +f
+	if [ -z "$nonegation" -a -n "$match" ] || [ -n "$nonegation" -a -z "$match" ]; then
+		return 1
+	fi
+	return 0
+}
+
 repo=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
 [ -x "$repo/xbps-src" ] || die "not in a void-packages repository: missing xbps-src"
 [ -d "$repo/srcpkgs" ] || die "not in a void-packages repository: missing srcpkgs"
@@ -73,11 +106,20 @@ repo=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repos
 
 cd "$repo"
 
+masterdirs=
+for d in "$repo"/masterdir-*; do
+	[ -d "$d" ] || continue
+	[ -s "$d/.xbps_chroot_init" ] || continue
+	masterdirs=$(add_line "$masterdirs" "$d")
+done
+[ -n "$masterdirs" ] || die "no masterdir-* directories found in $repo"
+
 built=
 updated=
 missing=
 update_failed=
 build_failed=
+skipped=
 rollback=
 status=0
 
@@ -97,8 +139,34 @@ for pkg in "$@"; do
 	fi
 	updated=$(add_line "$updated" "$pkg")
 
-	if ! ./xbps-src -j4 pkg "$pkg"; then
-		build_failed=$(add_line "$build_failed" "$pkg")
+	load_pkg_meta "$pkg" || die "failed to read package metadata for $pkg"
+
+	pkg_ok=1
+	while IFS= read -r md; do
+		[ -n "$md" ] || continue
+		md_name=$(basename "$md")
+		md_arch=$(cat "$md/.xbps_chroot_init")
+		md_base=${md_arch%-musl}
+		reason=
+		if ! arch_allowed "$md_arch"; then
+			reason="archs"
+		elif [ -n "$pkg_nocross" ] && [ "$md_base" != "$host_arch" ]; then
+			reason="nocross"
+		fi
+		if [ -n "$reason" ]; then
+			skipped=$(add_line "$skipped" "$pkg ($md_name: $reason)")
+			continue
+		fi
+		if ! ./xbps-src -m "$md" -j4 pkg "$pkg"; then
+			build_failed=$(add_line "$build_failed" "$pkg ($md_name)")
+			pkg_ok=0
+			break
+		fi
+	done <<EOF
+$masterdirs
+EOF
+
+	if [ "$pkg_ok" -eq 0 ]; then
 		rollback=$(add_line "$rollback" "$pkg $before")
 		status=1
 		continue
@@ -109,6 +177,7 @@ done
 
 print_list "updated packages" "$updated"
 print_list "built packages" "$built"
+print_list "skipped (nocross/archs)" "$skipped"
 print_list "unknown packages" "$missing"
 print_list "update failures" "$update_failed"
 print_list "build failures" "$build_failed"
