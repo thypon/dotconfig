@@ -113,7 +113,21 @@ const SandboxConfig: Plugin = async ({ directory }) => {
   } catch (err) {
     console.warn("[sandbox-config] failed:", err instanceof Error ? err.message : err)
   }
-  return {}
+  return {
+    // Strip agent.*.options.sandbox from the live config so it is not
+    // forwarded to providers as request params (strict providers like
+    // venice reject unknown params with 400 "Invalid request parameter").
+    config: (cfg) => {
+      const agents = (cfg as Record<string, any>).agent
+      if (!isPlainObject(agents)) return
+      for (const name of Object.keys(agents)) {
+        const opts = agents[name]?.options
+        if (!isPlainObject(opts) || !("sandbox" in opts)) continue
+        delete opts.sandbox
+        if (Object.keys(opts).length === 0) delete agents[name].options
+      }
+    },
+  }
 }
 
 export default SandboxConfig
