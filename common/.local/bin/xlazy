@@ -1,7 +1,15 @@
 #!/bin/sh
 set -eu
-# Update and build Void Linux packages from a void-packages checkout.
+# Update and cross-build Void Linux packages from a void-packages checkout.
 # Usage: xlazy <pkg1> [pkg2 ...]
+#
+# Target arches are derived from the *names* of masterdir / masterdir-<arch>
+# directories in the repo. Arches sharing the host CPU base (e.g. aarch64 and
+# aarch64-musl on an aarch64 host) build natively in reflink COW clones of the
+# matching masterdir. Other arches cross-compile via `xbps-src -a <arch>` in a
+# COW clone of the host masterdir -- no bootstrapped foreign masterdirs needed.
+# All arch builds for a package run in parallel; multiple xlazy invocations are
+# safe (per-clone and per-package flocking).
 
 die() {
 	printf '%s\n' "xlazy: $*" >&2
@@ -65,7 +73,8 @@ EOF
 	return "$rollback_status"
 }
 
-host_arch=$(uname -m)
+host_arch=$(xbps-uhelper arch 2>/dev/null || uname -m)
+host_base=${host_arch%-musl}
 
 pkg_archs=
 pkg_nocross=
@@ -98,6 +107,41 @@ arch_allowed() {
 	return 0
 }
 
+has_cross_profile() {
+	[ -f "$repo/common/cross-profiles/$1.sh" ]
+}
+
+native_source() {
+	# Print the bootstrapped masterdir to clone for a native-eligible arch.
+	ns_arch=$1
+	if [ -d "$repo/masterdir-$ns_arch" ] && [ -s "$repo/masterdir-$ns_arch/.xbps_chroot_init" ]; then
+		printf '%s' "$repo/masterdir-$ns_arch"
+	elif [ "$ns_arch" = "$host_arch" ] && [ -d "$repo/masterdir" ] && [ -s "$repo/masterdir/.xbps_chroot_init" ]; then
+		printf '%s' "$repo/masterdir"
+	fi
+}
+
+cross_source() {
+	# Print the bootstrapped host masterdir to clone for cross builds.
+	if [ -d "$repo/masterdir-$host_arch" ] && [ -s "$repo/masterdir-$host_arch/.xbps_chroot_init" ]; then
+		printf '%s' "$repo/masterdir-$host_arch"
+	elif [ -d "$repo/masterdir" ] && [ -s "$repo/masterdir/.xbps_chroot_init" ]; then
+		printf '%s' "$repo/masterdir"
+	fi
+}
+
+ensure_clone() {
+	ec_src=$1
+	ec_arch=$2
+	clone="$repo/masterdir-xlazy-$ec_arch"
+	if [ -d "$clone" ] && [ -s "$clone/.xbps_chroot_init" ]; then
+		return 0
+	fi
+	rm -rf "$clone"
+	cp -a --reflink=always "$ec_src" "$clone" \
+		|| die "reflink clone $ec_src -> $clone failed (reflink needs btrfs/xfs/bcachefs)"
+}
+
 repo=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repository"
 [ -x "$repo/xbps-src" ] || die "not in a void-packages repository: missing xbps-src"
 [ -d "$repo/srcpkgs" ] || die "not in a void-packages repository: missing srcpkgs"
@@ -106,13 +150,33 @@ repo=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repos
 
 cd "$repo"
 
-masterdirs=
-for d in "$repo"/masterdir-*; do
+# Target arch set = names of masterdir / masterdir-<arch>. Our own
+# masterdir-xlazy-* clones are skipped so they don't feed back as arches.
+arches=
+seen=
+add_arch() {
+	case " $seen " in
+		*" $1 "*) ;;
+		*) seen="$seen $1"; arches=$(add_line "$arches" "$1") ;;
+	esac
+}
+for d in "$repo"/masterdir "$repo"/masterdir-*; do
 	[ -d "$d" ] || continue
-	[ -s "$d/.xbps_chroot_init" ] || continue
-	masterdirs=$(add_line "$masterdirs" "$d")
+	name=$(basename "$d")
+	case "$name" in
+		masterdir) add_arch "$host_arch" ;;
+		masterdir-xlazy-*) ;;
+		masterdir-*) add_arch "${name#masterdir-}" ;;
+	esac
 done
-[ -n "$masterdirs" ] || die "no masterdir-* directories found in $repo"
+[ -n "$arches" ] || die "no masterdir / masterdir-<arch> directories found in $repo"
+
+mkdir -p "$repo/.git/xlazy"
+update_lock="$repo/.git/xlazy/update.lock"
+ncpu=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/xlazy.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
 
 built=
 updated=
@@ -130,54 +194,119 @@ for pkg in "$@"; do
 		continue
 	fi
 
+	pkg_lock="$repo/.git/xlazy/pkg-$pkg.lock"
+	exec 9>"$pkg_lock"
+	flock 9
+
 	before=$(git rev-parse --verify HEAD) || die "failed to read current git commit"
-	if ! xupdate "$pkg"; then
+	if ! flock "$update_lock" xupdate "$pkg"; then
 		update_failed=$(add_line "$update_failed" "$pkg")
 		rollback=$(add_line "$rollback" "$pkg $before")
 		status=1
+		exec 9>&-
 		continue
 	fi
 	updated=$(add_line "$updated" "$pkg")
 
 	load_pkg_meta "$pkg" || die "failed to read package metadata for $pkg"
 
-	pkg_ok=1
-	while IFS= read -r md; do
-		[ -n "$md" ] || continue
-		md_name=$(basename "$md")
-		md_arch=$(cat "$md/.xbps_chroot_init")
-		md_base=${md_arch%-musl}
-		reason=
-		if ! arch_allowed "$md_arch"; then
-			reason="archs"
-		elif [ -n "$pkg_nocross" ] && [ "$md_base" != "$host_arch" ]; then
-			reason="nocross"
-		fi
-		if [ -n "$reason" ]; then
-			skipped=$(add_line "$skipped" "$pkg ($md_name: $reason)")
+	# Build plan: "arch<TAB>mode<TAB>src" for each arch we will actually build.
+	plan=
+	skipped_this=
+	for arch in $arches; do
+		if ! arch_allowed "$arch"; then
+			skipped_this=$(add_line "$skipped_this" "$pkg ($arch: archs)")
 			continue
 		fi
-		if ! ./xbps-src -m "$md" -j4 pkg "$pkg"; then
-			build_failed=$(add_line "$build_failed" "$pkg ($md_name)")
-			pkg_ok=0
-			break
+		base=${arch%-musl}
+		if [ "$base" = "$host_base" ]; then
+			src=$(native_source "$arch")
+			if [ -z "$src" ]; then
+				skipped_this=$(add_line "$skipped_this" "$pkg ($arch: no masterdir)")
+				continue
+			fi
+			plan=$(add_line "$plan" "$arch	native	$src")
+		else
+			if [ -n "$pkg_nocross" ]; then
+				skipped_this=$(add_line "$skipped_this" "$pkg ($arch: nocross)")
+				continue
+			fi
+			if ! has_cross_profile "$arch"; then
+				skipped_this=$(add_line "$skipped_this" "$pkg ($arch: no cross profile)")
+				continue
+			fi
+			src=$(cross_source)
+			[ -n "$src" ] || die "no bootstrapped host masterdir (need masterdir-$host_arch or masterdir)"
+			plan=$(add_line "$plan" "$arch	cross	$src")
 		fi
-	done <<EOF
-$masterdirs
-EOF
+	done
+	skipped=$(add_line "$skipped" "$skipped_this")
 
-	if [ "$pkg_ok" -eq 0 ]; then
-		rollback=$(add_line "$rollback" "$pkg $before")
-		status=1
+	nbuilds=$(printf '%s\n' "$plan" | grep -c . 2>/dev/null || echo 0)
+	if [ "$nbuilds" -eq 0 ]; then
+		exec 9>&-
 		continue
 	fi
+	jobs=$(( ncpu / nbuilds ))
+	[ "$jobs" -ge 1 ] || jobs=1
 
-	built=$(add_line "$built" "$pkg")
+	# Launch arch builds in parallel. Each holds a per-clone flock so that a
+	# second xlazy invocation targeting the same arch queues behind this one.
+	while IFS='	' read -r arch mode src; do
+		[ -n "$arch" ] || continue
+		creat_lock="$repo/.git/xlazy/clone-$arch.lock"
+		exec 7>"$creat_lock"
+		flock 7
+		ensure_clone "$src" "$arch"
+		exec 7>&-
+
+		clone="$repo/masterdir-xlazy-$arch"
+		rcfile="$tmp/$pkg.$arch.rc"
+		logfile="$tmp/$pkg.$arch.log"
+		: > "$rcfile"
+		printf '%s\n' "xlazy: building $pkg ($arch)" >&2
+		(
+			exec 200>"$clone/.xlazy.lock"
+			flock 200
+			if [ "$mode" = cross ]; then
+				./xbps-src -m "$clone" -a "$arch" -j"$jobs" pkg "$pkg"
+			else
+				./xbps-src -m "$clone" -j"$jobs" pkg "$pkg"
+			fi >"$logfile" 2>&1
+			echo "$?" >"$rcfile"
+		) &
+	done <<EOF
+$plan
+EOF
+	wait
+
+	pkg_failed=0
+	while IFS='	' read -r arch mode src; do
+		[ -n "$arch" ] || continue
+		rc=$(cat "$tmp/$pkg.$arch.rc" 2>/dev/null || echo 1)
+		if [ "$rc" = 0 ]; then
+			built=$(add_line "$built" "$pkg ($arch)")
+		else
+			build_failed=$(add_line "$build_failed" "$pkg ($arch)")
+			printf '%s\n' "xlazy: build failed: $pkg ($arch); last log lines:" >&2
+			tail -n 80 "$tmp/$pkg.$arch.log" >&2 2>/dev/null || true
+			pkg_failed=1
+		fi
+	done <<EOF
+$plan
+EOF
+
+	exec 9>&-
+
+	if [ "$pkg_failed" -ne 0 ]; then
+		rollback=$(add_line "$rollback" "$pkg $before")
+		status=1
+	fi
 done
 
 print_list "updated packages" "$updated"
 print_list "built packages" "$built"
-print_list "skipped (nocross/archs)" "$skipped"
+print_list "skipped" "$skipped"
 print_list "unknown packages" "$missing"
 print_list "update failures" "$update_failed"
 print_list "build failures" "$build_failed"
