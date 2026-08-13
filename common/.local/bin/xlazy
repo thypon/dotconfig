@@ -266,8 +266,8 @@ for pkg in "$@"; do
 		: > "$rcfile"
 		printf '%s\n' "xlazy: building $pkg ($arch)" >&2
 		(
-			exec 200>"$clone/.xlazy.lock"
-			flock 200
+			exec 8>"$clone/.xlazy.lock"
+			flock 8
 			if [ "$mode" = cross ]; then
 				./xbps-src -m "$clone" -a "$arch" -j"$jobs" pkg "$pkg"
 			else
