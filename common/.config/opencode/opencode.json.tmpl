@@ -65,51 +65,6 @@
       "mode": "primary",
       "model": "dynamic/frontier_model",
       "prompt": "{file:agents/plan.txt}",
-      "options": {
-        "sandbox": {
-          "filesystem": {
-            "denyRead": [
-              "~/.ssh",
-              "~/.gnupg",
-              "~/.aws/credentials",
-              "~/.azure",
-              "~/.config/gcloud",
-              "~/.config/gh",
-              "~/.kube",
-              "~/.docker/config.json",
-              "~/.npmrc",
-              "~/.netrc",
-              "~/.env"
-            ]
-          },
-          "network": {
-            "allowedDomains": [
-              "registry.npmjs.org",
-              "*.npmjs.org",
-              "registry.yarnpkg.com",
-              "pypi.org",
-              "*.pypi.org",
-              "crates.io",
-              "*.crates.io",
-              "github.com",
-              "*.github.com",
-              "gitlab.com",
-              "*.gitlab.com",
-              "bitbucket.org",
-              "*.bitbucket.org",
-              "api.openai.com",
-              "api.anthropic.com",
-              "generativelanguage.googleapis.com",
-              "*.googleapis.com",
-              "openrouter.ai",
-              "*.openrouter.ai",
-              "api.bedrock.aws",
-              "*.amazonaws.com",
-              "api.venice.ai"
-            ]
-          }
-        }
-      },
       "permission": {
         "edit": "ask",
         "bash": {
@@ -230,7 +185,6 @@
     }
   },
   "plugin": [
-    "./plugins/sandbox-config.ts",
     "@tarquinen/opencode-dcp@3.1.14",
     "opencode-sandbox@0.3.2"
   ]
