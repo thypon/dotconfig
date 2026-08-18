@@ -141,22 +141,42 @@
           "printf *": "allow"
         },
         "external_directory": {
-          "*": "ask"
+          "~/src/**": "allow"
         }
       }
     },
     "build": {
-      "model": "dynamic/model"
+      "model": "dynamic/model",
+      "permission": {
+        "external_directory": {
+          "~/src/**": "allow"
+        }
+      }
     },
     "general": {
-      "model": "dynamic/model"
+      "model": "dynamic/model",
+      "permission": {
+        "external_directory": {
+          "~/src/**": "allow"
+        }
+      }
     },
     "explore": {
       "model": "dynamic/small_model",
-      "prompt": "{file:agents/explore.txt}"
+      "prompt": "{file:agents/explore.txt}",
+      "permission": {
+        "external_directory": {
+          "~/src/**": "allow"
+        }
+      }
     },
     "scout": {
-      "model": "dynamic/small_model"
+      "model": "dynamic/small_model",
+      "permission": {
+        "external_directory": {
+          "~/src/**": "allow"
+        }
+      }
     },
     "review": {
       "description": "Read-only code review, caveman terse output",
@@ -242,7 +262,7 @@
           "git status*": "allow"
         },
         "external_directory": {
-          "*": "ask"
+          "~/src/**": "allow"
         }
       }
     },
