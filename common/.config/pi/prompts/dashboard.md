@@ -2,7 +2,7 @@
 description: GitHub workload dashboard (org/me/pr)
 argument-hint: <orgs|me|pr>
 metadata:
-  model: ds4/deepseek-v4-flash
+  model: dynamic/small_model
 policy-allow:
   - mach:com.apple.trustd.agent
   - credential:api.github.com

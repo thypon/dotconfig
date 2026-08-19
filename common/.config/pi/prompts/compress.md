@@ -2,7 +2,7 @@
 description: Compress memory files to save tokens
 argument-hint: <filepath>
 metadata:
-  model: ds4/deepseek-v4-flash
+  model: dynamic/small_model
 ---
 
 /compress $@

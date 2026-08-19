@@ -160,15 +160,21 @@ def ensure_symlink(target, link):
 
 
 def resolve_and_copy(dir_src, dir_dst, replacements):
-    """Copy dir_src to dir_dst, resolving dynamic/* tokens in all files."""
+    """Copy dir_src to dir_dst, resolving dynamic/* tokens in all files.
+    Never writes through symlinks: a symlinked dst is replaced by real copies."""
     if not os.path.isdir(dir_src):
         print(f"warning: source dir not found: {dir_src}", file=sys.stderr)
         return
+    if os.path.islink(dir_dst):
+        print(f"  unlink: {dir_dst} (symlink, replaced by real copies)")
+        os.unlink(dir_dst)
     ensure_dir(dir_dst)
     for entry in os.listdir(dir_src):
         src = os.path.join(dir_src, entry)
         dst = os.path.join(dir_dst, entry)
         if os.path.isdir(src):
+            if os.path.islink(dst):
+                os.unlink(dst)
             resolve_and_copy(src, dst, replacements)
         else:
             if os.path.islink(dst):
@@ -218,6 +224,8 @@ def setup_pi(replacements):
         f.write("\n")
     print(f"  resolved: {PI_SETTINGS_DST}")
 
+    # Prompts are real copies (rsync'd by hooks/update); resolve dynamic/*
+    # tokens in them. Copies, never links — provider writes must not touch repo.
     resolve_and_copy(PI_PROMPTS_SRC, PI_PROMPTS_DST, replacements)
 
     # Symlink skills → shared
@@ -417,6 +425,16 @@ def cmd_update():
         print("\n(dry-run: pass --apply to write changes)")
 
 
+def current_provider_name():
+    """Return last-deployed provider name from pi settings.json, if any."""
+    try:
+        with open(PI_SETTINGS_DST) as f:
+            name = json.load(f).get("defaultProvider")
+        return name if isinstance(name, str) else None
+    except (OSError, ValueError):
+        return None
+
+
 def main():
     if len(sys.argv) < 2:
         # Just ensure symlinks without provider resolution
@@ -434,6 +452,22 @@ def main():
             sys.exit(1)
 
         providers = models["providers"]
+
+        # No-arg = re-resolve with last-deployed provider (used by hooks/update)
+        name = current_provider_name()
+        if name and name in providers:
+            print(f"re-resolving templates with current provider: {name}")
+            config = providers[name]
+            config["name"] = name
+            replacements = make_replacements(config)
+
+            print("--- opencode ---")
+            setup_opencode(replacements)
+
+            print("\n--- pi ---")
+            setup_pi(replacements)
+            return
+
         print(f"usage: provider <prefix>", file=sys.stderr)
         print(f"available: {', '.join(sorted(providers.keys()))}", file=sys.stderr)
         print(f"\nsymlinks created. Run with provider prefix to resolve templates.", file=sys.stderr)

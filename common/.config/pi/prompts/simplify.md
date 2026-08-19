@@ -2,7 +2,7 @@
 description: Dry cleanup of current changes
 argument-hint: <extra-args>
 metadata:
-  model: ds4/deepseek-v4-flash
+  model: dynamic/model
 ---
 
 /simplify $@

@@ -13,7 +13,7 @@ link_files() {
 			echo "  Skipping $relpath (already exists in home)"
 			continue
 		fi
-		# skip commands/ — managed by provider script (resolved copies)
+		# skip commands/ — synced as real copies below (provider resolves them)
 		case "$relpath" in
 			.config/opencode/commands/*)
 				echo "  Skipping $relpath (managed by provider)"
@@ -48,6 +48,27 @@ link_files() {
 		echo "  $relpath -> $destfile"
 		ln -sf "$srcfile" "$destfile"
 	done
+}
+
+# Copy provider-managed template files (opencode commands, pi prompts) as
+# real files, never links: provider resolves dynamic/* tokens in them, and
+# a symlinked dest would redirect those writes into the repo.
+# rsync --delete keeps structure in sync with the repo.
+copy_files() {
+	srcdir="$1"
+	destdir="$2"
+	[ -d "$srcdir" ] || return 0
+	if ! command -v rsync >/dev/null 2>&1; then
+		echo "  (rsync not found, skipping copy sync of $srcdir)" >&2
+		return 0
+	fi
+	if [ -L "$destdir" ]; then
+		echo "  Removing symlinked $destdir (replaced by real copies)"
+		rm "$destdir"
+	fi
+	mkdir -p "$destdir"
+	echo "Copying files from $srcdir to $destdir"
+	rsync -a --delete "$srcdir"/ "$destdir"/
 }
 
 # Resolve a pnpm command, or echo a message and return 1 if unavailable.
@@ -96,6 +117,16 @@ else
 	else
 		echo "No macos/ directory found, skipping"
 	fi
+fi
+
+# Provider-managed templates: real copies, then re-resolve dynamic/* tokens
+# with the last-deployed provider
+copy_files "$TOPLEVELDIR/common/.config/opencode/commands" "$HOME/.config/opencode/commands"
+copy_files "$TOPLEVELDIR/common/.config/pi/prompts" "$HOME/.pi/agent/prompts"
+
+if [ -x "$HOME/.local/bin/provider" ]; then
+	echo "Re-resolving provider templates..."
+	"$HOME/.local/bin/provider" || true
 fi
 
 _pnpm_install

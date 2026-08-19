@@ -2,7 +2,7 @@
 description: Generate terse commit message
 argument-hint: <extra-args>
 metadata:
-  model: ds4/deepseek-v4-flash
+  model: dynamic/small_model
 policy-allow:
   - mach:com.apple.trustd.agent
   - unix-socket:$SSH_AUTH_SOCK

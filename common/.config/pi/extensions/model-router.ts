@@ -8,6 +8,16 @@ const SHARED_PROMPTS = join(homedir(), ".config", "pi", "prompts")
 const SETTINGS_PATH = join(homedir(), ".pi", "agent", "settings.json")
 const MODELS_PATH = join(homedir(), ".config", "dynamic-models.jsonc")
 
+// DS4 local server (OpenAI-compatible DeepSeek V4 Flash)
+const DS4_URL = "http://localhost:8000/v1/models"
+const DS4_MODEL_FLASH = "ds4/deepseek-v4-flash"
+
+export interface ResolveOpts {
+  settingsPath?: string
+  modelsPath?: string
+  probeDs4?: () => Promise<boolean>
+}
+
 function stripJsoncComments(text: string): string {
   return text.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
 }
@@ -26,17 +36,36 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function resolveDynamicModel(token: string): Promise<string | null> {
+async function ds4Available(): Promise<boolean> {
+  try {
+    const res = await fetch(DS4_URL, { signal: AbortSignal.timeout(1000) })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function resolveDynamicModel(
+  token: string,
+  opts: ResolveOpts = {}
+): Promise<string | null> {
   const parts = token.split("/")
   if (parts[0] !== "dynamic") return null
   const key = parts[1] // model | small_model | frontier_model | antagonist_model
 
   try {
-    const settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf8"))
+    const settings = JSON.parse(readFileSync(opts.settingsPath ?? SETTINGS_PATH, "utf8"))
     const provider = settings.defaultProvider
-    const models = loadJsonc(MODELS_PATH)
+    const models = loadJsonc(opts.modelsPath ?? MODELS_PATH)
     const modelValue = models?.providers?.[provider]?.[key]
-    if (modelValue) return modelValue
+    if (!modelValue) return null
+
+    if (key === "small_model" && modelValue.includes("deepseek-v4-flash")) {
+      const probe = opts.probeDs4 ?? ds4Available
+      if (await probe()) return DS4_MODEL_FLASH
+    }
+
+    return modelValue
   } catch { /* fall through */ }
 
   return null
