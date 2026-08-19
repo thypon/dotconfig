@@ -242,7 +242,7 @@ VERSION_RE = re.compile(r'(.*?)(?:[-.](\d{4,}))?$')
 def split_prefix_version(model_id):
     """Split 'deepseek-v4-flash-0731' -> ('deepseek-v4-flash', 731).
     Bare 'deepseek-v4-flash' -> ('deepseek-v4-flash', 0).
-    'glm-5.2' -> ('glm-5', 2). 'gpt-5.6-terra' -> ('gpt-5.6-terra', 0)."""
+    'glm-5.3' -> ('glm-5', 3). 'gpt-5.6-terra' -> ('gpt-5.6-terra', 0)."""
     # try trailing -NNNN (4+ digits, dated)
     m = re.match(r'^(.*?)-(\d{4,})$', model_id)
     if m:

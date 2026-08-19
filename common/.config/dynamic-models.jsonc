@@ -9,19 +9,19 @@
         "venice": {
             "model": "venice/deepseek-v4-pro",
             "small_model": "venice/deepseek-v4-flash-0731",
-            "frontier_model": "venice/zai-org-glm-5-2",
+            "frontier_model": "venice/z-ai-glm-5-3",
             "antagonist_model": "venice/openai-gpt-56-terra"
         },
         "minimax": {
             "model": "venice/MiniMax-M2.7",
             "small_model": "venice/deepseek-v4-flash-0731",
             "frontier_model": "venice/minimax-m3",
-            "antagonist_model": "venice/zai-org-glm-5-2"
+            "antagonist_model": "venice/z-ai-glm-5-3"
         },
         "openrouter": {
-            "model": "openrouter/z-ai/glm-5.2",
+            "model": "openrouter/z-ai/glm-5.3",
             "small_model": "openrouter/deepseek/deepseek-v4-flash-0731",
-            "frontier_model": "openrouter/moonshotai/kimi-k3",
+            "frontier_model": "openrouter/z-ai/glm-5.3",
             "antagonist_model": "openrouter/openai/gpt-5.6-terra"
         },
         "amazon-bedrock": {
