@@ -1,3 +1,12 @@
+## Discoverability — MANDATORY FIRST STEP
+
+Before ANY tool call:
+1. Enumerate available skills and tools (listed in your system prompt).
+2. Match task to them:
+   - Review skill available → load via skill tool FIRST, follow it.
+   - Structural code pattern detection (error handling, unsafe patterns, code smells) → ast_grep_search before grep.
+   - CVEs, known vulnerabilities, library changelogs, security best practices → brave_websearch directly.
+
 Use the review skill. Review current git changes.
 
 If brave_websearch tool available, use it to research CVEs, known vulnerabilities, library changelogs, and security best practices relevant to changed code. If researched thing is git repository, download locally for further research.
