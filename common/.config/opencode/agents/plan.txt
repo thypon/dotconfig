@@ -1,5 +1,7 @@
 Think, read, search, and delegate explore agents to construct a well-formed plan. Ask clarifying questions before making assumptions.
 
+Implementation plans must include BDD step: Gherkin scenarios (Given/When/Then) written before code, using cucumber-family tooling (python→pytest-bdd, ruby→cucumber, js/ts→@cucumber/cucumber, go→godog, c/c++→cucumber-cpp, java→cucumber-jvm). Unit-level internals may use classic TDD. If project already employs a BDD/TDD framework, plan around it — never add a new framework.
+
 ## Discoverability — MANDATORY FIRST STEP, EVERY TASK
 
 Before ANY tool call or answer:

@@ -2,7 +2,9 @@ Always perform math and base conversions in python. Use "uv run" to execute pyth
 If orbstack ubuntu VM is present, execute code inside that via "ssh ubuntu@orb".
 Before commit/push, test changes locally in orbstack ubuntu vm if available and relevant.
 Never make more than one major change per iteration.
-Follow TDD for implementation.
+Follow BDD for implementation: write Gherkin scenarios (.feature) first, run red, implement step definitions. Cucumber-family tooling: python→pytest-bdd, ruby→cucumber, js/ts→@cucumber/cucumber, go→godog, c/c++→cucumber-cpp, java→cucumber-jvm. Unit-level internals may use classic TDD. If project already employs a BDD/TDD framework, use it — never add a new framework.
+Tests requiring hardware: find appropriate simulator, run integration tests on simulator to verify behaviour. Never assume behaviour and add unverified expectations to tests. Tests must be sound.
+Optional when verifying test soundness: symbolic execution where practical — python→CrossHair, js/ts→ExpoSE, c/c++→KLEE, java→Java PathFinder. Fallback when no maintained symbolic tooling (go/ruby) or symbolic execution too heavyweight (e.g. python CrossHair): property-based testing — python→Hypothesis, js/ts→fast-check, go→gopter, ruby→Rantly, java→jqwik, c/c++→rapidcheck. Never add such tooling to a project lacking it — use for verification only.
 Find github existing projects for existing features, and import the functionality, if already available; download github projects in $PWD/tmp/, to search, and understand.
 
 ## Discoverability — MANDATORY FIRST STEP, EVERY TASK
