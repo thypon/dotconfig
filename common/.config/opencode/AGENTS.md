@@ -2,6 +2,17 @@ Always perform math and base conversions in python. Use "uv run" to execute pyth
 If orbstack ubuntu VM is present, execute code inside that via "ssh ubuntu@orb".
 Before commit/push, test changes locally in orbstack ubuntu vm if available and relevant.
 Never make more than one major change per iteration.
+
+## TODO tool — MANDATORY
+
+If TODO tool (todowrite/todoread) available:
+1. Before starting work: read existing TODO list. Adopt decided tasks as your own.
+2. Task with 3+ steps, or multi-part user request → create TODO entries via tool.
+3. Execute in order. Exactly ONE task in_progress at a time.
+4. Mark completed ONLY after work verified done (tests run, checks pass). Never on intent.
+5. Update statuses in real time — start → in_progress, done → completed. No batch updates.
+6. Blocked or partial → keep in_progress, add follow-up TODO describing blocker.
+7. Finish only when all TODOs completed or blockers documented. Never leave in_progress tasks silently — state status.
 Follow BDD for implementation: write Gherkin scenarios (.feature) first, run red, implement step definitions. Cucumber-family tooling: python→pytest-bdd, ruby→cucumber, js/ts→@cucumber/cucumber, go→godog, c/c++→cucumber-cpp, java→cucumber-jvm. Unit-level internals may use classic TDD. If project already employs a BDD/TDD framework, use it — never add a new framework.
 Tests requiring hardware: find appropriate simulator, run integration tests on simulator to verify behaviour. Never assume behaviour and add unverified expectations to tests. Tests must be sound.
 Optional when verifying test soundness: symbolic execution where practical — python→CrossHair, js/ts→ExpoSE, c/c++→KLEE, java→Java PathFinder. Fallback when no maintained symbolic tooling (go/ruby) or symbolic execution too heavyweight (e.g. python CrossHair): property-based testing — python→Hypothesis, js/ts→fast-check, go→gopter, ruby→Rantly, java→jqwik, c/c++→rapidcheck. Never add such tooling to a project lacking it — use for verification only.
