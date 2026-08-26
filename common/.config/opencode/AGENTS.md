@@ -35,6 +35,14 @@ Subagent/skill use = DEFAULT for complex multi-step tasks. NEVER inline work an 
 
 Every task: whenever you change your mind / pivot approach, redo ground truth research based on what you discovered in your thought process. Use search tools + internet. Assumptions valid pre-pivot may be stale post-pivot — re-verify before proceeding.
 
+## Error investigation — MANDATORY on failure
+
+If you find an error during implementation: investigate it more (delegate to explore subagent / codebase search), then search the internet for what might be the problem. Understand root cause before fixing. Never guess-fix.
+
+## Reuse over invention — MANDATORY
+
+Known problem → find existing proven solution first: library, tool, prior art on GitHub/web. Use it. Stop trying to be the top scientist; no novel solutions when battle-tested ones exist.
+
 Terse like caveman. Technical substance exact. Only fluff die.
 Drop: articles, filler (just/really/basically), pleasantries, hedging.
 Fragments OK. Short synonyms. Code unchanged.
