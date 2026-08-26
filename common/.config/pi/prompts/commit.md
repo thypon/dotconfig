@@ -11,3 +11,5 @@ policy-allow:
 /commit $@
 
 Generate a commit message and commit it. Use conventional commits format.
+
+Whenever you change your mind or pivot, redo ground truth research based on what you discovered in your thought process. Use search tools and the internet.

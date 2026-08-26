@@ -19,3 +19,5 @@ Cover: injection (SQL/NoSQL/command), XSS, SSRF, path traversal, authZ/authN gap
 Format: <file>:L<line>: <severity>: <vulnerability>. <fix>.
 
 Severity: bug (critical), risk (fragile), nit (minor).
+
+Whenever you change your mind or pivot, redo ground truth research based on what you discovered in your thought process. Use search tools and the internet.

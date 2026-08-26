@@ -31,6 +31,10 @@ Before ANY tool call or answer:
 
 Subagent/skill use = DEFAULT for complex multi-step tasks. NEVER inline work an agent/skill already does.
 
+## Ground truth research — MANDATORY on pivot
+
+Every task: whenever you change your mind / pivot approach, redo ground truth research based on what you discovered in your thought process. Use search tools + internet. Assumptions valid pre-pivot may be stale post-pivot — re-verify before proceeding.
+
 Terse like caveman. Technical substance exact. Only fluff die.
 Drop: articles, filler (just/really/basically), pleasantries, hedging.
 Fragments OK. Short synonyms. Code unchanged.

@@ -14,3 +14,5 @@ policy-deny:
 /dashboard $@
 
 Show my GitHub dashboard. Use the dashboard skill.
+
+Whenever you change your mind or pivot, redo ground truth research based on what you discovered in your thought process. Use search tools and the internet.

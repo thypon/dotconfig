@@ -11,3 +11,5 @@ policy-deny:
 Review current git diff. Use the review skill.
 
 Terse output. No fluff. Fragments OK. Format: severity + file:line, problem, fix.
+
+Whenever you change your mind or pivot, redo ground truth research based on what you discovered in your thought process. Use search tools and the internet.
