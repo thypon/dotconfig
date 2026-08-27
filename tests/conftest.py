@@ -6,6 +6,7 @@ import pytest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTROLLER = os.path.join(REPO_ROOT, "macos", "services", "hpm-controller.sh")
+INSTALL = os.path.join(REPO_ROOT, "macos", "install.sh")
 
 PMSET_SHIM = """#!/bin/sh
 case "$1" in
@@ -52,6 +53,46 @@ echo "Device: en5"
 
 OSASCRIPT_SHIM = """#!/bin/sh
 echo "$@" >> "$OSASCRIPT_LOG"
+"""
+
+SUDO_SHIM = """#!/bin/sh
+echo "sudo $*" >> "$SUDO_LOG"
+if [ "$1" = "-v" ]; then
+  exit 0
+fi
+exec "$@"
+"""
+
+INSTALL_SHIM = """#!/bin/sh
+echo "install $*" >> "$INSTALL_LOG"
+mode=""
+isdir=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) shift 2 ;;
+    -g) shift 2 ;;
+    -m) mode="$2"; shift 2 ;;
+    -d) isdir=1; shift ;;
+    *) break ;;
+  esac
+done
+if [ "$isdir" = "1" ]; then
+  for d in "$@"; do
+    mkdir -p "$d"
+  done
+else
+  src="$1"
+  dst="$2"
+  cp "$src" "$dst"
+  if [ -n "$mode" ]; then
+    chmod "$mode" "$dst"
+  fi
+fi
+"""
+
+LAUNCHCTL_SHIM = """#!/bin/sh
+echo "launchctl $*" >> "$LAUNCHCTL_LOG"
+exit 0
 """
 
 
@@ -103,6 +144,59 @@ def fake_env(tmp_path, monkeypatch):
 def run_controller():
     return subprocess.run(
         ["/bin/sh", CONTROLLER],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+@pytest.fixture
+def install_env(tmp_path, monkeypatch):
+    """PATH-shimmed environment for running macos/install.sh."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    write_shim(bin_dir, "sudo", SUDO_SHIM)
+    write_shim(bin_dir, "install", INSTALL_SHIM)
+    write_shim(bin_dir, "launchctl", LAUNCHCTL_SHIM)
+
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    pam_dir = tmp_path / "pam.d"
+    pam_dir.mkdir()
+    lib_dst = tmp_path / "lib" / "dotconfig"
+    launchd_dir = tmp_path / "launchd"
+    launchd_dir.mkdir()
+    user_dst = tmp_path / "user-services" / "dotconfig"
+    user_dst = tmp_path / "user-services" / "dotconfig"
+
+    env = {
+        "PATH": str(bin_dir) + ":/usr/bin:/bin:/usr/sbin:/sbin",
+        "HOME": str(tmp_path),
+        "SUDO_LOG": str(log_dir / "sudo.log"),
+        "INSTALL_LOG": str(log_dir / "install.log"),
+        "LAUNCHCTL_LOG": str(log_dir / "launchctl.log"),
+        "DOTCONFIG_ASSUME_TTY": "1",
+        "DOTCONFIG_PAM_LOCAL": str(pam_dir / "sudo_local"),
+        "DOTCONFIG_LIB_DST": str(lib_dst),
+        "DOTCONFIG_LAUNCHD_PLIST_DST": str(launchd_dir / "local.dotconfig.hpm-controller.plist"),
+        "DOTCONFIG_USER_SERVICES_DST": str(user_dst),
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    return {
+        "pam_local": pam_dir / "sudo_local",
+        "lib_dst": lib_dst,
+        "ctrl_dst": lib_dst / "hpm-controller.sh",
+        "plist_dst": launchd_dir / "local.dotconfig.hpm-controller.plist",
+        "user_dst": user_dst,
+        "sudo_log": log_dir / "sudo.log",
+        "launchctl_log": log_dir / "launchctl.log",
+    }
+
+
+def run_install():
+    return subprocess.run(
+        ["/bin/sh", INSTALL],
         capture_output=True,
         text=True,
         timeout=30,
