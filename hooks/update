@@ -19,6 +19,10 @@ link_files() {
 				echo "  Skipping $relpath (managed by provider)"
 				continue
 				;;
+			services/*)
+				echo "  Skipping $relpath (managed by macos/services/sync.sh)"
+				continue
+				;;
 		esac
 		destfile="$destdir/$relpath"
 		# skip if any ancestor of dest is a symlink (prevents self-referencing
@@ -116,6 +120,10 @@ else
 		link_files "$TOPLEVELDIR/macos" "$HOME"
 	else
 		echo "No macos/ directory found, skipping"
+	fi
+	if [ -f "$TOPLEVELDIR/macos/services/sync.sh" ]; then
+		echo "Syncing macos services..."
+		sh "$TOPLEVELDIR/macos/services/sync.sh" || true
 	fi
 fi
 

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.dotconfig.hpm-controller</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>/Library/Application Support/dotconfig/hpm-controller.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>10</integer>
+    <key>WatchPaths</key>
+    <array>
+        <string>/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist</string>
+        <string>/Library/Preferences/SystemConfiguration/com.apple.powerconf.plist</string>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/var/log/dotconfig-hpm.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/dotconfig-hpm.log</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
