@@ -91,9 +91,12 @@ def match_provider(providers, prefix):
 
 def make_replacements(provider_config):
     small = provider_config["small_model"]
-    if ds4_available() and "deepseek-v4-flash" in small:
+    if provider_config.get("name") == "local":
+        print(f"  ds4: local provider, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
-        print(f"  ds4: local server up, routing small_model -> {DS4_MODEL_FLASH}")
+    elif high_power_mode_active() and ds4_available() and "deepseek-v4-flash" in small:
+        print(f"  ds4: high power mode + local server up, routing small_model -> {DS4_MODEL_FLASH}")
+        small = DS4_MODEL_FLASH
     return {
         "dynamic/provider": provider_config.get("name", ""),
         "dynamic/model": provider_config["model"],
@@ -116,6 +119,22 @@ def ds4_available():
             return r.status == 200
     except Exception:
         return False
+
+
+def high_power_mode_active():
+    """Return True iff macOS High Power Mode is active (pmset powermode 2).
+
+    Non-darwin hosts, missing pmset, or unparsable output -> False."""
+    if sys.platform != "darwin":
+        return False
+    try:
+        out = subprocess.run(["pmset", "-g"], capture_output=True, text=True, timeout=2)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if out.returncode != 0:
+        return False
+    m = re.search(r"^\s*powermode\s+(\d+)\s*$", out.stdout, re.MULTILINE)
+    return bool(m) and m.group(1) == "2"
 
 
 def resolve_template(template, replacements):
