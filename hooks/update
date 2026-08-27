@@ -119,6 +119,11 @@ link_files "$TOPLEVELDIR/common" "$HOME"
 
 if [ "$(uname -s)" != "Darwin" ]; then
 	link_files "$TOPLEVELDIR/ossnix" "$HOME"
+	if [ -d "$TOPLEVELDIR/linux" ]; then
+		link_files "$TOPLEVELDIR/linux" "$HOME"
+	else
+		echo "No linux/ directory found, skipping"
+	fi
 else
 	if [ -d "$TOPLEVELDIR/macos" ]; then
 		link_files "$TOPLEVELDIR/macos" "$HOME"
