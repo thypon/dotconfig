@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+# Count down from N seconds, printing remaining time as H:M:S
+# Usage: countdown <seconds>
+end=$(( $(date +%s) + $1 ))
+while [ "$(date +%s)" -lt "$end" ]; do
+	rem=$(( end - $(date +%s) ))
+	printf '%02d:%02d:%02d\r' $((rem/3600)) $((rem%3600/60)) $((rem%60))
+	sleep 0.1
+done

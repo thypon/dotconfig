@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+# Simple stopwatch, prints elapsed time as H:M:S
+start=$(date +%s)
+while true; do
+	e=$(( $(date +%s) - start ))
+	printf '%02d:%02d:%02d\r' $((e/3600)) $((e%3600/60)) $((e%60))
+	sleep 0.1
+done
