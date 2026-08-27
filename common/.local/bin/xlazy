@@ -10,6 +10,9 @@ set -eu
 # COW clone of the host masterdir -- no bootstrapped foreign masterdirs needed.
 # All arch builds for a package run in parallel; multiple xlazy invocations are
 # safe (per-clone and per-package flocking).
+# Native builds run the package check phase (do_check, via xbps-src -Q) to
+# verify updates; cross builds skip it (xbps-src never runs checks when cross
+# compiling). Set XLAZY_NO_CHECK=1 to skip checks on native builds.
 
 die() {
 	printf '%s\n' "xlazy: $*" >&2
@@ -270,6 +273,9 @@ for pkg in "$@"; do
 			flock 8
 			if [ "$mode" = cross ]; then
 				./xbps-src -m "$clone" -a "$arch" -j"$jobs" pkg "$pkg"
+			elif [ -z "${XLAZY_NO_CHECK:-}" ]; then
+				# Native: run check phase (do_check) to verify the update.
+				./xbps-src -m "$clone" -Q -j"$jobs" pkg "$pkg"
 			else
 				./xbps-src -m "$clone" -j"$jobs" pkg "$pkg"
 			fi >"$logfile" 2>&1
