@@ -1,12 +1,16 @@
 import os
 import subprocess
 import textwrap
+from types import SimpleNamespace
 
 import pytest
+from pytest_bdd import then
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTROLLER = os.path.join(REPO_ROOT, "macos", "services", "hpm-controller.sh")
 INSTALL = os.path.join(REPO_ROOT, "macos", "install.sh")
+COMMON_BIN = os.path.join(REPO_ROOT, "common", ".local", "bin")
+OSSNIX_BIN = os.path.join(REPO_ROOT, "ossnix", ".local", "bin")
 
 PMSET_SHIM = """#!/bin/sh
 case "$1" in
@@ -201,3 +205,98 @@ def run_install():
         text=True,
         timeout=30,
     )
+
+
+def _resolve_script(name):
+    for base in (COMMON_BIN, OSSNIX_BIN):
+        cand = os.path.join(base, name)
+        if os.path.isfile(cand):
+            return cand
+    raise FileNotFoundError(name)
+
+
+class Ctx:
+    """Per-scenario scratch space for bin-script steps modules."""
+
+    def __init__(self, env):
+        self.env = env
+        self.proc = None
+
+
+@pytest.fixture
+def script_env(tmp_path):
+    """Sandbox for running common/ + linux/ bin scripts with PATH shims.
+
+    PATH exposes only shims + system dirs (no brew paths), HOME is a tmp
+    dir, and subprocesses run inside a tmp cwd. Scripts are exec'd
+    directly so their shebang (sh/ruby/bash) is honored.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    bin_dir = tmp_path / "shims"
+    bin_dir.mkdir()
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    cwd_dir = tmp_path / "cwd"
+    cwd_dir.mkdir()
+    extra = {}
+
+    def shim(name, body):
+        return write_shim(
+            bin_dir, name, "#!/bin/sh\n" + textwrap.dedent(body).strip() + "\n"
+        )
+
+    def set_env(**kwargs):
+        extra.update(kwargs)
+
+    def run(name, *args, stdin="", extra_env=None, timeout=30):
+        env = {
+            "PATH": str(bin_dir) + ":/usr/bin:/bin:/usr/sbin:/sbin",
+            "HOME": str(home),
+            "USER": os.environ.get("USER", "nobody"),
+        }
+        env.update(extra)
+        if extra_env:
+            env.update(extra_env)
+        return subprocess.run(
+            [_resolve_script(name), *args],
+            input=stdin,
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(cwd_dir),
+            timeout=timeout,
+        )
+
+    return SimpleNamespace(
+        home=home,
+        bin_dir=bin_dir,
+        state_dir=state_dir,
+        cwd_dir=cwd_dir,
+        shim=shim,
+        set_env=set_env,
+        run=run,
+    )
+
+
+@pytest.fixture
+def ctx(script_env):
+    return Ctx(script_env)
+
+
+@then("the script exits 0")
+def exit_0(ctx):
+    assert ctx.proc is not None
+    assert ctx.proc.returncode == 0
+
+
+@then("the script exits 1")
+def exit_1(ctx):
+    assert ctx.proc is not None
+    assert ctx.proc.returncode == 1
+
+
+@then("the script exits non-zero")
+def exit_nonzero(ctx):
+    assert ctx.proc is not None
+    assert ctx.proc.returncode != 0

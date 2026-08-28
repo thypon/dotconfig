@@ -2,6 +2,7 @@ import importlib.machinery
 import importlib.util
 import os
 import stat
+import sys
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
@@ -56,18 +57,22 @@ def provider_loaded(provider_module, fake_path):
 
 @given(parsers.parse('pmset reports powermode "{value}"'))
 def pmset_powermode(value, fake_path, monkeypatch):
+    # pmset is macOS-only: make the module-under-test take the darwin branch
+    # so the HPM routing matrix is exercised on any host OS
+    monkeypatch.setattr(sys, "platform", "darwin")
     write_pmset_shim(fake_path, PMSET_PLAIN_SHIM)
     monkeypatch.setenv("FAKE_PM", value)
 
 
 @given("pmset reports garbage")
-def pmset_garbage(fake_path):
+def pmset_garbage(fake_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
     write_pmset_shim(fake_path, PMSET_GARBAGE_SHIM)
 
 
 @given("no pmset binary on PATH")
-def no_pmset(fake_path):
-    pass
+def no_pmset(fake_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
 
 
 @given("the DS4 server is available")

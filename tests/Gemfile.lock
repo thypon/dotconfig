@@ -1,0 +1,29 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    addressable (2.9.0)
+      public_suffix (>= 2.0.2, < 8.0)
+    git (1.19.1)
+      addressable (~> 2.8)
+      rchardet (~> 1.8)
+    progressbar (1.13.0)
+    public_suffix (7.0.5)
+    rchardet (1.10.2)
+
+PLATFORMS
+  arm64-darwin-25
+  ruby
+
+DEPENDENCIES
+  git (~> 1.13)
+  progressbar
+
+CHECKSUMS
+  addressable (2.9.0) sha256=7fdf6ac3660f7f4e867a0838be3f6cf722ace541dd97767fa42bc6cfa980c7af
+  git (1.19.1) sha256=b0a422d9f6517353c48a330d6114de4db9e0c82dbe7202964a1d9f1fbc827d70
+  progressbar (1.13.0) sha256=18c921d1c527dbe7eba3c5a07a1e3bcdd5e42fc18276f5711187a7489448be78
+  public_suffix (7.0.5) sha256=1a8bb08f1bbea19228d3bed6e5ed908d1cb4f7c2726d18bd9cadf60bc676f623
+  rchardet (1.10.2) sha256=e041cb195f464dc10e49ab130f78c8b5956cd9a4f4f6df84e0c183b87c135f33
+
+BUNDLED WITH
+  4.0.16

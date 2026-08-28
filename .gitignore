@@ -1,3 +1,7 @@
 tmp/
 .venv/
 __pycache__/
+
+# Bundler (tests/Gemfile)
+.gems/
+.bundle/
