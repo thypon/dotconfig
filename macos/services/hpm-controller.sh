@@ -13,7 +13,12 @@
 set -u
 
 STATE_DIR="${DOTCONFIG_HPM_STATE_DIR:-/var/db/dotconfig-hpm}"
-SECRETS="${DOTCONFIG_SECRETS:-$HOME/.config/secrets.yml}"
+console_user=$(stat -f %Su /dev/console 2>/dev/null || true)
+console_home=""
+if [ -n "$console_user" ] && [ "$console_user" != "root" ] && [ "$console_user" != "loginwindow" ]; then
+    console_home=$(dscl . -read "/Users/$console_user" NFSHomeDirectory 2>/dev/null | sed -n 's/^NFSHomeDirectory:[[:space:]]*//p' | head -n 1)
+fi
+SECRETS="${DOTCONFIG_SECRETS:-${console_home:-${HOME:-/var/root}}/.config/secrets.yml}"
 NOTIFY_INTERVAL=3600
 LOG_TAG="dotconfig-hpm"
 
@@ -23,7 +28,7 @@ log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [$LOG_TAG] $*" >&2; }
 ssid=""
 if [ -f "$SECRETS" ]; then
     ssid=$(grep -E '^hpm_wifi_ssid:' "$SECRETS" 2>/dev/null \
-        | sed -E 's/^hpm_wifi_ssid:[[:space:]]*//; s/^"(.*)"$/\1/' | head -n 1)
+        | sed -E 's/^hpm_wifi_ssid:[[:space:]]*//; s/[[:space:]]*#.*$//; s/^"(.*)"$/\1/' | head -n 1)
 fi
 if [ -z "$ssid" ]; then
     log "no hpm_wifi_ssid in $SECRETS, leaving powermode untouched"
@@ -64,7 +69,7 @@ case "$ps_info" in
 esac
 
 # --- current powermode -------------------------------------------------------
-current=$(pmset -g 2>/dev/null | sed -n 's/^ *powermode //p' | head -n 1)
+current=$(pmset -g 2>/dev/null | sed -n 's/^ *powermode[[:space:]]*//p' | head -n 1)
 case "$current" in
     0|1|2) ;;
     *)
@@ -79,7 +84,7 @@ wifi_dev=$(networksetup -listallhardwareports 2>/dev/null \
 current_ssid=""
 if [ -n "$wifi_dev" ]; then
     current_ssid=$(ipconfig getsummary "$wifi_dev" 2>/dev/null \
-        | sed -n 's/^ *SSID : //p' | head -n 1)
+        | sed -n 's/^ *SSID : //p' | head -n 1 | sed 's/_5G$//')
 fi
 
 # --- desired powermode -------------------------------------------------------
