@@ -16,6 +16,8 @@ Directly quote short user instructions when it preserves exact meaning.
 Yet be LEAN. Strip noise: failed attempts, verbose tool output, repetition. Pure signal. Zero ambiguity.
 If message contains no significant technical decisions, code changes, or user requirements, produce minimal one-line summary.
 
+Exception: preserve unresolved issues, exact error strings, blockers verbatim — they seed post-compress web search.
+
 MESSAGE IDS
 Specify individual raw messages by ID using injected IDs in conversation:
 

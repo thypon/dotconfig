@@ -25,4 +25,7 @@ Before compressing, ask: "Is this section closed enough to become summary-only r
 
 Evaluate signal-to-noise REGULARLY. Use `compress` deliberately with quality-first summaries. Prioritize stale content intelligently. Maintain high-signal context window.
 
+COMPRESS TRIGGER = GROUNDING SIGNAL
+Needing compression often means spinning without solution. After any compress trigger: if unresolved issues preceded it, run fresh `brave_websearch`. Query = exact errors, library names, failed approach. Ground with prior research, break the loop.
+
 Responsibility: keep sharp context window for optimal performance.

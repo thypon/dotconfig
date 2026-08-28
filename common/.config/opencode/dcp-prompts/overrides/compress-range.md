@@ -15,6 +15,8 @@ Directly quote user messages when short enough to include safely. Exact quotes p
 
 Yet be LEAN. Strip noise: failed attempts, verbose tool outputs, back-and-forth exploration. Pure signal. Zero ambiguity.
 
+Exception: preserve unresolved issues, exact error strings, blockers verbatim — they seed post-compress web search.
+
 COMPRESSED BLOCK PLACEHOLDERS
 When selected range includes previously compressed blocks, use exact placeholder format:
 
