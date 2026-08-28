@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
 # Run semgrep on files changed in a branch vs base commit
 # Usage: spr [semgrep-flags...] <branch>
