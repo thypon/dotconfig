@@ -8,9 +8,9 @@ const SHARED_PROMPTS = join(homedir(), ".config", "pi", "prompts")
 const SETTINGS_PATH = join(homedir(), ".pi", "agent", "settings.json")
 const MODELS_PATH = join(homedir(), ".config", "dynamic-models.jsonc")
 
-// DS4 local server (OpenAI-compatible DeepSeek V4 Flash)
+// DS4 local server (OpenAI-compatible GLM 5.3 Flash)
 const DS4_URL = "http://localhost:8000/v1/models"
-const DS4_MODEL_FLASH = "ds4/deepseek-v4-flash"
+const DS4_MODEL_FLASH = "ds4/glm-5.3-flash"
 
 export interface ResolveOpts {
   settingsPath?: string

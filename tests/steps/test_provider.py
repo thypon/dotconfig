@@ -32,10 +32,10 @@ PROVIDERS = {
         "antagonist_model": "openrouter/moonshotai/kimi-k3",
     },
     "local": {
-        "model": "ds4/deepseek-v4-flash",
-        "small_model": "ds4/deepseek-v4-flash",
-        "frontier_model": "ds4/deepseek-v4-flash",
-        "antagonist_model": "ds4/deepseek-v4-flash",
+        "model": "ds4/glm-5.3-flash",
+        "small_model": "ds4/glm-5.3-flash",
+        "frontier_model": "ds4/glm-5.3-flash",
+        "antagonist_model": "ds4/glm-5.3-flash",
     },
 }
 

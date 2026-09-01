@@ -36,10 +36,10 @@ MODELS_PATH = os.path.expanduser("~/.config/dynamic-models.jsonc")
 TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/opencode.json.tmpl")
 OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
 
-# DS4 local server (OpenAI-compatible DeepSeek V4 Flash)
+# DS4 local server (OpenAI-compatible GLM 5.3 Flash)
 DS4_HOST = "localhost"
 DS4_PORT = 8000
-DS4_MODEL_FLASH = "ds4/deepseek-v4-flash"
+DS4_MODEL_FLASH = "ds4/glm-5.3-flash"
 COMMANDS_SRC = os.path.join(REPO_ROOT, "common", ".config", "opencode", "commands")
 COMMANDS_DST = os.path.expanduser("~/.config/opencode/commands")
 OPENCODE_CONFIG_DIR = os.path.expanduser("~/.config/opencode")
