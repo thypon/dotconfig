@@ -1,0 +1,14 @@
+## Dependencies: tig, difftastic (difft)
+
+#### Quality of life ####
+set mouse = true
+set start-on-head = yes
+set diff-context = 5
+
+#### Difftastic (syntax-aware side-by-side diffs) ####
+# D opens the selected commit or file with difftastic, full screen.
+# git -c diff.external=difft keeps the bindings self-contained: they work
+# even where ~/.gitconfig is not managed by this repo.
+bind main   D !git -c diff.external=difft show --ext-diff %(commit)
+bind diff   D !git -c diff.external=difft show --ext-diff %(commit) -- %(file)
+bind status D !git -c diff.external=difft diff -- %(file)
