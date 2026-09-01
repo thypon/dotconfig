@@ -10,30 +10,30 @@ Feature: Provider routes small_model to local DS4 only in High Power Mode
   Scenario: High Power Mode with DS4 up routes small_model to DS4
     Given pmset reports powermode "2"
     And the DS4 server is available
-    And the configured small model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
     Then small_model is "ds4/glm-5.3-flash"
 
   Scenario: High Power Mode off keeps configured small model
     Given pmset reports powermode "0"
     And the DS4 server is available
-    And the configured small model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
-    Then small_model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    Then small_model is "openrouter/z-ai/glm-5.3-flash"
 
   Scenario: High Power Mode with DS4 down keeps configured small model
     Given pmset reports powermode "2"
     And the DS4 server is not available
-    And the configured small model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
-    Then small_model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    Then small_model is "openrouter/z-ai/glm-5.3-flash"
 
   Scenario: Low Power Mode keeps configured small model
     Given pmset reports powermode "1"
     And the DS4 server is available
-    And the configured small model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
-    Then small_model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    Then small_model is "openrouter/z-ai/glm-5.3-flash"
 
   Scenario: local provider always routes DS4
     Given pmset reports powermode "0"
@@ -42,23 +42,23 @@ Feature: Provider routes small_model to local DS4 only in High Power Mode
     When small_model is resolved for provider "local"
     Then small_model is "ds4/glm-5.3-flash"
 
-  Scenario: Configured small model without deepseek stays unchanged
+  Scenario: Configured small model without flash stays unchanged
     Given pmset reports powermode "2"
     And the DS4 server is available
-    And the configured small model is "openrouter/glm-5.3-flash"
+    And the configured small model is "openrouter/z-ai/glm-5.3"
     When small_model is resolved for provider "openrouter"
-    Then small_model is "openrouter/glm-5.3-flash"
+    Then small_model is "openrouter/z-ai/glm-5.3"
 
   Scenario: Missing pmset treats High Power Mode as off
     Given no pmset binary on PATH
     And the DS4 server is available
-    And the configured small model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
-    Then small_model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    Then small_model is "openrouter/z-ai/glm-5.3-flash"
 
   Scenario: Malformed pmset output treats High Power Mode as off
     Given pmset reports garbage
     And the DS4 server is available
-    And the configured small model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
-    Then small_model is "openrouter/deepseek/deepseek-v4-flash-0731"
+    Then small_model is "openrouter/z-ai/glm-5.3-flash"

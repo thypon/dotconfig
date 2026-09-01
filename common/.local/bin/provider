@@ -40,6 +40,7 @@ OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
 DS4_HOST = "localhost"
 DS4_PORT = 8000
 DS4_MODEL_FLASH = "ds4/glm-5.3-flash"
+DS4_FLASH_BASENAME = DS4_MODEL_FLASH.split("/", 1)[1]
 COMMANDS_SRC = os.path.join(REPO_ROOT, "common", ".config", "opencode", "commands")
 COMMANDS_DST = os.path.expanduser("~/.config/opencode/commands")
 OPENCODE_CONFIG_DIR = os.path.expanduser("~/.config/opencode")
@@ -94,7 +95,7 @@ def make_replacements(provider_config):
     if provider_config.get("name") == "local":
         print(f"  ds4: local provider, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
-    elif high_power_mode_active() and ds4_available() and "deepseek-v4-flash" in small:
+    elif high_power_mode_active() and ds4_available() and DS4_FLASH_BASENAME in small:
         print(f"  ds4: high power mode + local server up, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
     return {

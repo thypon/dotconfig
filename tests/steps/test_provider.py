@@ -21,13 +21,13 @@ exit 1
 PROVIDERS = {
     "anthropic": {
         "model": "anthropic/claude-sonnet-4-6",
-        "small_model": "openrouter/deepseek/deepseek-v4-flash-0731",
+        "small_model": "openrouter/z-ai/glm-5.3-flash",
         "frontier_model": "anthropic/claude-opus-4-6",
         "antagonist_model": "openrouter/openai/gpt-5.6-terra",
     },
     "openrouter": {
         "model": "openrouter/z-ai/glm-5.3-flash",
-        "small_model": "openrouter/deepseek/deepseek-v4-flash-0731",
+        "small_model": "openrouter/z-ai/glm-5.3-flash",
         "frontier_model": "openrouter/z-ai/glm-5.3",
         "antagonist_model": "openrouter/moonshotai/kimi-k3",
     },

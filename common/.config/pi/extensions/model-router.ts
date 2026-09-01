@@ -11,6 +11,7 @@ const MODELS_PATH = join(homedir(), ".config", "dynamic-models.jsonc")
 // DS4 local server (OpenAI-compatible GLM 5.3 Flash)
 const DS4_URL = "http://localhost:8000/v1/models"
 const DS4_MODEL_FLASH = "ds4/glm-5.3-flash"
+const DS4_FLASH_BASENAME = DS4_MODEL_FLASH.split("/").pop()!
 
 export interface ResolveOpts {
   settingsPath?: string
@@ -60,7 +61,7 @@ export async function resolveDynamicModel(
     const modelValue = models?.providers?.[provider]?.[key]
     if (!modelValue) return null
 
-    if (key === "small_model" && modelValue.includes("deepseek-v4-flash")) {
+    if (key === "small_model" && modelValue.includes(DS4_FLASH_BASENAME)) {
       const probe = opts.probeDs4 ?? ds4Available
       if (await probe()) return DS4_MODEL_FLASH
     }
