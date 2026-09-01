@@ -69,16 +69,17 @@ def binding_env(tig_env):
 
 
 def read_binding(view):
+    """Return (flag_chars, command) for the D binding of a view."""
     with open(TIGRC) as f:
         for line in f:
-            m = re.match(r"^bind\s+(\S+)\s+D\s+!(.+?)\s*$", line)
+            m = re.match(r"^bind\s+(\S+)\s+D\s+!(>?)(.+?)\s*$", line)
             if m and m.group(1) == view:
-                return m.group(2)
+                return m.group(2), m.group(3)
     raise AssertionError(f"no 'bind {view} D !...' found in {TIGRC}")
 
 
 def run_binding(tig_env, view, subs):
-    cmd = read_binding(view)
+    _, cmd = read_binding(view)
     for var, value in subs.items():
         cmd = cmd.replace(var, value)
     tig_env.binding_proc = subprocess.run(
@@ -183,6 +184,13 @@ def no_diff_options_setting():
     with open(TIGRC) as f:
         content = f.read()
     assert not re.search(r"^set\s+diff-options\b", content, re.M), content
+
+
+@then("the D bindings carry the quick flag")
+def bindings_carry_quick_flag():
+    for view in ("main", "diff", "status"):
+        flags, _ = read_binding(view)
+        assert flags == ">", f"bind {view} D is missing the '>' (quick) flag"
 
 
 @then("no tigrc errors are reported")

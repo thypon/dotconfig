@@ -17,6 +17,9 @@ Feature: tig diff viewer uses difftastic
   Scenario: tig's built-in diff views stay unified
     Then the tigrc contains no diff-options setting
 
+  Scenario: D bindings skip the Press Enter pause
+    Then the D bindings carry the quick flag
+
   Scenario: tig loads the tigrc without errors
     Given tig is installed
     When tig starts with the tigrc loaded

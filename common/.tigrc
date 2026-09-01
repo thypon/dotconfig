@@ -9,6 +9,7 @@ set diff-context = 5
 # D opens the selected commit or file with difftastic, full screen.
 # git -c diff.external=difft keeps the bindings self-contained: they work
 # even where ~/.gitconfig is not managed by this repo.
-bind main   D !git -c diff.external=difft show --ext-diff %(commit)
-bind diff   D !git -c diff.external=difft show --ext-diff %(commit) -- %(file)
-bind status D !git -c diff.external=difft diff -- %(file)
+# The > flag suppresses tig's "Press Enter to continue" pause afterwards.
+bind main   D !>git -c diff.external=difft show --ext-diff %(commit)
+bind diff   D !>git -c diff.external=difft show --ext-diff %(commit) -- %(file)
+bind status D !>git -c diff.external=difft diff -- %(file)
