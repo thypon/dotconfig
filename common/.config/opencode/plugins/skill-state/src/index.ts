@@ -45,8 +45,35 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
   }
 
   const sessionClient = opts.client as
-    | { session?: { prompt?: (req: { path: { id: string }; body: { agent?: string; parts: Array<{ type: string; text: string }> } }) => Promise<unknown> } }
+    | {
+        session?: {
+          prompt?: (req: { path: { id: string }; body: { agent?: string; parts: Array<{ type: string; text: string }> } }) => Promise<unknown>
+          messages?: (req: { path: { id: string } }) => Promise<unknown>
+        }
+      }
     | undefined
+
+  const lastAssistantAborted = async (sessionID: string): Promise<boolean> => {
+    try {
+      const res = (await sessionClient?.session?.messages?.({ path: { id: sessionID } })) as unknown
+      const list = (Array.isArray(res) ? res : (res as { data?: unknown[] })?.data) ?? []
+      let lastErr: { name?: string; aborted?: boolean } | undefined
+      let lastRole: string | undefined
+      for (let i = list.length - 1; i >= 0; i--) {
+        const m = list[i] as { info?: { role?: string; error?: { name?: string; aborted?: boolean } }; role?: string; error?: { name?: string; aborted?: boolean } } | undefined
+        const role = m?.info?.role ?? m?.role
+        if (role !== "assistant") continue
+        lastErr = m?.info?.error ?? m?.error
+        lastRole = role
+        break
+      }
+      await log("info", "skill-state abort-check", { sessionID, count: list.length, lastRole, lastErr: lastErr?.name })
+      return !!lastErr && (lastErr.name === "MessageAbortedError" || lastErr.aborted === true)
+    } catch (e) {
+      await log("warn", "skill-state abort-check failed", { sessionID, error: String(e) })
+      return false
+    }
+  }
 
   const keepalive = async (sessionID: string) => {
     const st = await registry.get(sessionID)
@@ -84,6 +111,11 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
       if (!sid) return
       const st = await registry.get(sid)
       if (!st?.active) return
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      if (await lastAssistantAborted(sid)) {
+        await log("info", "skill-state nudge suppressed (manual abort)", { sessionID: sid })
+        return
+      }
       if (sigmaDone(st)) {
         await completeSession(sid, "sigma-done-marker")
         return

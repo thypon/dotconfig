@@ -313,7 +313,7 @@ Then("the compaction context contains the compact sigma:", function (expectedJso
 
 // ---- keep-alive ----
 
-type FakeClient = { session: { prompt: (opts: unknown) => Promise<unknown> } }
+type FakeClient = { session: { prompt: (opts: unknown) => Promise<unknown>; messages: (opts: unknown) => Promise<unknown> } }
 
 function fakeClient(world: any): FakeClient {
   const prompts: Array<{ sid: string; opts: unknown }> = []
@@ -323,6 +323,21 @@ function fakeClient(world: any): FakeClient {
       prompt: async (opts: unknown) => {
         const sid = (opts as { path: { id: string } }).path.id
         prompts.push({ sid, opts })
+      },
+      messages: async (opts: unknown) => {
+        const sid = (opts as { path: { id: string } }).path.id
+        const aborted = world.abortLastBySid?.[sid] ?? false
+        return [
+          {
+            info: {
+              id: "msg_last",
+              sessionID: sid,
+              role: "assistant",
+              error: aborted ? { name: "MessageAbortedError", message: "Aborted" } : undefined,
+            },
+            parts: [],
+          },
+        ]
       },
     },
   }
@@ -357,14 +372,22 @@ Then("the nudge names agent {string}", function (agent: string) {
   if (got !== agent) throw new Error(`expected agent=${agent}, got ${got} (prompts=${JSON.stringify(all)})`)
 })
 
-When("session {string} emits idle", async function (sid: string) {
+When("session {string} emits idle", { timeout: 30000 }, async function (sid: string) {
   await this.hooks.event({ event: { type: "session.idle", properties: { sessionID: sid } } })
 })
 
-When("session {string} emits idle {int} times", async function (sid: string, times: number) {
+When("session {string} emits idle {int} times", { timeout: 60000 }, async function (sid: string, times: number) {
   for (let i = 0; i < times; i++) {
     await this.hooks.event({ event: { type: "session.idle", properties: { sessionID: sid } } })
   }
+})
+
+When("the last assistant message of session {string} is aborted", function (sid: string) {
+  this.abortLastBySid = { ...(this.abortLastBySid ?? {}), [sid]: true }
+})
+
+When("the last assistant message of session {string} is normal", function (sid: string) {
+  this.abortLastBySid = { ...(this.abortLastBySid ?? {}), [sid]: false }
 })
 
 When("session {string} advances patches to {int}", async function (sid: string, patches: number) {

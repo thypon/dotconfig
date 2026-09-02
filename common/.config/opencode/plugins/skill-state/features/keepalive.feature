@@ -42,3 +42,17 @@ Feature: Runtime keep-alive
     And session "s1" is deactivated
     When session "s1" emits idle
     Then the fake client sent 0 prompts to "s1"
+
+  Scenario: manual abort suppresses the nudge
+    Given session "s1" is activated with patches 5
+    And the last assistant message of session "s1" is aborted
+    When session "s1" emits idle
+    Then the fake client sent 0 prompts to "s1"
+    And state "s1" is still active
+
+  Scenario: normal turn end still nudges
+    Given session "s1" is activated with patches 5
+    And the last assistant message of session "s1" is normal
+    When session "s1" emits idle
+    Then the fake client sent 1 prompt to "s1"
+    And state "s1" is still active
