@@ -25,7 +25,24 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
   }
 
   const KEEPALIVE_TEXT =
-    "Keep-alive: turn ended before skill_state_complete. Continue from Σ, same rules. Done → call skill_state_complete."
+    "Keep-alive: turn ended without skill_state_complete. Task done → call skill_state_complete as ONLY action. Not done → continue: 1 action + patch. Do not redo finished work."
+
+  const DONE_KEYS = ["status", "state", "phase"]
+  const DONE_VALUES = new Set(["done", "complete", "completed", "finished"])
+  const sigmaDone = (st: { sigma: Record<string, unknown> }) =>
+    DONE_KEYS.some((k) => {
+      const v = st.sigma?.[k]
+      return typeof v === "string" && DONE_VALUES.has(v)
+    })
+
+  const completeSession = async (sessionID: string, reason: string) => {
+    const st = await registry.deactivate(sessionID)
+    if (!st) return undefined
+    st.stopped = true
+    await registry.save(st)
+    await log("info", "skill-state completed", { sessionID, reason, patches: st.patches, iterations: st.iterations })
+    return st
+  }
 
   const sessionClient = opts.client as
     | { session?: { prompt?: (req: { path: { id: string }; body: { agent?: string; parts: Array<{ type: string; text: string }> } }) => Promise<unknown> } }
@@ -41,6 +58,7 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
     st.nudges = nudges
     if (stalled >= 3 || nudges >= 40) {
       st.active = false
+      st.stopped = true
       await registry.save(st)
       await log("warn", "skill-state keep-alive gave up", { sessionID, stalled, nudges })
       return
@@ -63,7 +81,14 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
       const event = input.event as { type?: string; properties?: { sessionID?: string } }
       if (event.type !== "session.idle") return
       const sid = event.properties?.sessionID
-      if (sid) await keepalive(sid)
+      if (!sid) return
+      const st = await registry.get(sid)
+      if (!st?.active) return
+      if (sigmaDone(st)) {
+        await completeSession(sid, "sigma-done-marker")
+        return
+      }
+      await keepalive(sid)
     },
     "chat.message": async (input: { sessionID: string; messageID?: string; agent?: string }, output: { parts?: Array<{ type: string; text?: string }> }) => {
       let marker: ReturnType<typeof scanMarker> = null
@@ -100,6 +125,8 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
     "command.execute.before": async (input: { command: string; sessionID: string; messageID?: string }) => {
       if (input.command === "skillstate") {
         const st = await registry.activate(input.sessionID, input.messageID)
+        st.stopped = false
+        await registry.save(st)
         await log("info", "skill-state activated via command", { sessionID: input.sessionID, pMessageID: st.pMessageID })
       } else if (input.command === "skillstate-stop") {
         const st = await registry.deactivate(input.sessionID)
@@ -170,7 +197,7 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
         description: "Skill finished. Deactivates SKILL.state, reports final Σ + metrics.",
         args: {},
         execute: async (_args, ctx) => {
-          const st = await registry.deactivate(ctx.sessionID)
+          const st = await completeSession(ctx.sessionID, "tool")
           if (!st) return "SKILL.state is not active in this session."
           return [
             "SKILL.state complete. Final Σ:",

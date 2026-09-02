@@ -336,6 +336,7 @@ Given("the plugin is created with the fake client", async function () {
 })
 
 Given("session {string} is activated with patches {int}", async function (sid: string, patches: number) {
+  this.sessionID = sid
   if (!this.hooks) this.hooks = await createSkillState({ stateDir: this.stateDir })
   const st = await this.hooks.registry.activate(sid)
   st.patches = patches
@@ -395,6 +396,11 @@ Then("state {string} is still active", async function (sid: string) {
 Then("state {string} is inactive", async function (sid: string) {
   const st = await this.hooks.registry.get(sid)
   if (st?.active) throw new Error("expected session inactive")
+})
+
+Then("state {string} is stopped", async function (sid: string) {
+  const st = await this.hooks.registry.get(sid)
+  if (!st?.stopped) throw new Error(`expected stopped=true, got ${st?.stopped}`)
 })
 
 Given("session {string} is deactivated", async function (sid: string) {

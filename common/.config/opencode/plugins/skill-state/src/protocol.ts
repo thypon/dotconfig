@@ -11,6 +11,7 @@ export function protocolBlocks(st: SkillState): string[] {
       "2. Patch only future-needed facts. omit=preserve · null=delete · array=replace.",
       "3. Learn → patch instantly. Info may never reappear.",
       "4. Σ bounded: no per-step logs/arrays.",
+      "5. Task done → patch Σ status=done, then skill_state_complete as ONLY action.",
       "Σ:",
       "```json",
       sigmaJson,
