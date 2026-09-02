@@ -25,7 +25,7 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
   }
 
   const KEEPALIVE_TEXT =
-    "Runtime keep-alive: the previous turn ended before skill_state_complete was called. Continue the task exactly where the current state says you left off, following the same per-step protocol. If the task is truly finished, call skill_state_complete."
+    "Keep-alive: turn ended before skill_state_complete. Continue from Σ, same rules. Done → call skill_state_complete."
 
   const sessionClient = opts.client as
     | { session?: { prompt?: (req: { path: { id: string }; body: { agent?: string; parts: Array<{ type: string; text: string }> } }) => Promise<unknown> } }

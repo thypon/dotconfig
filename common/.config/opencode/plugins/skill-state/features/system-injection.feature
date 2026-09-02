@@ -6,7 +6,10 @@ Feature: System prompt and compaction injection
       {"cwd":"/x"}
       """
     When the system transform hook fires
-    Then the system prompt contains "SKILL.state Runtime"
+    Then the system prompt contains "SKILL.state"
+    And the system prompt contains "1 message = 1 step"
+    And the system prompt contains "null=delete"
+    And the system prompt contains "Σ bounded"
     And the system prompt contains the compact sigma:
       """json
       {"cwd":"/x"}
