@@ -15,6 +15,10 @@ link_files() {
 		fi
 		# skip commands/ — synced as real copies below (provider resolves them)
 		case "$relpath" in
+			node_modules/*|*/node_modules/*)
+				echo "  Skipping $relpath (installed by _install_plugin_deps)"
+				continue
+				;;
 			.config/opencode/commands/*)
 				echo "  Skipping $relpath (managed by provider)"
 				continue
@@ -115,6 +119,37 @@ _pnpm_install_plugins() {
 	(cd "$plugins_dest" && $pnpm_cmd install) || true
 }
 
+# Resolve bun, or echo a message and return 1 if unavailable.
+_resolve_bun() {
+	if command -v bun >/dev/null 2>&1; then
+		echo "bun"
+	else
+		echo "  (bun not found, skipping plugin subpackage install)" >&2
+		return 1
+	fi
+}
+
+# Install plugin subpackage dependencies (bun) in the repo dirs (tests) and
+# the live plugin dirs (runtime resolution for copied plugins). Subpackage
+# node_modules/ are never synced by link_files — deps are installed here.
+_install_plugin_deps() {
+	local bun_cmd
+	bun_cmd="$(_resolve_bun)" || return 0
+	local srcdir
+	for srcdir in "$TOPLEVELDIR"/common/.config/opencode/plugins/*/; do
+		[ -f "$srcdir/package.json" ] || continue
+		local name
+		name="$(basename "$srcdir")"
+		echo "Installing $name deps (repo)..."
+		(cd "$srcdir" && $bun_cmd install) || true
+		local destdir="$HOME/.config/opencode/plugins/$name"
+		if [ -f "$destdir/package.json" ]; then
+			echo "Installing $name deps (live)..."
+			(cd "$destdir" && $bun_cmd install) || true
+		fi
+	done
+}
+
 link_files "$TOPLEVELDIR/common" "$HOME"
 
 if [ "$(uname -s)" != "Darwin" ]; then
@@ -143,3 +178,4 @@ fi
 
 _pnpm_install
 _pnpm_install_plugins
+_install_plugin_deps
