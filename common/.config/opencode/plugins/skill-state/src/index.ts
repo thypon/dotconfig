@@ -211,7 +211,17 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
         execute: async (args, ctx) => {
           const st = await registry.get(ctx.sessionID)
           if (!st?.active) return "SKILL.state is not active in this session."
-          const result = merge(st.sigma, args.patch)
+          let patch: unknown = args.patch
+          if (typeof patch === "string") {
+            try {
+              patch = JSON.parse(patch)
+            } catch {
+              st.errors++
+              await registry.save(st)
+              return 'PATCH REJECTED — patch must be a JSON object (dict), e.g. {"key": "value"}. State unchanged. Fix the patch and retry.'
+            }
+          }
+          const result = merge(st.sigma, patch)
           if (!result.ok) {
             st.errors++
             await registry.save(st)

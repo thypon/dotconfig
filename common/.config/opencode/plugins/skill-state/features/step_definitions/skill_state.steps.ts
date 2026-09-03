@@ -220,6 +220,11 @@ When("skill_state_patch is called with a {int} byte string value", async functio
   this.toolResult = (await this.hooks.tool.skill_state_patch.execute({ patch: { big: padding(bytes) } }, { sessionID: this.sessionID })) as string
 })
 
+When("skill_state_patch is called with the raw string:", async function (raw: string) {
+  if (!this.hooks) this.hooks = await createSkillState({ stateDir: this.stateDir })
+  this.toolResult = (await this.hooks.tool.skill_state_patch.execute({ patch: raw as never }, { sessionID: this.sessionID })) as string
+})
+
 When("skill_state_complete is called", async function () {
   if (!this.hooks) this.hooks = await createSkillState({ stateDir: this.stateDir })
   this.toolResult = (await this.hooks.tool.skill_state_complete.execute({}, { sessionID: this.sessionID })) as string

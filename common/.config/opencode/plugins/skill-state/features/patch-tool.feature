@@ -28,6 +28,34 @@ Feature: skill_state_patch tool with rollback-retry
       """
     And the state records errors 1
 
+  Scenario: Patch sent as JSON-encoded string is coerced to object
+    Given an active session with specification message "m1"
+    When skill_state_patch is called with the raw string:
+      """
+      {"files":["a.txt"]}
+      """
+    Then the tool result contains "State patch applied"
+    And the state file on disk has sigma:
+      """json
+      {"files":["a.txt"]}
+      """
+
+  Scenario: Patch sent as non-JSON string is rejected with object example
+    Given an active session with sigma:
+      """json
+      {"x":1}
+      """
+    When skill_state_patch is called with the raw string:
+      """
+      do the thing
+      """
+    Then the tool result contains "PATCH REJECTED"
+    And the tool result contains '{"key": "value"}'
+    And the state file on disk has sigma:
+      """json
+      {"x":1}
+      """
+
   Scenario: Patch on an inactive session is refused
     When skill_state_patch is called with:
       """json
