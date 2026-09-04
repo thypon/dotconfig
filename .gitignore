@@ -5,3 +5,6 @@ __pycache__/
 # Bundler (tests/Gemfile)
 .gems/
 .bundle/
+
+# Node
+node_modules/
