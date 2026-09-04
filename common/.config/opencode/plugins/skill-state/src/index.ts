@@ -142,9 +142,9 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
     tool: {
       skill_state_patch: tool({
         description:
-          "Apply a state patch (ΔΣ) to this session's explicit execution state Σ (SKILL.state runtime). " +
-          "Merge semantics: deep merge for nested objects; keys omitted from the patch are preserved; keys set to null are deleted; arrays replace wholesale. " +
-          "Call this EVERY step with everything needed for future steps.",
+          "Apply state patch ΔΣ to session execution state Σ (SKILL.state). " +
+          "Deep merge; omitted keys preserved; null deletes; arrays replace. " +
+          "Call EVERY step with all state needed for future steps.",
         args: {
           patch: tool.schema.record(tool.schema.string(), tool.schema.unknown()).describe("Key mutations. Set a key to null to delete it."),
           reason: tool.schema.string().optional().describe("Brief reason for this patch (ephemeral, not stored)"),
@@ -167,8 +167,7 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
       }),
 
       skill_state_complete: tool({
-        description:
-          "Signal that the procedural skill has finished. Deactivates the SKILL.state runtime for this session and reports the final execution state Σ.",
+        description: "Skill finished. Deactivates SKILL.state, reports final Σ + metrics.",
         args: {},
         execute: async (_args, ctx) => {
           const st = await registry.deactivate(ctx.sessionID)
@@ -182,7 +181,7 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
       }),
 
       skill_state_show: tool({
-        description: "Show the current execution state Σ and runtime metrics (iterations, tokens original vs sent).",
+        description: "Show execution state Σ + runtime metrics.",
         args: {},
         execute: async (_args, ctx) => {
           const st = await registry.get(ctx.sessionID)
