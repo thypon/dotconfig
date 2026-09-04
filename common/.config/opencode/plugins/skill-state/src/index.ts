@@ -24,8 +24,48 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
     return st?.active ? st : undefined
   }
 
+  const KEEPALIVE_TEXT =
+    "Keep-alive: turn ended before skill_state_complete. Continue from Σ, same rules. Done → call skill_state_complete."
+
+  const sessionClient = opts.client as
+    | { session?: { prompt?: (req: { path: { id: string }; body: { agent?: string; parts: Array<{ type: string; text: string }> } }) => Promise<unknown> } }
+    | undefined
+
+  const keepalive = async (sessionID: string) => {
+    const st = await registry.get(sessionID)
+    if (!st || !st.active) return
+    const stalled = (st.stalled ?? 0) + (st.patches === (st.lastPatchesAtNudge ?? -1) ? 1 : 0)
+    const nudges = (st.nudges ?? 0) + 1
+    st.stalled = stalled
+    st.lastPatchesAtNudge = st.patches
+    st.nudges = nudges
+    if (stalled >= 3 || nudges >= 40) {
+      st.active = false
+      await registry.save(st)
+      await log("warn", "skill-state keep-alive gave up", { sessionID, stalled, nudges })
+      return
+    }
+    await registry.save(st)
+    await log("info", "skill-state keep-alive nudge", { sessionID, nudges, patches: st.patches })
+    try {
+      await sessionClient?.session?.prompt?.({
+        path: { id: sessionID },
+        body: { agent: st.agent, parts: [{ type: "text", text: KEEPALIVE_TEXT }] },
+      })
+    } catch (e) {
+      await log("warn", "skill-state keep-alive prompt failed", { sessionID, error: String(e) })
+    }
+  }
+
   return {
-    "chat.message": async (input: { sessionID: string; messageID?: string }, output: { parts?: Array<{ type: string; text?: string }> }) => {
+    registry,
+    event: async (input: { event: unknown }) => {
+      const event = input.event as { type?: string; properties?: { sessionID?: string } }
+      if (event.type !== "session.idle") return
+      const sid = event.properties?.sessionID
+      if (sid) await keepalive(sid)
+    },
+    "chat.message": async (input: { sessionID: string; messageID?: string; agent?: string }, output: { parts?: Array<{ type: string; text?: string }> }) => {
       let marker: ReturnType<typeof scanMarker> = null
       for (const part of output.parts ?? []) {
         if (part.type === "text" && typeof part.text === "string") {
@@ -35,10 +75,25 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
       }
       if (marker === "activate") {
         const st = await registry.activate(input.sessionID, input.messageID)
+        st.stopped = false
+        if (input.agent) st.agent = input.agent
+        await registry.save(st)
         await log("info", "skill-state activated", { sessionID: input.sessionID, pMessageID: st.pMessageID })
       } else if (marker === "stop") {
-        await registry.deactivate(input.sessionID)
+        const st = await registry.deactivate(input.sessionID)
+        if (st) {
+          st.stopped = true
+          await registry.save(st)
+        }
         await log("info", "skill-state deactivated", { sessionID: input.sessionID })
+      } else if (process.env.SKILL_STATE_AUTO !== "0") {
+        const existing = await registry.get(input.sessionID)
+        if (!existing?.active && !existing?.stopped) {
+          const st = await registry.activate(input.sessionID, input.messageID)
+          if (input.agent) st.agent = input.agent
+          await registry.save(st)
+          await log("info", "skill-state auto-activated", { sessionID: input.sessionID, pMessageID: st.pMessageID })
+        }
       }
     },
 
@@ -47,7 +102,11 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
         const st = await registry.activate(input.sessionID, input.messageID)
         await log("info", "skill-state activated via command", { sessionID: input.sessionID, pMessageID: st.pMessageID })
       } else if (input.command === "skillstate-stop") {
-        await registry.deactivate(input.sessionID)
+        const st = await registry.deactivate(input.sessionID)
+        if (st) {
+          st.stopped = true
+          await registry.save(st)
+        }
         await log("info", "skill-state deactivated via command", { sessionID: input.sessionID })
       }
     },
@@ -140,5 +199,9 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
 }
 
 export default (async ({ client }) => {
+  console.error(
+    "[skill-state] registered, tools: skill_state_patch, skill_state_complete, skill_state_show " +
+      "(activate per session with [skillstate] marker or /skillstate command)",
+  )
   return createSkillState({ stateDir: process.env.SKILL_STATE_DIR || defaultStateDir(), client })
 }) satisfies Plugin

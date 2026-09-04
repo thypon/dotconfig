@@ -310,3 +310,109 @@ Then("the compaction context contains the compact sigma:", function (expectedJso
   const compact = JSON.stringify(parse(expectedJson))
   if (!this.compactionContext.some((c: string) => c.includes(compact))) throw new Error("compaction context lacks sigma")
 })
+
+// ---- keep-alive ----
+
+type FakeClient = { session: { prompt: (opts: unknown) => Promise<unknown> } }
+
+function fakeClient(world: any): FakeClient {
+  const prompts: Array<{ sid: string; opts: unknown }> = []
+  world.prompts = prompts
+  return {
+    session: {
+      prompt: async (opts: unknown) => {
+        const sid = (opts as { path: { id: string } }).path.id
+        prompts.push({ sid, opts })
+      },
+    },
+  }
+}
+
+Given("a fake client recording prompts", function () {})
+
+Given("the plugin is created with the fake client", async function () {
+  this.client = fakeClient(this)
+  this.hooks = await createSkillState({ stateDir: this.stateDir, client: this.client as never })
+})
+
+Given("session {string} is activated with patches {int}", async function (sid: string, patches: number) {
+  if (!this.hooks) this.hooks = await createSkillState({ stateDir: this.stateDir })
+  const st = await this.hooks.registry.activate(sid)
+  st.patches = patches
+  await this.hooks.registry.save(st)
+})
+
+Given("session {string} runs agent {string}", async function (sid: string, agent: string) {
+  const st = await this.hooks.registry.get(sid)
+  if (!st) throw new Error(`no state for ${sid}`)
+  st.agent = agent
+  await this.hooks.registry.save(st)
+})
+
+Then("the nudge names agent {string}", function (agent: string) {
+  const all = (this.prompts ?? []) as Array<{ sid: string; opts: { body?: { agent?: string } } }>
+  const last = all.at(-1)
+  const got = last?.opts?.body?.agent
+  if (got !== agent) throw new Error(`expected agent=${agent}, got ${got} (prompts=${JSON.stringify(all)})`)
+})
+
+When("session {string} emits idle", async function (sid: string) {
+  await this.hooks.event({ event: { type: "session.idle", properties: { sessionID: sid } } })
+})
+
+When("session {string} emits idle {int} times", async function (sid: string, times: number) {
+  for (let i = 0; i < times; i++) {
+    await this.hooks.event({ event: { type: "session.idle", properties: { sessionID: sid } } })
+  }
+})
+
+When("session {string} advances patches to {int}", async function (sid: string, patches: number) {
+  const st = this.hooks.registry.get(sid)!
+  st.patches = patches
+  await this.hooks.registry.save(st)
+})
+
+Then("the fake client sent {int} prompt to {string}", function (n: number, sid: string) {
+  const sent = (this.prompts ?? []).filter((p: { sid: string }) => p.sid === sid)
+  if (sent.length !== n) throw new Error(`expected ${n} prompts to ${sid}, got ${sent.length}`)
+})
+
+Then("the fake client sent {int} prompts to {string}", function (n: number, sid: string) {
+  const sent = (this.prompts ?? []).filter((p: { sid: string }) => p.sid === sid)
+  if (sent.length !== n) throw new Error(`expected ${n} prompts to ${sid}, got ${sent.length}`)
+})
+
+Then("state {string} has nudges {int}", async function (sid: string, n: number) {
+  const st = await this.hooks.registry.get(sid)
+  if ((st?.nudges ?? 0) !== n) throw new Error(`expected nudges=${n}, got ${st?.nudges}`)
+})
+
+Then("state {string} is still active", async function (sid: string) {
+  const st = await this.hooks.registry.get(sid)
+  if (!st?.active) throw new Error("expected session still active")
+})
+
+Then("state {string} is inactive", async function (sid: string) {
+  const st = await this.hooks.registry.get(sid)
+  if (st?.active) throw new Error("expected session inactive")
+})
+
+Given("session {string} is deactivated", async function (sid: string) {
+  await this.hooks.registry.deactivate(sid)
+})
+
+Given("env SKILL_STATE_AUTO is {string}", function (v: string) {
+  process.env.SKILL_STATE_AUTO = v
+})
+
+Given("env SKILL_STATE_AUTO is unset", function () {
+  delete process.env.SKILL_STATE_AUTO
+})
+
+Given("a fresh session id", function () {
+  this.sessionID = `ses_fresh_${Date.now()}`
+})
+
+Given("the session id is {string}", function (sid: string) {
+  this.sessionID = sid
+})

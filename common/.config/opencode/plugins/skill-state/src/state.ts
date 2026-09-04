@@ -6,6 +6,11 @@ export interface SkillState {
   active: boolean
   sigma: Sigma
   pMessageID?: string
+  agent?: string
+  stopped?: boolean
+  nudges?: number
+  lastPatchesAtNudge?: number
+  stalled?: number
   iterations: number
   patches: number
   errors: number
