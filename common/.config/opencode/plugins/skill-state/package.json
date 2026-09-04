@@ -1,0 +1,14 @@
+{
+  "name": "skill-state",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun --bun ./node_modules/.bin/cucumber-js \"features/*.feature\" --require \"features/step_definitions/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^12.2.0",
+    "@opencode-ai/plugin": "1.4.3",
+    "@types/bun": "latest"
+  }
+}
