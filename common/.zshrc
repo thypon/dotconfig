@@ -36,3 +36,4 @@ precmd() {
 		PROMPT="${_ps1_prefix}%F{red}:(%f "
 	fi
 }
+export SKILL_STATE_AUTO=0
