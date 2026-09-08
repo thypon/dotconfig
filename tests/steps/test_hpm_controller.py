@@ -73,6 +73,11 @@ def unsupported_powermode(fake_env, monkeypatch):
     monkeypatch.setenv("FAKE_INITIAL_PM", "-1")
 
 
+@given(parsers.parse('the current disablesleep is {value:d}'))
+def current_disablesleep(value, fake_env, monkeypatch):
+    monkeypatch.setenv("FAKE_INITIAL_DS", str(value))
+
+
 @when("the controller runs")
 def controller_runs(fake_env):
     fake_env["result"] = run_controller()
@@ -88,6 +93,13 @@ def pmset_called_with(value, fake_env):
     result = fake_env["result"]
     calls = fake_env["pmset_log"].read_text().splitlines() if fake_env["pmset_log"].exists() else []
     assert calls == [f"pmset -a powermode {value}"], (calls, result.returncode, result.stderr)
+
+
+@then(parsers.parse('pmset is called with disablesleep {value:d}'))
+def pmset_called_with_disablesleep(value, fake_env):
+    result = fake_env["result"]
+    calls = fake_env["pmset_log"].read_text().splitlines() if fake_env["pmset_log"].exists() else []
+    assert calls == [f"pmset -a disablesleep {value}"], (calls, result.returncode, result.stderr)
 
 
 @then("pmset is not called at all")

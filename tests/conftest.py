@@ -15,9 +15,19 @@ OSSNIX_BIN = os.path.join(REPO_ROOT, "ossnix", ".local", "bin")
 PMSET_SHIM = """#!/bin/sh
 case "$1" in
   -a)
-    # -a powermode N
-    echo "pmset -a powermode $3" >> "$PMSET_LOG"
-    printf '%s\\n' "$3" > "$PMSET_STATE"
+    case "$2" in
+      powermode)
+        echo "pmset -a powermode $3" >> "$PMSET_LOG"
+        printf '%s\\n' "$3" > "$PMSET_STATE"
+        ;;
+      disablesleep)
+        echo "pmset -a disablesleep $3" >> "$PMSET_LOG"
+        printf '%s\\n' "$3" > "$PMSET_DS_STATE"
+        ;;
+      *)
+        exit 1
+        ;;
+    esac
     ;;
   -g)
     if [ "$2" = "batt" ]; then
@@ -26,6 +36,12 @@ case "$1" in
         *) echo "Now drawing from 'Battery Power'";;
       esac
     else
+      echo "System-wide power settings:"
+      if [ -f "$PMSET_DS_STATE" ]; then
+        printf 'SleepDisabled\\t\\t%s\\n' "$(cat "$PMSET_DS_STATE")"
+      else
+        printf 'SleepDisabled\\t\\t%s\\n' "$FAKE_INITIAL_DS"
+      fi
       echo "Currently in use:"
       if [ -f "$PMSET_STATE" ]; then
         echo " powermode $(cat "$PMSET_STATE")"
@@ -124,11 +140,13 @@ def fake_env(tmp_path, monkeypatch):
     env = {
         "PATH": str(bin_dir) + ":/usr/bin:/bin:/usr/sbin:/sbin",
         "PMSET_STATE": str(tmp_path / "pmset-state"),
+        "PMSET_DS_STATE": str(tmp_path / "pmset-ds-state"),
         "PMSET_LOG": str(log_dir / "pmset.log"),
         "OSASCRIPT_LOG": str(log_dir / "osascript.log"),
         "FAKE_PS": "AC",
         "FAKE_SSID": "TEST_WORK_SSID",
         "FAKE_INITIAL_PM": "0",
+        "FAKE_INITIAL_DS": "0",
         "DOTCONFIG_HPM_MAPPING_PINNED": "1",
         "DOTCONFIG_HPM_STATE_DIR": str(state_dir),
         "HOME": str(tmp_path),

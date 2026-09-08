@@ -5,8 +5,12 @@
 #   AC     + other/off   -> 0 (Automatic)
 #   Battery + work SSID  -> 0 (Automatic)
 #   Battery + other/off  -> 1 (Low Power Mode)
+# Sleep policy (independent of SSID/secrets):
+#   AC      -> disablesleep 1 (never suspend; stays on with lid closed)
+#   Battery -> disablesleep 0 (normal sleep)
 # Work SSID comes from ~/.config/secrets.yml key hpm_wifi_ssid.
-# If the key is missing/empty: leave powermode untouched, notify once per hour.
+# If the key is missing/empty: sleep policy still applies, powermode untouched,
+# notify once per hour.
 # Env overrides (tests only): DOTCONFIG_SECRETS, DOTCONFIG_HPM_STATE_DIR.
 # Runs as a LaunchDaemon (root) every 10s; logs to /var/log/dotconfig-hpm.log.
 
@@ -23,6 +27,39 @@ NOTIFY_INTERVAL=3600
 LOG_TAG="dotconfig-hpm"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [$LOG_TAG] $*" >&2; }
+
+# --- power source ------------------------------------------------------------
+ps_info=$(pmset -g batt 2>/dev/null || true)
+case "$ps_info" in
+    *"Now drawing from 'AC Power'"*) source="AC" ;;
+    *"Now drawing from 'Battery Power'"*) source="Battery" ;;
+    *)
+        log "cannot determine power source, leaving powermode untouched"
+        exit 0
+        ;;
+esac
+
+# --- sleep policy: never suspend on AC, normal sleep on battery ---------------
+# Note: pmset -g reports the disablesleep value as 'SleepDisabled' in the
+# "System-wide power settings" section (older builds print 'disablesleep').
+ds_current=$(pmset -g 2>/dev/null \
+    | sed -n -E 's/^[[:space:]]*(SleepDisabled|disablesleep)[[:space:]]+//p' | head -n 1)
+case "$ds_current" in
+    0|1)
+        if [ "$source" = "AC" ]; then ds_desired=1; else ds_desired=0; fi
+        if [ "$ds_current" != "$ds_desired" ]; then
+            log "power source=$source disablesleep current=$ds_current desired=$ds_desired"
+            if pmset -a disablesleep "$ds_desired"; then
+                log "set disablesleep $ds_desired"
+            else
+                log "failed to set disablesleep $ds_desired"
+            fi
+        fi
+        ;;
+    *)
+        log "disablesleep unsupported or unreadable (current='$ds_current'), skipping sleep policy"
+        ;;
+esac
 
 # --- secrets -----------------------------------------------------------------
 ssid=""
@@ -56,17 +93,6 @@ if [ -z "$ssid" ]; then
     fi
     exit 0
 fi
-
-# --- power source ------------------------------------------------------------
-ps_info=$(pmset -g batt 2>/dev/null || true)
-case "$ps_info" in
-    *"Now drawing from 'AC Power'"*) source="AC" ;;
-    *"Now drawing from 'Battery Power'"*) source="Battery" ;;
-    *)
-        log "cannot determine power source, leaving powermode untouched"
-        exit 0
-        ;;
-esac
 
 # --- current powermode -------------------------------------------------------
 current=$(pmset -g 2>/dev/null | sed -n 's/^ *powermode[[:space:]]*//p' | head -n 1)
