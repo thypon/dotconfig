@@ -100,9 +100,17 @@ def make_replacements(provider_config):
     if provider_config.get("name") == "local":
         print(f"  ds4: local provider, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
-    elif ds4_available() and (high_power_mode_active() or work_wifi_connected()) \
-            and any(v.replace("-", ".") in small_norm for v in DS4_FLASH_VARIANTS):
-        reason = "HPM active" if high_power_mode_active() else f"connected to work Wi-Fi"
+    elif ds4_available() and (high_power_mode_active() or work_wifi_connected()):
+        reason = "HPM active" if high_power_mode_active() else "connected to work Wi-Fi"
+        if any(v.replace("-", ".") in small_norm for v in DS4_FLASH_VARIANTS):
+            print(f"  ds4: {reason} + flash variant in config, routing model/small/frontier -> {DS4_MODEL_FLASH}")
+            return {
+                "dynamic/provider": provider_config.get("name", ""),
+                "dynamic/model": DS4_MODEL_FLASH,
+                "dynamic/small_model": DS4_MODEL_FLASH,
+                "dynamic/frontier_model": DS4_MODEL_FLASH,
+                "dynamic/antagonist_model": provider_config["antagonist_model"],
+            }
         print(f"  ds4: {reason} + local server up, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
     return {
@@ -543,6 +551,12 @@ def main():
     providers = models["providers"]
     name, config = match_provider(providers, prefix)
     config["name"] = name
+    # record for the HPM controller (auto re-resolution on network transitions)
+    try:
+        with open(os.path.expanduser("~/.config/.provider-last"), "w") as f:
+            f.write(name)
+    except OSError:
+        pass
     replacements = make_replacements(config)
 
     print(f"--- opencode ---")

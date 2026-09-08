@@ -134,4 +134,31 @@ if [ "$current" != "$desired" ]; then
         exit 1
     fi
 fi
+
+# --- provider re-resolution on work-WiFi transitions --------------------------
+# Re-resolves `provider ${last}` (last manually chosen prefix) on network
+# transitions. The provider script itself decides: on work Wi-Fi it routes
+# flash roles to the local ds4 server; off work Wi-Fi it restores the
+# provider's own remote models.
+last_ssid_state="$STATE_DIR/last-provider-ssid"
+want_net=off
+if [ "$ssid" = "$current_ssid" ] && [ -n "$current_ssid" ]; then
+    want_net=work
+fi
+prev_net=""
+[ -f "$last_ssid_state" ] && prev_net=$(cat "$last_ssid_state" 2>/dev/null)
+if [ "$prev_net" != "$want_net" ] && [ -n "$console_user" ]; then
+    echo "$want_net" > "$last_ssid_state" 2>/dev/null
+    provider_bin="$console_home/.local/bin/provider"
+    prefix_file="$console_home/.config/.provider-last"
+    if [ -x "$provider_bin" ] && [ -f "$prefix_file" ]; then
+        last_prefix=$(cat "$prefix_file" 2>/dev/null)
+        if [ -n "$last_prefix" ]; then
+            log "network transition (off->work=$([ "$want_net" = work ] && echo yes || echo no)): resolving provider $last_prefix"
+            sudo -u "#$(stat -f %u /dev/console 2>/dev/null)" env HOME="$console_home" \
+                "$provider_bin" "$last_prefix" >> /var/log/dotconfig-provider.log 2>&1 \
+                && log "provider $last_prefix resolved" || log "provider $last_prefix FAILED"
+        fi
+    fi
+fi
 exit 0
