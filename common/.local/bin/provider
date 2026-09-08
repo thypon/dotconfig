@@ -36,11 +36,15 @@ MODELS_PATH = os.path.expanduser("~/.config/dynamic-models.jsonc")
 TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/opencode.json.tmpl")
 OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
 
+SECRETS_PATH = os.path.expanduser("~/.config/secrets.yml")
+
 # DS4 local server (OpenAI-compatible GLM 5.3 Flash)
 DS4_HOST = "localhost"
 DS4_PORT = 8000
 DS4_MODEL_FLASH = "ds4/glm-5.3-flash"
 DS4_FLASH_BASENAME = DS4_MODEL_FLASH.split("/", 1)[1]
+# Match dotted and dashed spellings of the flash model id
+DS4_FLASH_VARIANTS = ("glm-5.3-flash", "glm-5-3-flash")
 COMMANDS_SRC = os.path.join(REPO_ROOT, "common", ".config", "opencode", "commands")
 COMMANDS_DST = os.path.expanduser("~/.config/opencode/commands")
 OPENCODE_CONFIG_DIR = os.path.expanduser("~/.config/opencode")
@@ -92,11 +96,14 @@ def match_provider(providers, prefix):
 
 def make_replacements(provider_config):
     small = provider_config["small_model"]
+    small_norm = small.lower().replace("-", ".")
     if provider_config.get("name") == "local":
         print(f"  ds4: local provider, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
-    elif high_power_mode_active() and ds4_available() and DS4_FLASH_BASENAME in small:
-        print(f"  ds4: high power mode + local server up, routing small_model -> {DS4_MODEL_FLASH}")
+    elif ds4_available() and (high_power_mode_active() or work_wifi_connected()) \
+            and any(v.replace("-", ".") in small_norm for v in DS4_FLASH_VARIANTS):
+        reason = "HPM active" if high_power_mode_active() else f"connected to work Wi-Fi"
+        print(f"  ds4: {reason} + local server up, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
     return {
         "dynamic/provider": provider_config.get("name", ""),
@@ -136,6 +143,33 @@ def high_power_mode_active():
         return False
     m = re.search(r"^\s*powermode\s+(\d+)\s*$", out.stdout, re.MULTILINE)
     return bool(m) and m.group(1) == "2"
+
+
+def work_wifi_connected():
+    """Return True iff the current Wi-Fi SSID matches hpm_wifi_ssid from
+    ~/.config/secrets.yml (the 'at work' network). Best-effort: any
+    failure -> False. En-dash/dot normalization applied to both sides."""
+    try:
+        with open(os.path.expanduser("~/.config/secrets.yml")) as f:
+            m = re.search(r'^hpm_wifi_ssid:\s*["\']?([^"\'\n#]+?)["\']?\s*(?:#.*)?$', f.read(), re.M)
+    except OSError:
+        return False
+    if not m:
+        return False
+    ssid = m.group(1).strip()
+    if not ssid:
+        return False
+    if sys.platform != "darwin":
+        return False
+    try:
+        out = subprocess.run(["ipconfig", "getsummary", "en0"],
+                             capture_output=True, text=True, timeout=2)
+        m = re.search(r"^\s*SSID\s*:\s*(.+?)\s*$", out.stdout, re.MULTILINE)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if not m:
+        return False
+    return m.group(1).strip().lower() == ssid.strip().lower()
 
 
 def resolve_template(template, replacements):

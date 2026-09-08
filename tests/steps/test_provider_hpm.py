@@ -51,8 +51,21 @@ def write_pmset_shim(bin_dir, body):
 
 
 @given("the provider module is loaded")
-def provider_loaded(provider_module, fake_path):
+def provider_loaded(provider_module, fake_path, monkeypatch):
+    # hermetic by default: the real work_wifi_connected() leaks the host's
+    # Wi-Fi state (secrets.yml + en0 SSID) into the routing matrix
+    monkeypatch.setattr(provider_module, "work_wifi_connected", lambda: False)
     write_pmset_shim(fake_path, PMSET_PLAIN_SHIM)
+
+
+@given("work Wi-Fi is connected")
+def work_wifi_up(provider_module, monkeypatch):
+    monkeypatch.setattr(provider_module, "work_wifi_connected", lambda: True)
+
+
+@given("work Wi-Fi is off")
+def work_wifi_down(provider_module, monkeypatch):
+    monkeypatch.setattr(provider_module, "work_wifi_connected", lambda: False)
 
 
 @given(parsers.parse('pmset reports powermode "{value}"'))

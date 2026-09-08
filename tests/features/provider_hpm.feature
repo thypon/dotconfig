@@ -1,14 +1,24 @@
-Feature: Provider routes small_model to local DS4 only in High Power Mode
+Feature: Provider routes small_model to local DS4 when needed
   As a user
-  I want the small_model routed to the local DS4 server only while macOS
-  High Power Mode is active, and always for the "local" provider
+  I want the small_model routed to the local DS4 server while macOS
+  High Power Mode is active or the work Wi-Fi is connected, and
+  always for the "local" provider
   So battery life is preserved and local inference is used when available
 
   Background:
     Given the provider module is loaded
+    And work Wi-Fi is off
 
   Scenario: High Power Mode with DS4 up routes small_model to DS4
     Given pmset reports powermode "2"
+    And the DS4 server is available
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
+    When small_model is resolved for provider "anthropic"
+    Then small_model is "ds4/glm-5.3-flash"
+
+  Scenario: Work Wi-Fi with DS4 up routes small_model to DS4
+    Given pmset reports powermode "0"
+    And work Wi-Fi is connected
     And the DS4 server is available
     And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
