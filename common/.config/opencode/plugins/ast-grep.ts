@@ -246,11 +246,9 @@ function getEmptyResultHint(pattern: string, lang: CliLanguage): string | null {
 
 const ast_grep_search: ToolDefinition = tool({
   description:
-    "Search code patterns across filesystem using AST-aware matching. Supports 25 languages. " +
-    "Use meta-variables: $VAR (single node), $$$ (multiple nodes). " +
-    "IMPORTANT: Patterns must be complete AST nodes (valid code). " +
-    "For functions, include params and body: 'export async function $NAME($$$) { $$$ }' not 'export async function $NAME'. " +
-    "Examples: 'console.log($MSG)', 'def $FUNC($$$):', 'async function $NAME($$$)'",
+    "AST-aware code pattern search, 25 languages. Meta-variables: $VAR (single node), $$$ (multiple). " +
+    "Patterns must be complete AST nodes: 'async function $NAME($$$) { $$$ }'. " +
+    "Examples: 'console.log($MSG)', 'def $FUNC($$$):'",
   args: {
     pattern: tool.schema.string().describe("AST pattern with meta-variables ($VAR, $$$). Must be complete AST node."),
     lang: tool.schema.enum(CLI_LANGUAGES).describe("Target language"),
@@ -287,10 +285,8 @@ const ast_grep_search: ToolDefinition = tool({
 
 const ast_grep_replace: ToolDefinition = tool({
   description:
-    "Replace code patterns across filesystem with AST-aware rewriting. " +
-    "Applies changes immediately. Use dryRun=true to preview. " +
-    "Use meta-variables in rewrite to preserve matched content. " +
-    "Example: pattern='console.log($MSG)' rewrite='logger.info($MSG)'",
+    "AST-aware pattern replace, applies immediately; dryRun=true previews. " +
+    "Meta-variables preserve matched content. Example: pattern='console.log($MSG)' rewrite='logger.info($MSG)'",
   args: {
     pattern: tool.schema.string().describe("AST pattern to match"),
     rewrite: tool.schema.string().describe("Replacement pattern (can use $VAR from pattern)"),

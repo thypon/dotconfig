@@ -99,9 +99,8 @@ async function braveSearch(
 
 const brave_websearch: ToolDefinition = tool({
   description:
-    "Search the web using Brave Search. " +
-    "Returns ranked web results with titles, URLs, descriptions, and age. " +
-    "Use for current events, docs, research — anything beyond training data.",
+    "Web search via Brave. Ranked results: titles, URLs, descriptions, age. " +
+    "Use for current events, docs, research beyond training data.",
   args: {
     query: tool.schema.string().describe("Search query"),
     count: tool.schema.number().optional().describe("Results count (1-20, default 10)"),
