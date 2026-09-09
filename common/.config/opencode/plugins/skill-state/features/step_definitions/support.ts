@@ -26,8 +26,8 @@ export function assistantMsg(sessionID: string, id: string, opts: { text?: strin
   return { info: { id, sessionID, role: "assistant", time: { created: 1 } }, parts }
 }
 
-export function toolPart(callID: string, tool: string, output: string): PartLike {
-  return { type: "tool", callID, tool, state: { status: "completed", output } }
+export function toolPart(callID: string, tool: string, output: string, input?: Record<string, unknown>): PartLike {
+  return { type: "tool", callID, tool, state: { status: "completed", output, ...(input ? { input } : {}) } }
 }
 
 export function padding(n: number): string {

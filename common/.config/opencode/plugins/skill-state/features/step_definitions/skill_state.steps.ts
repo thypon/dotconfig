@@ -59,6 +59,8 @@ Given("an active skill-state session", async function () {
   await activate(this)
 })
 
+const DISJOINT_CMDS = ["cat readme.md", "docker ps -a", "git push origin main"]
+
 Given("a {int}-message history of assistant turns with {int} character padding", function (count: number, pad: number) {
   const msgs: WithParts[] = [userMsg(this.sessionID, "m-spec", `skill spec ${padding(pad)}`)]
   for (let i = 1; i < count; i++) {
@@ -66,7 +68,7 @@ Given("a {int}-message history of assistant turns with {int} character padding",
       assistantMsg(this.sessionID, `a${i}`, {
         text: `step ${i} reasoning ${padding(pad)}`,
         reasoning: `thinking ${padding(pad)}`,
-        toolParts: [toolPart(`c${i}`, "bash", `output ${i} ${padding(pad)}`)],
+        toolParts: [toolPart(`c${i}`, "bash", `output ${i} ${padding(pad)}`, { command: DISJOINT_CMDS[i % 3] })],
       }),
     )
   }
@@ -95,7 +97,7 @@ When("the messages transform hook fires {int} times, each time appending one mor
     fullHistory.push(
       assistantMsg(this.sessionID, `a${i}`, {
         text: `step ${i} reasoning ${padding(pad)}`,
-        toolParts: [toolPart(`c${i}`, "bash", `output ${i} ${padding(pad)}`)],
+        toolParts: [toolPart(`c${i}`, "bash", `output ${i} ${padding(pad)}`, { command: DISJOINT_CMDS[i % 3] })],
       }),
     )
     this.messages = JSON.parse(JSON.stringify(fullHistory)) as WithParts[]

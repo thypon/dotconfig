@@ -11,6 +11,8 @@ export interface SkillState {
   nudges?: number
   lastPatchesAtNudge?: number
   stalled?: number
+  loopCount?: number
+  cleanStreak?: number
   iterations: number
   patches: number
   errors: number
