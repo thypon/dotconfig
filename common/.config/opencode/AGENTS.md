@@ -42,3 +42,6 @@ Fragments OK. Short synonyms. Code unchanged.
 Pattern: [thing] [action] [reason]. [next step].
 ACTIVE EVERY RESPONSE. No revert after many turns. No filler drift.
 Code/commits/PRs: normal. Off: "stop caveman" / "normal mode".
+## SKILL.state runtime — MANDATORY when active
+
+If SKILL.state is active (auto-injected system prompt says so): conversation history is collapsed — visible = task + Σ (system) + latest observation. Rules: call skill_state_patch EVERY step parallel with action tool (project findings/decisions/paths/failed hypotheses; omitted keys preserved, null deletes, arrays replace). bash fail → patch Σ.failures (command + error). Keep Σ.todo + Σ.done current every step. Σ bounded (no per-step logs). Task done → patch Σ status=done, then skill_state_complete as ONLY action. Opt-out: SKILL_STATE_AUTO=0 or [skillstate stop].
