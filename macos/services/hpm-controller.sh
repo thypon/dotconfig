@@ -11,15 +11,16 @@
 # Work SSID comes from ~/.config/secrets.yml key hpm_wifi_ssid.
 # If the key is missing/empty: sleep policy still applies, powermode untouched,
 # notify once per hour.
-# Env overrides (tests only): DOTCONFIG_SECRETS, DOTCONFIG_HPM_STATE_DIR.
+# Env overrides (tests only): DOTCONFIG_SECRETS, DOTCONFIG_HPM_STATE_DIR,
+# DOTCONFIG_HPM_CONSOLE_USER, DOTCONFIG_HPM_CONSOLE_HOME, DOTCONFIG_PROVIDER_LOG.
 # Runs as a LaunchDaemon (root) every 10s; logs to /var/log/dotconfig-hpm.log.
 
 set -u
 
 STATE_DIR="${DOTCONFIG_HPM_STATE_DIR:-/var/db/dotconfig-hpm}"
-console_user=$(stat -f %Su /dev/console 2>/dev/null || true)
-console_home=""
-if [ -n "$console_user" ] && [ "$console_user" != "root" ] && [ "$console_user" != "loginwindow" ]; then
+console_user="${DOTCONFIG_HPM_CONSOLE_USER-$(stat -f %Su /dev/console 2>/dev/null || true)}"
+console_home="${DOTCONFIG_HPM_CONSOLE_HOME-}"
+if [ -z "$console_home" ] && [ -n "$console_user" ] && [ "$console_user" != "root" ] && [ "$console_user" != "loginwindow" ]; then
     console_home=$(dscl . -read "/Users/$console_user" NFSHomeDirectory 2>/dev/null | sed -n 's/^NFSHomeDirectory:[[:space:]]*//p' | head -n 1)
 fi
 SECRETS="${DOTCONFIG_SECRETS:-${console_home:-${HOME:-/var/root}}/.config/secrets.yml}"
@@ -141,6 +142,7 @@ fi
 # flash roles to the local ds4 server; off work Wi-Fi it restores the
 # provider's own remote models.
 last_ssid_state="$STATE_DIR/last-provider-ssid"
+provider_log="${DOTCONFIG_PROVIDER_LOG:-/var/log/dotconfig-provider.log}"
 want_net=off
 if [ "$ssid" = "$current_ssid" ] && [ -n "$current_ssid" ]; then
     want_net=work
@@ -156,7 +158,7 @@ if [ "$prev_net" != "$want_net" ] && [ -n "$console_user" ]; then
         if [ -n "$last_prefix" ]; then
             log "network transition (off->work=$([ "$want_net" = work ] && echo yes || echo no)): resolving provider $last_prefix"
             sudo -u "#$(stat -f %u /dev/console 2>/dev/null)" env HOME="$console_home" \
-                "$provider_bin" "$last_prefix" >> /var/log/dotconfig-provider.log 2>&1 \
+                "$provider_bin" "$last_prefix" >> "$provider_log" 2>&1 \
                 && log "provider $last_prefix resolved" || log "provider $last_prefix FAILED"
         fi
     fi

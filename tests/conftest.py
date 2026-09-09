@@ -149,6 +149,7 @@ def fake_env(tmp_path, monkeypatch):
         "FAKE_INITIAL_DS": "0",
         "DOTCONFIG_HPM_MAPPING_PINNED": "1",
         "DOTCONFIG_HPM_STATE_DIR": str(state_dir),
+        "DOTCONFIG_HPM_CONSOLE_USER": "",
         "HOME": str(tmp_path),
     }
     for key, value in env.items():

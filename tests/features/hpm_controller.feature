@@ -176,3 +176,117 @@ Feature: High Power Mode controller
     When the controller runs
     Then pmset is called with disablesleep 0
     And a notification is shown
+
+  # --- provider re-resolution on network transitions ---------------------------
+
+  Scenario: First run on work WiFi re-resolves the last provider
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And a provider binary is installed for the console user
+    And the last chosen provider prefix is "anthropic"
+    When the controller runs
+    Then the provider is re-resolved with prefix "anthropic"
+    And the network state is recorded as "work"
+    And the controller exits 0
+
+  Scenario: Transition off to work re-resolves the last provider
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And a provider binary is installed for the console user
+    And the last chosen provider prefix is "anthropic"
+    And the controller last saw network state "off"
+    When the controller runs
+    Then the provider is re-resolved with prefix "anthropic"
+    And the network state is recorded as "work"
+    And the controller exits 0
+
+  Scenario: Transition work to off re-resolves the last provider
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "HOME_NET"
+    And the current powermode is 0
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And a provider binary is installed for the console user
+    And the last chosen provider prefix is "anthropic"
+    And the controller last saw network state "work"
+    When the controller runs
+    Then the provider is re-resolved with prefix "anthropic"
+    And the network state is recorded as "off"
+    And the controller exits 0
+
+  Scenario: No network transition skips provider re-resolution
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And a provider binary is installed for the console user
+    And the last chosen provider prefix is "anthropic"
+    And the controller last saw network state "work"
+    When the controller runs
+    Then the provider is not re-resolved
+    And the network state is recorded as "work"
+    And the controller exits 0
+
+  Scenario: No recorded provider prefix skips re-resolution but records state
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And a provider binary is installed for the console user
+    When the controller runs
+    Then the provider is not re-resolved
+    And the network state is recorded as "work"
+    And the controller exits 0
+
+  Scenario: Missing provider binary skips re-resolution but records state
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And the last chosen provider prefix is "anthropic"
+    When the controller runs
+    Then the provider is not re-resolved
+    And the network state is recorded as "work"
+    And the controller exits 0
+
+  Scenario: Failing provider re-resolution does not break the controller
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And a provider binary is installed for the console user
+    And the provider binary exits with 1
+    And the last chosen provider prefix is "anthropic"
+    And the controller last saw network state "off"
+    When the controller runs
+    Then the controller exits 0
+    And a provider resolution failure is logged
+    And the network state is recorded as "work"
+
+  Scenario: Missing console user skips provider re-resolution entirely
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    When the controller runs
+    Then the provider is not re-resolved
+    And no network state is recorded
+    And the controller exits 0
