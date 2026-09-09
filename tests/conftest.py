@@ -11,6 +11,7 @@ CONTROLLER = os.path.join(REPO_ROOT, "macos", "services", "hpm-controller.sh")
 INSTALL = os.path.join(REPO_ROOT, "macos", "install.sh")
 COMMON_BIN = os.path.join(REPO_ROOT, "common", ".local", "bin")
 OSSNIX_BIN = os.path.join(REPO_ROOT, "ossnix", ".local", "bin")
+HOOKS_BIN = os.path.join(REPO_ROOT, "hooks")
 
 PMSET_SHIM = """#!/bin/sh
 case "$1" in
@@ -227,7 +228,7 @@ def run_install():
 
 
 def _resolve_script(name):
-    for base in (COMMON_BIN, OSSNIX_BIN):
+    for base in (COMMON_BIN, OSSNIX_BIN, HOOKS_BIN):
         cand = os.path.join(base, name)
         if os.path.isfile(cand):
             return cand
