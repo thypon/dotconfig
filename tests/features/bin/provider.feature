@@ -25,3 +25,15 @@ Feature: provider
     And the settings file already names provider anthropic
     When provider runs with no arguments
     Then every command file under the live opencode config is a resolved copy
+
+  Scenario: Successful run records the provider prefix for the HPM controller
+    Given a dynamic-models.jsonc with providers anthropic and local
+    And the deployed settings name the anthropic provider
+    When provider runs with "anthropic"
+    Then the last chosen provider prefix is recorded as "anthropic"
+
+  Scenario: Unknown provider name does not record a prefix
+    Given a dynamic-models.jsonc with providers anthropic and local
+    When provider runs with "nosuch"
+    Then the script exits non-zero
+    And no provider prefix is recorded

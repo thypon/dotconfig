@@ -166,6 +166,18 @@ def no_config_deployed(ctx):
     assert not (ctx.env.home / ".pi" / "agent" / "settings.json").exists()
 
 
+@then(parsers.parse('the last chosen provider prefix is recorded as "{name}"'))
+def provider_last_recorded(name, ctx):
+    path = ctx.env.home / ".config" / ".provider-last"
+    assert path.exists()
+    assert path.read_text() == name
+
+
+@then("no provider prefix is recorded")
+def no_provider_last_recorded(ctx):
+    assert not (ctx.env.home / ".config" / ".provider-last").exists()
+
+
 @then("every command file under the live opencode config is a resolved copy")
 def commands_are_resolved_copies(ctx):
     repl = replacements_for(ctx.deployed)
