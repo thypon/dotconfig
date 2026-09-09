@@ -1,7 +1,7 @@
 ## Dependencies: tig, difftastic (difft)
 
 #### Quality of life ####
-set mouse = true
+set mouse = false
 set start-on-head = yes
 set diff-context = 5
 
