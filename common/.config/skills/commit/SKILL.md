@@ -1,10 +1,6 @@
 ---
 name: commit
-description: >
-  Ultra-compressed commit message generator. Cuts noise from commit messages while preserving
-  intent and reasoning. Conventional Commits format. Subject ≤50 chars, body only when "why"
-  isn't obvious. Use when user says "write a commit", "commit message", "generate commit",
-  "/commit", or invokes /commit. Auto-triggers when staging changes.
+description: Conventional Commits generator, ≤50-char subject, why-only body. Use when user says "write a commit", "commit message", "/commit", or stages changes.
 metadata:
   model: dynamic/small_model
 ---

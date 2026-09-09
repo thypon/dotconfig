@@ -1,12 +1,6 @@
 ---
 name: dashboard
-description: >
-  GitHub workload dashboard. Shows PRs awaiting review, assigned issues, and open PRs
-  with last-commenter triage to identify blocking items. Splits into actionable, waiting-on-others,
-  and dependency-update buckets. Supports org mode (default: brave,brave-intl), me mode (personal repos),
-  and pr mode (your PRs with CI status).
-  Use when user says "/dashboard", "show dashboard", "check my reviews", "check my PRs",
-  "what's on my plate", "review backlog".
+description: GitHub workload triage (PRs awaiting review, assigned issues, open PR status; org/me/pr modes). Use when user says "/dashboard", "check my reviews/PRs", "review backlog".
 metadata:
   model: dynamic/small_model
 policy-allow:

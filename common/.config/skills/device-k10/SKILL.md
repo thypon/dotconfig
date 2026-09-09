@@ -1,12 +1,6 @@
 ---
 name: device-k10
-description: >
-  Reference for the DFRobot UNIHIKER K10 (ESP32-S3 AI board): full hardware capability list,
-  on-device AI limits (what fits in 8MB PSRAM and what doesn't), programming platforms,
-  xiaozhi voice-assistant firmware, flashing procedures, and known gotchas.
-  Research is already done - do NOT re-research the board; consult this skill first.
-  Use when user mentions "K10", "UNIHIKER", the ESP32-S3 board with screen/camera,
-  says "/device-k10", or asks what the board can do / what to build on it.
+description: UNIHIKER K10 (DFR0992, ESP32-S3) board reference — specs, limits, flashing, gotchas. Use ONLY when user mentions K10/UNIHIKER; do not re-research the board.
 ---
 
 # UNIHIKER K10 Device Reference

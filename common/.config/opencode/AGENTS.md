@@ -5,18 +5,11 @@ Max ONE major change per iteration.
 
 ## TODO tool — MANDATORY
 
-If TODO tool (todowrite/todoread) available:
-1. Start: read existing TODO list, adopt decided tasks as own.
-2. Task with 3+ steps, or multi-part user request → create TODO entries via tool.
-3. Execute in order. ONE task in_progress at a time.
-4. Mark completed ONLY after work verified done (tests run, checks pass). Never on intent.
-5. Update statuses real time — start → in_progress, done → completed. No batch updates.
-6. Blocked or partial → keep in_progress, add follow-up TODO describing blocker.
-7. Finish only when all TODOs completed or blockers documented. Never leave in_progress tasks silently — state status.
-Follow BDD: write Gherkin scenarios (.feature) first, run red, implement step definitions. Cucumber-family tooling: python→pytest-bdd, ruby→cucumber, js/ts→@cucumber/cucumber, go→godog, c/c++→cucumber-cpp, java→cucumber-jvm. Unit-level internals may use classic TDD. Project already employs BDD/TDD framework → use it — never add new framework.
-Tests requiring hardware: find appropriate simulator, run integration tests on simulator to verify behaviour. Never assume behaviour + add unverified expectations to tests. Tests must be sound.
-Optional when verifying test soundness: symbolic execution where practical — python→CrossHair, js/ts→ExpoSE, c/c++→KLEE, java→Java PathFinder. Fallback when no maintained symbolic tooling (go/ruby) or symbolic execution too heavyweight (e.g. python CrossHair): property-based testing — python→Hypothesis, js/ts→fast-check, go→gopter, ruby→Rantly, java→jqwik, c/c++→rapidcheck. Never add such tooling to project lacking it — verification only.
-Existing feature on github → import functionality if already available; download github projects in $PWD/tmp/ to search + understand.
+If todowrite/todoread available: read list first, adopt decided tasks as own. 3+ steps or multi-part request → TODO entries. ONE in_progress at a time. Complete only when verified (tests run, checks pass), never on intent. Real-time status updates, no batches. Blocked/partial → keep in_progress + follow-up TODO. Never leave in_progress silently — state status.
+
+BDD: Gherkin scenarios (.feature) first (red), then step definitions; cucumber-family tooling per language (python pytest-bdd, js/ts @cucumber/cucumber, go godog, java cucumber-jvm, ...). Unit internals may use classic TDD. Project already employs BDD/TDD framework → use it, never add another. Hardware tests → run on appropriate simulator; never assume behaviour. Test soundness (optional): symbolic execution (python CrossHair, js ExpoSE, c KLEE, java JPF) or property-based (Hypothesis, fast-check, gopter, jqwik) when practical; never add such tooling to projects lacking it — verification only.
+
+Existing feature on GitHub → reuse it; download to $PWD/tmp/ to study.
 
 ## Discoverability — MANDATORY FIRST STEP, EVERY TASK
 
