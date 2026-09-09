@@ -139,7 +139,7 @@ fi
 # --- provider re-resolution on work-WiFi transitions --------------------------
 # Re-resolves `provider ${last}` (last manually chosen prefix) on network
 # transitions. The provider script itself decides: on work Wi-Fi it routes
-# flash roles to the local ds4 server; off work Wi-Fi it restores the
+# the small model to the local ds4 server; off work Wi-Fi it keeps the
 # provider's own remote models.
 last_ssid_state="$STATE_DIR/last-provider-ssid"
 provider_log="${DOTCONFIG_PROVIDER_LOG:-/var/log/dotconfig-provider.log}"
