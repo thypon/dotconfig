@@ -8,3 +8,6 @@ __pycache__/
 
 # Node
 node_modules/
+
+# Compress-skill local backups
+*.original.md

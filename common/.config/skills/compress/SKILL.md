@@ -13,21 +13,21 @@ metadata:
 
 ## Purpose
 
-Compress natural language files (CLAUDE.md, todos, preferences) into caveman-speak to reduce input tokens. Compressed version overwrites original. Human-readable backup saved as `<filename>.original.md`.
+Compress natural language files (CLAUDE.md, todos, preferences) into caveman-speak to reduce input tokens. Compressed version overwrites original. Backup saved as `<filename>.original.md`.
 
 ## Trigger
 
-`/compress <filepath>` or when user asks to compress a memory file.
+`/compress <filepath>` or user asks to compress memory file.
 
 ## Process
 
-1. The compression scripts live in `compress/scripts/` (adjacent to this SKILL.md). If the path is not immediately available, search for `compress/scripts/__main__.py`.
+1. Compression scripts live in `compress/scripts/` (adjacent to this SKILL.md). If path unavailable, search for `compress/scripts/__main__.py`.
 
 2. Run:
 
 cd compress && python3 -m scripts <absolute_filepath>
 
-3. The CLI will:
+3. CLI will:
 - detect file type (no tokens)
 - call Claude to compress
 - validate output (no tokens)
@@ -60,17 +60,17 @@ cd compress && python3 -m scripts <absolute_filepath>
 
 ### Preserve Structure
 - All markdown headings (keep exact heading text, compress body below)
-- Bullet point hierarchy (keep nesting level)
+- Bullet hierarchy (keep nesting level)
 - Numbered lists (keep numbering)
 - Tables (compress cell text, keep structure)
 - Frontmatter/YAML headers in markdown files
 
 ### Compress
-- Use short synonyms: "big" not "extensive", "fix" not "implement a solution for", "use" not "utilize"
+- Short synonyms: "big" not "extensive", "fix" not "implement a solution for", "use" not "utilize"
 - Fragments OK: "Run tests before commit" not "You should always run tests before committing"
-- Drop "you should", "make sure to", "remember to" — just state the action
-- Merge redundant bullets that say the same thing differently
-- Keep one example where multiple examples show the same pattern
+- Drop "you should", "make sure to", "remember to" — state action
+- Merge redundant bullets saying same thing differently
+- Keep one example where multiple show same pattern
 
 CRITICAL RULE:
 Anything inside ``` ... ``` must be copied EXACTLY.
@@ -81,12 +81,12 @@ Do not:
 - shorten commands
 - simplify anything
 
-Inline code (`...`) must be preserved EXACTLY.
+Inline code (`...`) preserved EXACTLY.
 Do not modify anything inside backticks.
 
 If file contains code blocks:
 - Treat code blocks as read-only regions
-- Only compress text outside them
+- Compress only text outside them
 - Do not merge sections around code
 
 ## Pattern
@@ -107,7 +107,7 @@ Compressed:
 
 - ONLY compress natural language files (.md, .txt, extensionless)
 - NEVER modify: .py, .js, .ts, .json, .yaml, .yml, .toml, .env, .lock, .css, .html, .xml, .sql, .sh
-- If file has mixed content (prose + code), compress ONLY the prose sections
-- If unsure whether something is code or prose, leave it unchanged
-- Original file is backed up as FILE.original.md before overwriting
+- Mixed content (prose + code): compress ONLY prose sections
+- Unsure code vs prose: leave unchanged
+- Original backed up as FILE.original.md before overwriting
 - Never compress FILE.original.md (skip it)

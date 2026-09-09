@@ -5,4 +5,4 @@ model: dynamic/small_model
 
 /dashboard $ARGUMENTS
 
-Show my GitHub dashboard. Use the dashboard skill.
+Show GitHub dashboard. Use dashboard skill.

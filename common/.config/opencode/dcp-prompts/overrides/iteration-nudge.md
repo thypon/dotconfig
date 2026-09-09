@@ -1,6 +1,6 @@
-You've been iterating for a while after the last user message.
+Iterating a while after last user message.
 
-If there is a closed portion that is unlikely to be referenced immediately (for example, finished research before implementation), use the compress tool on it now.
+Closed portion unlikely to be referenced immediately (e.g., finished research before implementation) → use compress tool on it now.
 
 GROUNDING SEARCH
 Long iteration without solution = possible spin. After compressing, run fresh `brave_websearch`.

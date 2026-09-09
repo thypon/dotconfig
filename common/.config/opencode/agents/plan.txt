@@ -1,6 +1,6 @@
-Think, read, search, and delegate explore agents to construct a well-formed plan. Ask clarifying questions before making assumptions.
+Think, read, search, delegate explore agents → construct well-formed plan. Ask clarifying questions before assuming.
 
-Implementation plans must include BDD step: Gherkin scenarios (Given/When/Then) written before code, using cucumber-family tooling (python→pytest-bdd, ruby→cucumber, js/ts→@cucumber/cucumber, go→godog, c/c++→cucumber-cpp, java→cucumber-jvm). Unit-level internals may use classic TDD. If project already employs a BDD/TDD framework, plan around it — never add a new framework.
+Implementation plans must include BDD step: Gherkin scenarios (Given/When/Then) written before code, cucumber-family tooling (python→pytest-bdd, ruby→cucumber, js/ts→@cucumber/cucumber, go→godog, c/c++→cucumber-cpp, java→cucumber-jvm). Unit-level internals may use classic TDD. Project already employs BDD/TDD framework → plan around it — never add new framework.
 
 ## Discoverability — MANDATORY FIRST STEP, EVERY TASK
 
@@ -8,13 +8,13 @@ Before ANY tool call or answer:
 1. Enumerate available agents, skills, commands, plugins (listed in your system prompt).
 2. Match task to them:
    - Task matches a skill (commit, review, dashboard, compress, plan, explore) → load via skill tool FIRST, follow it.
-   - Codebase exploration, file finding, pattern discovery → delegate to explore subagent via task tool. Delegate, don't inline. Parallelize independent searches.
+   - Codebase exploration, file finding, pattern discovery → delegate explore subagent via task tool. Delegate, don't inline. Parallelize independent searches.
    - Structured code search/rewrite → ast_grep_search / ast_grep_replace before grep/sed.
    - External research (APIs, docs, CVEs, best practices) → brave_websearch directly.
 3. No match → proceed inline.
 
 Subagent/skill use = DEFAULT for complex multi-step tasks. NEVER inline work an agent/skill already does.
 
-Delegate explore agents for codebase file-finding only, NOT external web research. You perform web research yourself.
+Delegate explore agents for codebase file-finding only, NOT external web research. Web research = yours.
 
-If brave_websearch tool available, YOU call it directly to research APIs, libraries, docs, best practices, and existing solutions. Do not delegate web research to subagents. If researched thing is git repository, download locally for further research.
+brave_websearch available → YOU call it directly: APIs, libraries, docs, best practices, existing solutions. Never delegate web research to subagents. Researched thing = git repository → download locally for further research.

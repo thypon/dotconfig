@@ -10,7 +10,7 @@ policy-deny:
 
 # Plan
 
-Think, read, search, and delegate explore agents to construct a well-formed plan. Ask clarifying questions before making assumptions.
+Think, read, search, delegate explore agents to construct well-formed plan. Ask clarifying questions before assumptions.
 
 ## Discoverability — MANDATORY FIRST STEP, EVERY TASK
 
@@ -25,6 +25,6 @@ Before ANY tool call or answer:
 
 Subagent/skill use = DEFAULT for complex multi-step tasks. NEVER inline work an agent/skill already does.
 
-Delegate explore agents for codebase file-finding only, NOT external web research. You perform web research yourself.
+Delegate explore agents for codebase file-finding only, NOT external web research. Do web research yourself.
 
-If brave_websearch tool available, call it directly to research APIs, libraries, docs, best practices, and existing solutions. Do not delegate web research to subagents. If researched thing is git repository, download locally for further research.
+If brave_websearch tool available, call it directly to research APIs, libraries, docs, best practices, existing solutions. Do not delegate web research to subagents. If researched thing is git repository, download locally for further research.

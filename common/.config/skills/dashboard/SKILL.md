@@ -30,19 +30,19 @@ Set `DASHBOARD_ORGS=org1,org2` env var to override. Explicit argument overrides 
 | `/dashboard me` | Dashboard for personal repos of authed user |
 | `/dashboard pr` | Open PRs authored by you, with CI status |
 
-If multiple args, process each separately.
+Multiple args: process each separately.
 
 ## Buckets (for org and me modes)
 
-1. **Waiting for others** — last comment by you. Skip these.
+1. **Waiting for others** — last comment by you. Skip.
 2. **Actionable by you** — last comment by someone else (human), needs your input.
 3. **Dependency updates** — PR authored by bot (dependabot, renovate, github-actions, socket-security). Lowest priority, separate table.
-4. **Stale / closeable** — no activity in 30+ days, or DO-NOT-SUBMIT in title.
+4. **Stale / closeable** — no activity 30+ days, or DO-NOT-SUBMIT in title.
 
 ## Time windows
 
-- Recent: updated in last 7 days
-- Overdue: updated in last 30 days (but not in last 7)
+- Recent: updated last 7 days
+- Overdue: updated last 30 days (but not last 7)
 
 Represent both in output, grouped.
 
@@ -58,7 +58,7 @@ ORG=$(echo "${1:-${DASHBOARD_ORGS:-brave,brave-intl}}" | tr ',' ' ')
 
 ### Step 2: Fetch items
 
-For **org mode**, fetch PRs and issues for each org separately, then combine.
+**Org mode**: fetch PRs + issues per org separately, then combine.
 
 #### PRs requesting your review
 
@@ -82,7 +82,7 @@ for org in $ORGS; do
 done
 ```
 
-For **me mode**:
+**Me mode**:
 
 ```bash
 # Get personal repos
@@ -95,7 +95,7 @@ for repo in $PERSONAL_REPOS; do
 done
 ```
 
-For **pr mode**:
+**PR mode**:
 
 ```bash
 # Fetch your open PRs across all orgs
@@ -106,7 +106,7 @@ gh search prs --author=@me --state=open \
 
 #### Filter out archived repositories
 
-After fetching items, filter out any from archived repos. For each item, extract the repo nameWithOwner and check:
+After fetching, filter out items from archived repos. For each item, extract repo nameWithOwner and check:
 
 ```bash
 # Check if a repo is archived (batched for all unique repos)
@@ -115,12 +115,11 @@ for repo in $(echo "$ALL_REPOS" | sort -u); do
 done
 ```
 
-Discard any items where the repository is archived. Archived repos have no active work — showing them adds noise.
+Discard items where repository archived. Archived repos = no active work, showing them adds noise.
 
 ### Step 3: Determine last commenter for each item
 
-For each PR or issue, check both PR review comments and issue comments.
-Use the most recent of all comment types.
+For each PR/issue, check both PR review comments and issue comments. Use most recent of all comment types.
 
 ```bash
 # For a PR at repos/OWNER/REPO/pulls/NUMBER:
@@ -137,18 +136,18 @@ gh api "repos/$OWNER/$REPO/pulls/$NUMBER/reviews" \
   --jq '.[-1] | {user: .user.login, state: .state, submitted_at: .submitted_at}'
 ```
 
-For **issues**:
+**Issues**:
 
 ```bash
 gh api "repos/$OWNER/$REPO/issues/$NUMBER/comments" \
   --jq '.[-1] | {user: .user.login, body: .body[:120], created_at: .created_at}'
 ```
 
-Pick the last activity across all comment types. If no comments exist, treat as "no comments" → actionable if PR, stale if old.
+Pick last activity across all comment types. No comments → actionable if PR, stale if old.
 
 ### Step 4: Classify into buckets
 
-For each item, use the last commenter:
+Per item, use last commenter:
 
 | Last commenter | Bucket |
 |----------------|--------|
@@ -157,10 +156,10 @@ For each item, use the last commenter:
 | Anyone else (human) | **Actionable by you** |
 | No comments | **Actionable by you** (or stale if >30d) |
 
-For PRs: also check if `state` from reviews is `CHANGES_REQUESTED` → highlight as "needs changes addressed", belongs to actionable bucket.
+For PRs: also check `state` from reviews — `CHANGES_REQUESTED` → highlight as "needs changes addressed", belongs to actionable bucket.
 
-Special case: if title contains `DO-NOT-SUBMIT` → put in **Stale / closeable** bucket.
-If no activity in >60 days → put in **Stale / closeable** bucket.
+Special case: title contains `DO-NOT-SUBMIT` → **Stale / closeable** bucket.
+No activity >60 days → **Stale / closeable** bucket.
 
 ### Step 5: For PR mode, check CI status
 
@@ -176,9 +175,9 @@ gh api "repos/$OWNER/$REPO/commits/$HEAD_SHA/check-runs" \
   --jq '.check_runs | group_by(.conclusion) | map({conclusion: .[0].conclusion, count: length})'
 ```
 
-Get `HEAD_SHA` from the PR object's `headRefOid` field (GraphQL) or fetch PR details.
+Get `HEAD_SHA` from PR object's `headRefOid` field (GraphQL) or fetch PR details.
 
-For each PR, classify CI state:
+Classify CI state per PR:
 - **Green** — all passing
 - **Red** — failures exist
 - **Pending** — still running
@@ -186,7 +185,7 @@ For each PR, classify CI state:
 
 ### Step 6: For PR mode, check review status
 
-From the PR's reviews endpoint (already fetched in Step 3), determine:
+From PR reviews endpoint (already fetched in Step 3), determine:
 
 | Review state | Meaning |
 |--------------|---------|
@@ -231,7 +230,7 @@ From the PR's reviews endpoint (already fetched in Step 3), determine:
 |---|------|-------|-----|---------------|--------|
 ```
 
-- **URL column**: Use the verbatim `url` field from `gh search` JSON output — no markdown wrapping. Terminal auto-detects plain URLs as clickable.
+- **URL column**: verbatim `url` field from `gh search` JSON output — no markdown wrapping. Terminal auto-detects plain URLs as clickable.
 
 ```
 
@@ -262,11 +261,11 @@ From the PR's reviews endpoint (already fetched in Step 3), determine:
 |---|------|-------|-----|----|---------------|--------|
 ```
 
-- **URL column**: Use verbatim `url` field from API output — no markdown wrapping. Terminal auto-detects plain URLs.
+- **URL column**: verbatim `url` field from API output — no markdown wrapping. Terminal auto-detects plain URLs.
 
 ### Recommendations section
 
-At the bottom, add a short `## Recommendations` section with concrete next steps:
+At bottom, short `## Recommendations` section with concrete next steps:
 - "Start with N actionable PRs: <links>"
 - "Close M stale items: <links>"
 - "Ping R reviewers on blocked PRs: <links>"
@@ -278,12 +277,12 @@ At the bottom, add a short `## Recommendations` section with concrete next steps
 - **Batch parallel API calls** — fetch comments for all items in parallel, not sequentially.
 - **Respect rate limits** — if item count >50, sample by most recent updatedAt first.
 - **Do not repeat gh auth check** — assume authed.
-- **Always include verbatim URL column** — paste the raw `url` field from API output. Terminal auto-detects plain URLs as clickable.
-- **Exclude archived repositories** — filter out any PR/issue whose repository `.archived == true`. Batch the check for all unique repos upfront.
+- **Always include verbatim URL column** — paste raw `url` field from API output. Terminal auto-detects plain URLs as clickable.
+- **Exclude archived repositories** — filter out any PR/issue whose repository `.archived == true`. Batch check for all unique repos upfront.
 
 ## OS-specific date commands
 
-The agent should use the correct date command for the platform:
+Use correct date command per platform:
 
 **macOS:**
 ```bash

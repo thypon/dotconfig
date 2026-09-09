@@ -1,11 +1,11 @@
-Evaluate the conversation for compressible ranges.
+Evaluate conversation for compressible ranges.
 
-If any messages are cleanly closed and unlikely to be needed again, use the compress tool on them.
-If direction has shifted, compress earlier ranges that are now less relevant.
+Messages cleanly closed and unlikely to be needed again → use compress tool on them.
+Direction shifted → compress earlier ranges now less relevant.
 
-The goal is to filter noise and distill key information so context accumulation stays under control.
+Goal: filter noise, distill key information, keep context accumulation under control.
 Keep active context uncompressed.
 
 GROUNDING SEARCH
-If compression hides unresolved problems (errors, failed attempts, blockers), run fresh `brave_websearch` after compressing.
+Compression hides unresolved problems (errors, failed attempts, blockers) → run fresh `brave_websearch` after compressing.
 Derive query from those issues. Routine closed-section cleanup: no search needed.

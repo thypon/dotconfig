@@ -5,4 +5,4 @@ model: dynamic/small_model
 
 /commit $ARGUMENTS
 
-Generate a commit message and commit it. Use conventional commits format.
+Generate commit message, commit it. Conventional commits format.

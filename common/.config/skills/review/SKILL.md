@@ -12,7 +12,7 @@ policy-deny:
 
 ## Overview
 
-Perform a structured review of the current git changes with focus on SOLID, architecture, removal candidates, and security risks. Default to review-only output unless the user asks to implement changes.
+Structured review of current git changes: SOLID, architecture, removal candidates, security risks. Default review-only output unless user asks to implement changes.
 
 **Output style: caveman.** Terse. No fluff. Fragments OK. Drop articles, pleasantries, hedging. One finding = one line: `<file>:L<line>: <severity>: <problem>. <fix>.`
 
@@ -29,33 +29,33 @@ Perform a structured review of the current git changes with focus on SOLID, arch
 
 ### 1) Preflight context
 
-- Use `git status -sb`, `git diff --stat`, and `git diff` to scope changes.
-- If needed, use `rg` or `grep` to find related modules, usages, and contracts.
-- Identify entry points, ownership boundaries, and critical paths (auth, payments, data writes, network).
+- `git status -sb`, `git diff --stat`, `git diff` to scope changes.
+- If needed, `rg` or `grep` to find related modules, usages, contracts.
+- Identify entry points, ownership boundaries, critical paths (auth, payments, data writes, network).
 
 **Edge cases:**
-- **No changes**: If `git diff` is empty, inform user and ask if they want to review staged changes or a specific commit range.
-- **Large diff (>500 lines)**: Summarize by file first, then review in batches by module/feature area.
-- **Mixed concerns**: Group findings by logical feature, not just file order.
+- **No changes**: `git diff` empty → inform user, ask if review staged changes or specific commit range.
+- **Large diff (>500 lines)**: summarize by file first, then review in batches by module/feature area.
+- **Mixed concerns**: group findings by logical feature, not just file order.
 
 ### 2) SOLID + architecture smells
 
 - Load `references/solid-checklist.md` for specific prompts.
 - Look for:
-  - **SRP**: Overloaded modules with unrelated responsibilities.
-  - **OCP**: Frequent edits to add behavior instead of extension points.
-  - **LSP**: Subclasses that break expectations or require type checks.
-  - **ISP**: Wide interfaces with unused methods.
-  - **DIP**: High-level logic tied to low-level implementations.
-- When you propose a refactor, explain *why* it improves cohesion/coupling and outline a minimal, safe split.
-- If refactor is non-trivial, propose an incremental plan instead of a large rewrite.
+  - **SRP**: overloaded modules with unrelated responsibilities.
+  - **OCP**: frequent edits to add behavior instead of extension points.
+  - **LSP**: subclasses breaking expectations or requiring type checks.
+  - **ISP**: wide interfaces with unused methods.
+  - **DIP**: high-level logic tied to low-level implementations.
+- Proposing refactor: explain *why* it improves cohesion/coupling, outline minimal safe split.
+- Non-trivial refactor → incremental plan, not large rewrite.
 
 ### 3) Removal candidates + iteration plan
 
 - Load `references/removal-plan.md` for template.
-- Identify code that is unused, redundant, or feature-flagged off.
+- Identify unused, redundant, or feature-flagged-off code.
 - Distinguish **safe delete now** vs **defer with plan**.
-- Provide a follow-up plan with concrete steps and checkpoints (tests/metrics).
+- Follow-up plan: concrete steps + checkpoints (tests/metrics).
 
 ### 4) Security and reliability scan
 
@@ -67,7 +67,7 @@ Perform a structured review of the current git changes with focus on SOLID, arch
   - Rate limits, unbounded loops, CPU/memory hotspots
   - Unsafe deserialization, weak crypto, insecure defaults
   - **Race conditions**: concurrent access, check-then-act, TOCTOU, missing locks
-- Call out both **exploitability** and **impact**.
+- Call out **exploitability** + **impact**.
 
 ### 5) Code quality scan
 
@@ -76,7 +76,7 @@ Perform a structured review of the current git changes with focus on SOLID, arch
   - **Error handling**: swallowed exceptions, overly broad catch, missing error handling, async errors
   - **Performance**: N+1 queries, CPU-intensive ops in hot paths, missing cache, unbounded memory
   - **Boundary conditions**: null/undefined handling, empty collections, numeric boundaries, off-by-one
-- Flag issues that may cause silent failures or production incidents.
+- Flag issues causing silent failures or production incidents.
 
 ### 6) Output format
 
@@ -90,7 +90,7 @@ Perform a structured review of the current git changes with focus on SOLID, arch
 
 **Drop:** "I noticed that...", "It seems like...", "You might want to...", "This is just a suggestion but...", restating what line does, hedging ("perhaps", "maybe", "I think").
 
-**Keep:** exact line numbers, exact symbol/function/variable names in backticks, concrete fix, the *why* if fix not obvious from problem.
+**Keep:** exact line numbers, exact symbol/function/variable names in backticks, concrete fix, *why* if fix not obvious from problem.
 
 **Auto-clarity:** Drop terse for: security findings (CVE-class needs full explanation), architectural disagreements (need rationale), onboarding contexts (author new, needs "why"). Normal paragraph then resume terse.
 

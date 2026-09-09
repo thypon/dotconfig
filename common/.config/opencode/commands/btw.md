@@ -6,4 +6,4 @@ subtask: true
 
 $ARGUMENTS
 
-Answer this question directly.
+Answer directly.
