@@ -20,6 +20,7 @@ else
 	sed -i "/version=/i reverts\=\"$VERSION\_$REVISION $REVERTS\"" $TMPL
 fi
 git commit -a --amend --no-edit
-git stash apply
+# best-effort: nothing stashed when the tree was clean after the revert
+git stash apply || true
 
 echo "$PACKAGE reverted"
