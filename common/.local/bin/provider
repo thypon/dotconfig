@@ -111,8 +111,7 @@ def make_replacements(provider_config):
                 "dynamic/frontier_model": DS4_MODEL_FLASH,
                 "dynamic/antagonist_model": provider_config["antagonist_model"],
             }
-        print(f"  ds4: {reason} + local server up, routing small_model -> {DS4_MODEL_FLASH}")
-        small = DS4_MODEL_FLASH
+        print(f"  ds4: {reason} + non-flash small_model configured, keeping {small}")
     return {
         "dynamic/provider": provider_config.get("name", ""),
         "dynamic/model": provider_config["model"],
