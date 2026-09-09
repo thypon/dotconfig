@@ -11,6 +11,8 @@ Use review skill. Review current git changes.
 
 Check BDD coverage: every changed behavior backed by Gherkin scenarios (.feature)? Missing/outdated scenarios → finding.
 
+Check stub fidelity: BDD fakes/stubs of external calls built from real verified payloads (manual non-destructive call first), not assumptions. Assumed fake shape → finding.
+
 brave_websearch available → research CVEs, known vulnerabilities, library changelogs, security best practices relevant to changed code. Researched thing = git repository → download locally for further research.
 
 Output: terse. Caveman. <file>:L<line>: <severity>: <problem>. <fix>.

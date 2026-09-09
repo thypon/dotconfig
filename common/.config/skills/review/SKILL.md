@@ -76,6 +76,7 @@ Structured review of current git changes: SOLID, architecture, removal candidate
   - **Error handling**: swallowed exceptions, overly broad catch, missing error handling, async errors
   - **Performance**: N+1 queries, CPU-intensive ops in hot paths, missing cache, unbounded memory
   - **Boundary conditions**: null/undefined handling, empty collections, numeric boundaries, off-by-one
+  - **Stub fidelity**: BDD fakes/stubs of external calls match real payload shapes — verified via non-destructive manual call before writing, not assumed
 - Flag issues causing silent failures or production incidents.
 
 ### 6) Output format
