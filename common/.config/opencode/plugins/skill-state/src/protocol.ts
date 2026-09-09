@@ -13,6 +13,7 @@ export function protocolBlocks(st: SkillState): string[] {
       "2. Patch with everything needed for FUTURE steps: findings, decisions, file paths, failed hypotheses, plan progress. Keys omitted from a patch are preserved; set a key to null to delete it; arrays replace wholesale.",
       "3. Your reasoning is ephemeral — it is discarded after each step. Only (a) the task specification (first message), (b) the current Σ below, and (c) the latest observation are visible to you.",
       "4. Project information into Σ the moment it becomes known; it may never appear again.",
+      "5. Keep Σ SMALL and bounded: store only aggregates, counters, positions, and decisions needed for FUTURE steps. NEVER append a per-step log, history array, or anything that grows with the number of steps.",
       "",
       "Skill Execution State (Σ):",
       "```json",
