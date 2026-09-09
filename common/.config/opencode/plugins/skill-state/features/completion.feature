@@ -53,3 +53,14 @@ Feature: Completion lifecycle
     When skill_state_complete is called
     And a user message "m3" with text "[skillstate] new task" arrives
     Then state "s1" is still active
+
+  Scenario: SKILL_STATE_SIGMA_DONE=0 disables sigma-done auto-complete
+    Given env SKILL_STATE_SIGMA_DONE is "0"
+    And session "s1" is activated with patches 3
+    When skill_state_patch is called with:
+      """
+      {"status": "done"}
+      """
+    And session "s1" emits idle
+    Then state "s1" is still active
+    And the fake client sent 1 prompt to "s1"

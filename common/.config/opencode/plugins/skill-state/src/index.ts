@@ -116,7 +116,7 @@ export async function createSkillState(opts: { stateDir: string; client?: unknow
         await log("info", "skill-state nudge suppressed (manual abort)", { sessionID: sid })
         return
       }
-      if (sigmaDone(st)) {
+      if (process.env.SKILL_STATE_SIGMA_DONE !== "0" && sigmaDone(st)) {
         await completeSession(sid, "sigma-done-marker")
         return
       }

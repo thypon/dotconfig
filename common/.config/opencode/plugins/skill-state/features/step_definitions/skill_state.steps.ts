@@ -452,3 +452,7 @@ Given("a fresh session id", function () {
 Given("the session id is {string}", function (sid: string) {
   this.sessionID = sid
 })
+
+Given("env SKILL_STATE_SIGMA_DONE is {string}", function (v: string) {
+  process.env.SKILL_STATE_SIGMA_DONE = v
+})

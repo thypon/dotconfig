@@ -10,6 +10,10 @@ Feature: System prompt and compaction injection
     And the system prompt contains "1 message = 1 step"
     And the system prompt contains "null=delete"
     And the system prompt contains "Σ bounded"
+    And the system prompt contains "bash fail → patch to Σ.failures"
+    And the system prompt contains "Σ.todo"
+    And the system prompt contains "Σ.done"
+    And the system prompt contains "ALWAYS call skill_state_complete"
     And the system prompt contains the compact sigma:
       """json
       {"cwd":"/x"}
