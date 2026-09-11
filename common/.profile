@@ -148,7 +148,8 @@ command -v keychain &>/dev/null && eval $(keychain --noask --eval --quiet)
 ########
 # JAVA #
 ########
-unset JAVA_HOME
+# dynamic JAVA_HOME (see ~/.javaenv.sh)
+[ -f "$HOME/.javaenv.sh" ] && . "$HOME/.javaenv.sh"
 [ -f /etc/profile.d/11_oracle-jdk.sh ] && source /etc/profile.d/11_oracle-jdk.sh
 export ANDROID_HOME=$HOME/.android-sdk
 export ANDROID_NDK=$HOME/.android-ndk
