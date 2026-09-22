@@ -1,0 +1,308 @@
+#!/usr/bin/env bun
+// Convert GitHub markdown to Slack formatting and copy to the clipboard.
+// Slack's compose box does not parse pasted plain text (mrkdwn or markdown) —
+// it converts pasted RICH TEXT (public.html pasteboard flavor) instead. So the
+// clipboard gets two flavors: HTML (GFM → <b>/<strong>/<a>/<pre>,
+// what Slack renders on Cmd+V) and plain mrkdwn (slack *bold* syntax, for
+// plain-text consumers). Technique from brave/security-action: marked.lexer()
+// token walk with the @tryfabric/mack entity mapping, emitted as a single
+// uncapped mrkdwn string.
+// Usage: slackcopy [--stdout] [--plain] [file...]  OR  cat file.md | slackcopy
+
+import { marked } from "marked";
+
+// Slack mrkdwn has no horizontal-rule entity; an em-dash line stands in.
+const HR = "———————————";
+
+const inline = (tokens) => (tokens ?? []).map(mrkdwn).join("");
+
+function mrkdwn(el) {
+  switch (el.type) {
+    case "link":
+      return `<${el.href}|${inline(el.tokens)}>`;
+    case "em":
+      return `_${inline(el.tokens)}_`;
+    case "strong":
+      return `*${inline(el.tokens)}*`;
+    case "del":
+      return `~${inline(el.tokens)}~`;
+    case "codespan":
+      return `\`${el.text}\``;
+    case "br":
+      return "\n";
+    case "image":
+      return el.href ?? el.title ?? "";
+    case "text":
+      return el.text;
+    default:
+      return "";
+  }
+}
+
+function render(token) {
+  switch (token.type) {
+    case "heading":
+      return `*${inline(token.tokens)}*`;
+    case "paragraph":
+      return inline(token.tokens);
+    case "code":
+      return "```\n" + token.text + "\n```";
+    case "blockquote": {
+      // mack limitation kept: only paragraphs inside blockquotes are rendered.
+      return token.tokens
+        .filter((t) => t.type === "paragraph")
+        .map((p) => "> " + inline(p.tokens))
+        .join("\n");
+    }
+    case "list": {
+      let index = 0;
+      return token.items
+        .map((item) => {
+          const para = item.tokens[0];
+          const text =
+            para && para.type === "text" && para.tokens
+              ? para.tokens.filter((c) => c.type !== "image").map(mrkdwn).join("")
+              : para?.text || "";
+          if (token.ordered) {
+            index += 1;
+            return `${index}. ${text}`;
+          }
+          return `• ${text}`; // checkboxes render as bullets, per mack default
+        })
+        .join("\n");
+    }
+    case "table": {
+      // Slack's paste importer cannot build native tables from html paste
+      // (verified: plain-TSV works only when no html flavor exists) — render
+      // tables as a numbered list: first cell bold, remaining cells joined
+      // with " — ". Header row supplies the bold labels.
+      const cell = (c) => plainAll(c.tokens).replace(/\s+/g, " ").trim();
+      const headers = token.header.map(cell);
+      const items = token.rows.map(
+        (row, i) => `${i + 1}. ${row.map((c, j) => `*${headers[j]}:* ${cell(c)}`).join(" — ")}`,
+      );
+      return items.join("\n");
+    }
+    case "hr":
+      return HR;
+    case "html": {
+      // Only <img> tags carry content (mack handles exactly these too).
+      return [...token.raw.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)].map((m) => m[1]).join("\n");
+    }
+    default:
+      return "";
+  }
+}
+
+const isList = (s) => /^• |^\d+\. /.test(s);
+
+const convert = (md) => {
+  const parts = marked.lexer(md).map(render).filter(Boolean);
+  return parts.reduce((acc, part, i) => {
+    const sep =
+      i === 0 ? "" : isList(acc[acc.length - 1]) && isList(part) ? "\n" : "\n\n";
+    return [...acc, sep + part];
+  }, []).join("");
+};
+
+// GFM → HTML for Slack's rich-text paste path (public.html flavor).
+// Built from the same marked.lexer walk as the mrkdwn flavor: Slack's
+// paste importer has no table support (flattens <table> to one line),
+// so tables become <pre> text blocks like the mrkdwn side.
+const esc = (s) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escAttr = (s) => esc(s).replace(/"/g, "&quot;");
+
+// Plain-text extraction of inline content (mack's parsePlainText): used for
+// table cells so code blocks/fences never show literal HTML entities.
+function plainInline(el) {
+  switch (el.type) {
+    case "link":
+    case "em":
+    case "strong":
+    case "del":
+      return htmlTokens(el.tokens, plainInline);
+    case "br":
+      return " ";
+    case "image":
+      return String(el.title ?? el.href ?? "");
+    case "codespan":
+    case "text":
+      return String(el.text ?? el.raw ?? "");
+    case "html":
+      return String(el.raw ?? "");
+    default:
+      return "";
+  }
+}
+
+const htmlTokens = (tokens, fn) => (tokens ?? []).map(fn).join("");
+
+function htmlInline(el) {
+  switch (el.type) {
+    case "link":
+      return `<a href="${escAttr(el.href)}">${htmlAll(el.tokens)}</a>`;
+    case "em":
+      return `<em>${htmlAll(el.tokens)}</em>`;
+    case "strong":
+      return `<strong>${htmlAll(el.tokens)}</strong>`;
+    case "del":
+      return `<del>${htmlAll(el.tokens)}</del>`;
+    case "codespan":
+      return `<code>${esc(el.text)}</code>`;
+    case "br":
+      return "<br>";
+    case "image":
+      return `<a href="${escAttr(el.href ?? "")}">${esc(el.text ?? el.href ?? "image")}</a>`;
+    case "text":
+      return esc(el.text);
+    default:
+      return esc(el.raw ?? "");
+  }
+}
+
+const htmlAll = (tokens) => (tokens ?? []).map(htmlInline).join("");
+const plainAll = (tokens) => (tokens ?? []).map(plainInline).join("");
+
+function renderHtml(token) {
+  switch (token.type) {
+    case "heading": // Slack drops pasted headings; bold lines survive
+      return `<b>${htmlAll(token.tokens)}</b>`;
+    case "paragraph":
+      return htmlAll(token.tokens);
+    case "code":
+      return `<pre><code>${esc(token.text)}</code></pre>`;
+    case "blockquote": {
+      return token.tokens
+        .filter((t) => t.type === "paragraph")
+        .map((p) => `<b>&gt;</b> ${htmlAll(p.tokens)}`)
+        .join("<br>");
+    }
+    case "list": {
+      const items = token.items
+        .map((item) => {
+          const para = item.tokens[0];
+          const text =
+            para && para.type === "text" && para.tokens
+              ? para.tokens.filter((c) => c.type !== "image").map(htmlInline).join("")
+              : esc(para?.text || "");
+          return `<li>${text}</li>`;
+        })
+        .join("");
+      return token.ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
+    }
+    case "table": {
+      // Tables as numbered lists in the rich flavor: Slack's html paste
+      // importer flattens <table> (verified against real Excel/Numbers
+      // shapes), so render each data row as "N. *Header:* cell — ...".
+      const plainCell = (c) => plainAll(c.tokens).replace(/\s+/g, " ").trim();
+      const headers = token.header.map(plainCell);
+      const items = token.rows
+        .map(
+          (row) =>
+            `<li>${row
+              .map((c, j) => `<b>${esc(headers[j])}</b>: ${esc(plainCell(c))}`)
+              .join(" — ")}</li>`,
+        )
+        .join("");
+      return `<ol>${items}</ol>`;
+    }
+    case "hr":
+      return "<b>———————————</b>";
+    case "html": {
+      return [...token.raw.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)]
+        .map((m) => `<a href="${escAttr(m[1])}">${escAttr(m[1])}</a>`)
+        .join("<br>");
+    }
+    default:
+      return "";
+  }
+}
+
+const toHtml = (md) =>
+  marked
+    .lexer(md)
+    .map(renderHtml)
+    .filter(Boolean)
+    .join("<br><br>");
+
+
+const argv = process.argv.slice(2);
+const toStdout = argv.includes("--stdout");
+const plainMode = argv.includes("--plain");
+const files = argv.filter((a) => !a.startsWith("--"));
+
+let input = "";
+if (files.length > 0) {
+  const contents = [];
+  for (const file of files) {
+    contents.push(await Bun.file(file).text());
+  }
+  input = contents.join("\n\n");
+} else if (!process.stdin.isTTY) {
+  input = await Bun.readableStreamToText(Bun.stdin.stream());
+}
+
+if (!input.trim()) {
+  console.log("Converts GitHub markdown to Slack formatting and copies it to the clipboard.");
+  console.log("Usage: slackcopy [--stdout] [--plain] [file...]");
+  console.log("       cat file.md | slackcopy");
+  process.exit(0);
+}
+
+const out = convert(input);
+
+if (toStdout) {
+  process.stdout.write(out + "\n");
+  process.exit(0);
+}
+
+const html = toHtml(input);
+
+// Both flavors always: Excel paste carries plain=TSV + html=<table> and
+// Slack builds a native table from it. HTML table uses Excel's shape
+// (<table border=0> with <tr> as direct children, no <tbody>) — Slack's
+// paste importer only recognizes the Excel-shaped table.
+
+const osaScript = `ObjC.import("AppKit");
+var pb = $.NSPasteboard.generalPasteboard;
+pb.clearContents;
+pb.setStringForType($(${JSON.stringify(out)}), $.NSPasteboardTypeString);
+pb.setStringForType($(${JSON.stringify(html)}), $.NSPasteboardTypeHTML);`;
+
+if (plainMode) {
+  if (!Bun.which("pbcopy")) {
+    console.error(
+      "\x1b[1;31mYou must have the 'pbcopy' program installed.\x1b[0m",
+    );
+    process.exit(1);
+  }
+  const proc = Bun.spawn(["pbcopy"], { stdin: "pipe" });
+  proc.stdin.write(out);
+  proc.stdin.end();
+  await proc.exited;
+} else {
+  let code = 0;
+  let stderrText = "";
+  try {
+    const proc = Bun.spawn(
+      ["osascript", "-l", "JavaScript", "-e", osaScript],
+      { stdout: "ignore", stderr: "pipe" },
+    );
+    code = await proc.exited;
+    stderrText = await new Response(proc.stderr).text();
+  } catch (err) {
+    code = 127;
+    stderrText = String(err);
+  }
+  if (code !== 0) {
+    console.error(
+      `\x1b[1;31mFailed to set rich clipboard (osascript exited ${code}):\x1b[0m ${stderrText}`,
+    );
+    process.exit(1);
+  }
+}
+
+let preview = out.replace(/\n/g, " ").trimEnd();
+if (preview.length > 80) preview = preview.slice(0, 80) + "...";
+console.log(`\x1b[0;32mCopied to clipboard:\x1b[0m ${preview}`);
