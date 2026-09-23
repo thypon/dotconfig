@@ -35,6 +35,8 @@ MODELS_PATH = os.path.expanduser("~/.config/dynamic-models.jsonc")
 # OpenCode paths
 TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/opencode.json.tmpl")
 OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
+TUI_TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/tui.json.tmpl")
+TUI_OUTPUT_PATH = os.path.expanduser("~/.config/opencode/tui.json")
 
 SECRETS_PATH = os.path.expanduser("~/.config/secrets.yml")
 
@@ -94,6 +96,12 @@ def match_provider(providers, prefix):
     sys.exit(1)
 
 
+def leader_for_platform(platform=sys.platform):
+    """OpenCode TUI leader key: Cmd+X on macOS (iTerm2 intercepts Ctrl+X),
+    Ctrl+X elsewhere."""
+    return "super+x" if platform == "darwin" else "ctrl+x"
+
+
 def make_replacements(provider_config):
     small = provider_config["small_model"]
     small_norm = small.lower().replace("-", ".")
@@ -113,6 +121,7 @@ def make_replacements(provider_config):
         "dynamic/small_model": small,
         "dynamic/frontier_model": provider_config["frontier_model"],
         "dynamic/antagonist_model": provider_config["antagonist_model"],
+        "dynamic/leader_key": leader_for_platform(),
     }
 
 
@@ -261,6 +270,19 @@ def setup_opencode(replacements):
 
     # Ensure skills symlink to shared
     ensure_symlink(SHARED_SKILLS, OPENCODE_SKILLS)
+
+
+def setup_tui(replacements):
+    """Resolve tui.json template (TUI keybinds live in tui.json, not opencode.json)."""
+    if not os.path.exists(TUI_TEMPLATE_PATH):
+        print("warning: tui.json.tmpl not found, skipping tui setup", file=sys.stderr)
+        return
+    template = load_jsonc(TUI_TEMPLATE_PATH)
+    result = resolve_template(template, replacements)
+    with open(TUI_OUTPUT_PATH, "w") as f:
+        json.dump(result, f, indent=2)
+        f.write("\n")
+    print(f"  resolved: {TUI_OUTPUT_PATH}")
 
 
 def setup_pi(replacements):
@@ -519,6 +541,7 @@ def main():
 
             print("--- opencode ---")
             setup_opencode(replacements)
+            setup_tui(replacements)
 
             print("\n--- pi ---")
             setup_pi(replacements)
@@ -555,6 +578,7 @@ def main():
 
     print(f"--- opencode ---")
     setup_opencode(replacements)
+    setup_tui(replacements)
 
     print(f"\n--- pi ---")
     setup_pi(replacements)

@@ -9,6 +9,14 @@ Feature: provider
     When provider runs with "anthropic"
     Then the deployed config has model tokens resolved to the anthropic models
 
+  Scenario: Leader key resolves per platform
+    Given a dynamic-models.jsonc with providers anthropic and local
+    And the deployed settings name the anthropic provider
+    And a tui template with the dynamic leader token
+    When provider runs with "anthropic"
+    Then the deployed tui config has the platform leader key
+    And no dynamic token remains in the deployed tui config
+
   Scenario: No-arg run reuses the last deployed provider
     Given the settings file already names provider openrouter
     When provider runs with no arguments

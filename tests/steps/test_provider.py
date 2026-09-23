@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 
 from pytest_bdd import given, parsers, scenarios, then, when
@@ -72,6 +73,15 @@ def write_opencode_template(env):
     (tmpl_dir / "opencode.json.tmpl").write_text(json.dumps(template, indent=2) + "\n")
 
 
+def write_tui_template(env):
+    tmpl_dir = env.home / ".config" / "opencode"
+    tmpl_dir.mkdir(parents=True, exist_ok=True)
+    template = {
+        "keybinds": {"leader": "dynamic/leader_key"},
+    }
+    (tmpl_dir / "tui.json.tmpl").write_text(json.dumps(template, indent=2) + "\n")
+
+
 def write_pi_settings(env, name):
     agent_dir = env.home / ".pi" / "agent"
     agent_dir.mkdir(parents=True, exist_ok=True)
@@ -106,6 +116,11 @@ def settings_already_name_provider(name, ctx):
     write_pi_settings(ctx.env, name)
     seed_stale_opencode_config(ctx.env)
     ctx.deployed = name
+
+
+@given("a tui template with the dynamic leader token")
+def tui_template_with_leader(ctx):
+    write_tui_template(ctx.env)
 
 
 @given("the commands template directory has dynamic tokens")
@@ -145,6 +160,21 @@ def deployed_config_resolved(name, ctx):
         repl["dynamic/frontier_model"],
         repl["dynamic/antagonist_model"],
     ]
+
+
+@then("the deployed tui config has the platform leader key")
+def deployed_tui_leader(ctx):
+    expected = "super+x" if sys.platform == "darwin" else "ctrl+x"
+    deployed = json.loads(
+        (ctx.env.home / ".config" / "opencode" / "tui.json").read_text()
+    )
+    assert deployed["keybinds"]["leader"] == expected
+
+
+@then("no dynamic token remains in the deployed tui config")
+def deployed_tui_resolved(ctx):
+    deployed = (ctx.env.home / ".config" / "opencode" / "tui.json").read_text()
+    assert "dynamic/" not in deployed
 
 
 @then(parsers.parse("the template is resolved against {name} again"))
