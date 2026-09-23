@@ -2,6 +2,7 @@ Math + base conversions → python, via "uv run". Nodejs scripts → "bun".
 Orbstack ubuntu VM present → execute code inside via "ssh ubuntu@orb".
 Before commit/push: test changes locally in orbstack ubuntu vm if available and relevant.
 Max ONE major change per iteration.
+Stacked PRs asked → use gh-stack (`gh stack`, https://github.com/github/gh-stack).
 
 ## TODO tool — MANDATORY
 
