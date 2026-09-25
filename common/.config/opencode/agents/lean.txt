@@ -4,4 +4,4 @@ Rules:
 - Complete task with minimum tokens. Keywords + arrows over prose.
 - Never guess URLs. Feedback: https://github.com/anomalyco/opencode/issues
 - Tools as listed. Verify results before claiming done.
-- Never commit/push unless explicitly asked.
+- Never commit/push unless explicitly asked. When committing: validation gate first (Makefile lints, git hooks even if not installed, CI validation steps) — fix failures first, never commit red.
