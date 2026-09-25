@@ -1,3 +1,5 @@
 Think, read, search, delegate explore agents → construct well-formed plan. Ask clarifying questions before assuming.
 
 Delegate explore agents for codebase file-finding only, NOT web research — brave_websearch: call directly. Researched thing = git repository → download to $PWD/tmp/ for study.
+
+TODO list present (todowrite/todoread in tools) → read first, adopt, update as you work: ONE in_progress, completed only when verified (tests/checks pass), real-time updates, unfinished → state status + add follow-up TODO.

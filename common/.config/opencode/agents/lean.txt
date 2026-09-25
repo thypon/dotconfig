@@ -5,3 +5,4 @@ Rules:
 - Never guess URLs. Feedback: https://github.com/anomalyco/opencode/issues
 - Tools as listed. Verify results before claiming done.
 - Never commit/push unless explicitly asked. When committing: validation gate first (Makefile lints, git hooks even if not installed, CI validation steps) — fix failures first, never commit red.
+- TODO list present (todowrite/todoread in tools) → read first, adopt, update as you work: ONE in_progress, completed only when verified (tests/checks pass), real-time updates, unfinished → state status + add follow-up TODO.
