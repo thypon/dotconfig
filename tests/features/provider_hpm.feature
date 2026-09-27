@@ -1,7 +1,7 @@
 Feature: Provider routes small_model to local DS4 when needed
   As a user
-  I want the small_model routed to the local DS4 server while macOS
-  High Power Mode is active or the work Wi-Fi is connected, and
+  I want the small_model routed to the local DS4 server only while both
+  macOS High Power Mode is active and the work Wi-Fi is connected, and
   always for the "local" provider
   So battery life is preserved and local inference is used when available
 
@@ -9,30 +9,32 @@ Feature: Provider routes small_model to local DS4 when needed
     Given the provider module is loaded
     And work Wi-Fi is off
 
-  Scenario: High Power Mode with DS4 up routes small_model to DS4
+  Scenario: High Power Mode and work Wi-Fi with DS4 up routes small_model to DS4
     Given pmset reports powermode "2"
-    And the DS4 server is available
-    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
-    When small_model is resolved for provider "anthropic"
-    Then small_model is "ds4/glm-5.3-flash"
-
-  Scenario: Work Wi-Fi with DS4 up routes small_model to DS4
-    Given pmset reports powermode "0"
     And work Wi-Fi is connected
     And the DS4 server is available
     And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
     Then small_model is "ds4/glm-5.3-flash"
 
-  Scenario: High Power Mode off keeps configured small model
+  Scenario: Work Wi-Fi without High Power Mode keeps configured small model
     Given pmset reports powermode "0"
+    And work Wi-Fi is connected
     And the DS4 server is available
     And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
     Then small_model is "openrouter/z-ai/glm-5.3-flash"
 
-  Scenario: High Power Mode with DS4 down keeps configured small model
+  Scenario: High Power Mode without work Wi-Fi keeps configured small model
     Given pmset reports powermode "2"
+    And the DS4 server is available
+    And the configured small model is "openrouter/z-ai/glm-5.3-flash"
+    When small_model is resolved for provider "anthropic"
+    Then small_model is "openrouter/z-ai/glm-5.3-flash"
+
+  Scenario: High Power Mode and work Wi-Fi with DS4 down keeps configured small model
+    Given pmset reports powermode "2"
+    And work Wi-Fi is connected
     And the DS4 server is not available
     And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
@@ -54,6 +56,7 @@ Feature: Provider routes small_model to local DS4 when needed
 
   Scenario: Configured small model without flash stays unchanged
     Given pmset reports powermode "2"
+    And work Wi-Fi is connected
     And the DS4 server is available
     And the configured small model is "openrouter/z-ai/glm-5.3"
     When small_model is resolved for provider "openrouter"
@@ -61,6 +64,7 @@ Feature: Provider routes small_model to local DS4 when needed
 
   Scenario: Missing pmset treats High Power Mode as off
     Given no pmset binary on PATH
+    And work Wi-Fi is connected
     And the DS4 server is available
     And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"
@@ -68,6 +72,7 @@ Feature: Provider routes small_model to local DS4 when needed
 
   Scenario: Malformed pmset output treats High Power Mode as off
     Given pmset reports garbage
+    And work Wi-Fi is connected
     And the DS4 server is available
     And the configured small model is "openrouter/z-ai/glm-5.3-flash"
     When small_model is resolved for provider "anthropic"

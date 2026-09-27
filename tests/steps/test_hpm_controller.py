@@ -144,6 +144,11 @@ def previous_network_state(state, fake_env):
     (fake_env["state_dir"] / "last-provider-ssid").write_text(state)
 
 
+@given(parsers.parse('the controller last saw power state "{state}"'))
+def previous_power_state(state, fake_env):
+    (fake_env["state_dir"] / "last-provider-power").write_text(state)
+
+
 @then(parsers.parse('the provider is re-resolved with prefix "{prefix}"'))
 def provider_reresolved(prefix, fake_env):
     log = fake_env["provider_log"]
@@ -167,6 +172,18 @@ def network_state_recorded(state, fake_env):
 @then("no network state is recorded")
 def no_network_state(fake_env):
     assert not (fake_env["state_dir"] / "last-provider-ssid").exists()
+
+
+@then(parsers.parse('the power state is recorded as "{state}"'))
+def power_state_recorded(state, fake_env):
+    path = fake_env["state_dir"] / "last-provider-power"
+    assert path.exists(), fake_env["result"].stderr
+    assert path.read_text().strip() == state
+
+
+@then("no power state is recorded")
+def no_power_state(fake_env):
+    assert not (fake_env["state_dir"] / "last-provider-power").exists()
 
 
 @then("a provider resolution failure is logged")

@@ -136,27 +136,32 @@ if [ "$current" != "$desired" ]; then
     fi
 fi
 
-# --- provider re-resolution on work-WiFi transitions --------------------------
-# Re-resolves `provider ${last}` (last manually chosen prefix) on network
-# transitions. The provider script itself decides: on work Wi-Fi it routes
-# the small model to the local ds4 server; off work Wi-Fi it keeps the
-# provider's own remote models.
+# --- provider re-resolution on network/power transitions ----------------------
+# Re-resolves `provider ${last}` (last manually chosen prefix) on network or
+# power-source transitions. The provider script itself decides: on work Wi-Fi
+# with High Power Mode active (AC power) it routes the small model to the
+# local ds4 server; otherwise it keeps the provider's own remote models.
 last_ssid_state="$STATE_DIR/last-provider-ssid"
+last_power_state="$STATE_DIR/last-provider-power"
 provider_log="${DOTCONFIG_PROVIDER_LOG:-/var/log/dotconfig-provider.log}"
 want_net=off
 if [ "$ssid" = "$current_ssid" ] && [ -n "$current_ssid" ]; then
     want_net=work
 fi
+want_power="$source"
 prev_net=""
 [ -f "$last_ssid_state" ] && prev_net=$(cat "$last_ssid_state" 2>/dev/null)
-if [ "$prev_net" != "$want_net" ] && [ -n "$console_user" ]; then
+prev_power=""
+[ -f "$last_power_state" ] && prev_power=$(cat "$last_power_state" 2>/dev/null)
+if { [ "$prev_net" != "$want_net" ] || [ "$prev_power" != "$want_power" ]; } && [ -n "$console_user" ]; then
     echo "$want_net" > "$last_ssid_state" 2>/dev/null
+    echo "$want_power" > "$last_power_state" 2>/dev/null
     provider_bin="$console_home/.local/bin/provider"
     prefix_file="$console_home/.config/.provider-last"
     if [ -x "$provider_bin" ] && [ -f "$prefix_file" ]; then
         last_prefix=$(cat "$prefix_file" 2>/dev/null)
         if [ -n "$last_prefix" ]; then
-            log "network transition (off->work=$([ "$want_net" = work ] && echo yes || echo no)): resolving provider $last_prefix"
+            log "transition (net work=$([ "$want_net" = work ] && echo yes || echo no), power $prev_power->$want_power): resolving provider $last_prefix"
             sudo -u "#$(stat -f %u /dev/console 2>/dev/null)" env HOME="$console_home" \
                 "$provider_bin" "$last_prefix" >> "$provider_log" 2>&1 \
                 && log "provider $last_prefix resolved" || log "provider $last_prefix FAILED"

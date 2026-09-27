@@ -108,10 +108,9 @@ def make_replacements(provider_config):
     if provider_config.get("name") == "local":
         print(f"  ds4: local provider, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
-    elif ds4_available() and (high_power_mode_active() or work_wifi_connected()) \
+    elif ds4_available() and high_power_mode_active() and work_wifi_connected() \
             and any(v.replace("-", ".") in small_norm for v in DS4_FLASH_VARIANTS):
-        reason = "HPM active" if high_power_mode_active() else "connected to work Wi-Fi"
-        print(f"  ds4: {reason}, routing small_model -> {DS4_MODEL_FLASH}")
+        print(f"  ds4: HPM active (AC power) + work Wi-Fi, routing small_model -> {DS4_MODEL_FLASH}")
         small = DS4_MODEL_FLASH
     elif ds4_available():
         print(f"  ds4: server up, flash variant not in config, keeping {small}")
