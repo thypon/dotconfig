@@ -11,6 +11,7 @@ CONTROLLER = os.path.join(REPO_ROOT, "macos", "services", "hpm-controller.sh")
 INSTALL = os.path.join(REPO_ROOT, "macos", "install.sh")
 COMMON_BIN = os.path.join(REPO_ROOT, "common", ".local", "bin")
 OSSNIX_BIN = os.path.join(REPO_ROOT, "ossnix", ".local", "bin")
+MACOS_BIN = os.path.join(REPO_ROOT, "macos", ".local", "bin")
 HOOKS_BIN = os.path.join(REPO_ROOT, "hooks")
 
 PMSET_SHIM = """#!/bin/sh
@@ -190,6 +191,7 @@ def install_env(tmp_path, monkeypatch):
     lib_dst = tmp_path / "lib" / "dotconfig"
     launchd_dir = tmp_path / "launchd"
     launchd_dir.mkdir()
+    agents_dst = tmp_path / "launchagents" / "com.dwarfstar.ds4-server.plist"
     user_dst = tmp_path / "user-services" / "dotconfig"
     user_dst = tmp_path / "user-services" / "dotconfig"
 
@@ -203,6 +205,7 @@ def install_env(tmp_path, monkeypatch):
         "DOTCONFIG_PAM_LOCAL": str(pam_dir / "sudo_local"),
         "DOTCONFIG_LIB_DST": str(lib_dst),
         "DOTCONFIG_LAUNCHD_PLIST_DST": str(launchd_dir / "local.dotconfig.hpm-controller.plist"),
+        "DOTCONFIG_LAUNCHAGENTS_PLIST_DST": str(agents_dst),
         "DOTCONFIG_USER_SERVICES_DST": str(user_dst),
     }
     for key, value in env.items():
@@ -212,6 +215,7 @@ def install_env(tmp_path, monkeypatch):
         "lib_dst": lib_dst,
         "ctrl_dst": lib_dst / "hpm-controller.sh",
         "plist_dst": launchd_dir / "local.dotconfig.hpm-controller.plist",
+        "ds4_plist_dst": agents_dst,
         "user_dst": user_dst,
         "sudo_log": log_dir / "sudo.log",
         "launchctl_log": log_dir / "launchctl.log",
@@ -228,7 +232,7 @@ def run_install():
 
 
 def _resolve_script(name):
-    for base in (COMMON_BIN, OSSNIX_BIN, HOOKS_BIN):
+    for base in (COMMON_BIN, OSSNIX_BIN, MACOS_BIN, HOOKS_BIN):
         cand = os.path.join(base, name)
         if os.path.isfile(cand):
             return cand

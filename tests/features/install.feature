@@ -42,3 +42,17 @@ Feature: macos install script
     When install.sh runs
     Then the pam_tid line is appended
     And the existing pam content is preserved
+
+  Scenario: ds4 launch agent is installed and bootstrapped when missing
+    When install.sh runs
+    Then the ds4 agent plist is installed in the user LaunchAgents dir
+    And the ds4 agent is bootstrapped in the gui domain
+
+  Scenario: Unchanged ds4 agent is not reloaded
+    Given the ds4 agent plist is installed and current
+    When install.sh runs
+    Then the ds4 agent is not bootstrapped again
+
+  Scenario: ds4 agent installs even without a tty
+    When install.sh runs without a tty
+    Then the ds4 agent plist is installed in the user LaunchAgents dir

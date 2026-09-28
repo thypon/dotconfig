@@ -1,9 +1,10 @@
 #!/bin/sh
 # Install everything this repo manages on macOS:
 #   1. rsync macos/services -> ~/Library/Services/dotconfig/ (unprivileged)
-#   2. Touch ID for sudo via /etc/pam.d/sudo_local (pam_tid.so; survives
+#   2. ds4-server user LaunchAgent into ~/Library/LaunchAgents (unprivileged)
+#   3. Touch ID for sudo via /etc/pam.d/sudo_local (pam_tid.so; survives
 #      OS updates, included from /etc/pam.d/sudo)
-#   3. hpm controller + LaunchDaemon plist into /Library, then reload
+#   4. hpm controller + LaunchDaemon plist into /Library, then reload
 # Privileged steps run only when the live files differ from the repo.
 # In non-tty contexts, prints the manual commands and skips the privileged part.
 
@@ -38,6 +39,19 @@ EOF
 # 1. User-level rsync (idempotent, prunes removed files)
 mkdir -p "$USER_DST"
 rsync -a --delete "$SRC/" "$USER_DST/"
+
+# 1.5 ds4 LaunchAgent (unprivileged; only reloads when the plist changes,
+# so an unchanged run never bounces the running inference server)
+DS4_LABEL="com.dwarfstar.ds4-server"
+DS4_PLIST_NAME="$DS4_LABEL.plist"
+DS4_AGENTS_DST="${DOTCONFIG_LAUNCHAGENTS_PLIST_DST:-$HOME/Library/LaunchAgents/$DS4_PLIST_NAME}"
+mkdir -p "$(dirname "$DS4_AGENTS_DST")"
+if [ ! -f "$DS4_AGENTS_DST" ] || ! cmp -s "$SRC/$DS4_PLIST_NAME" "$DS4_AGENTS_DST"; then
+	install -m 644 "$SRC/$DS4_PLIST_NAME" "$DS4_AGENTS_DST"
+	launchctl bootout "gui/$(id -u)/$DS4_LABEL" 2>/dev/null || true
+	launchctl bootstrap "gui/$(id -u)" "$DS4_AGENTS_DST"
+	echo "dotconfig: ds4 launch agent installed."
+fi
 
 # 2. Figure out what privileged work is needed
 touchid_ok=0

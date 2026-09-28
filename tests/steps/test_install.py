@@ -9,6 +9,8 @@ scenarios(os.path.join(REPO_ROOT, "tests", "features", "install.feature"))
 SERVICES_DIR = os.path.join(REPO_ROOT, "macos", "services")
 CTRL_SRC = os.path.join(SERVICES_DIR, "hpm-controller.sh")
 PLIST_SRC = os.path.join(SERVICES_DIR, "local.dotconfig.hpm-controller.plist")
+DS4_PLIST_SRC = os.path.join(SERVICES_DIR, "com.dwarfstar.ds4-server.plist")
+DS4_LABEL = "com.dwarfstar.ds4-server"
 
 
 @given("a shimmed install environment")
@@ -124,3 +126,33 @@ def pam_appended(install_env):
 def pam_preserved(install_env):
     content = install_env["pam_local"].read_text()
     assert content.startswith("auth required pam_abc.so\n"), content
+
+
+@given("the ds4 agent plist is installed and current")
+def ds4_agent_installed(install_env):
+    result = run_install()
+    assert result.returncode == 0, result.stderr
+    install_env["launchctl_log"].unlink(missing_ok=True)
+
+
+@then("the ds4 agent plist is installed in the user LaunchAgents dir")
+def ds4_plist_installed(install_env):
+    dst = install_env["ds4_plist_dst"]
+    assert dst.exists()
+    assert dst.read_text() == open(DS4_PLIST_SRC).read()
+
+
+@then("the ds4 agent is bootstrapped in the gui domain")
+def ds4_bootstrapped(install_env):
+    log = install_env["launchctl_log"].read_text()
+    uid = os.getuid()
+    assert f"bootout gui/{uid}/{DS4_LABEL}" in log, log
+    assert f"bootstrap gui/{uid} {install_env['ds4_plist_dst']}" in log, log
+
+
+@then("the ds4 agent is not bootstrapped again")
+def ds4_not_reloaded(install_env):
+    log = ""
+    if install_env["launchctl_log"].exists():
+        log = install_env["launchctl_log"].read_text()
+    assert DS4_LABEL not in log, log

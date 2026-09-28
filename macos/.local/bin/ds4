@@ -1,0 +1,93 @@
+#!/bin/sh
+set -eu
+# Control the DwarfStar ds4-server launchd agent (LLM inference server).
+# Usage: ds4 <up|down|restart|status|logs>
+DS4_LABEL="${DS4_LABEL:-com.dwarfstar.ds4-server}"
+DS4_PLIST="${DS4_PLIST:-$HOME/Library/LaunchAgents/$DS4_LABEL.plist}"
+DS4_LOG="${DS4_LOG:-$HOME/.ds4/server.log}"
+DS4_URL="${DS4_URL:-http://127.0.0.1:8000}"
+DS4_DOMAIN="${DS4_DOMAIN:-gui/$(id -u)}"
+DS4_LOG_LINES="${DS4_LOG_LINES:-50}"
+DS4_TARGET="$DS4_DOMAIN/$DS4_LABEL"
+
+usage() {
+	echo "Usage: ds4 <up|down|restart|status|logs>" >&2
+}
+
+die() {
+	echo "ds4: $*" >&2
+	exit 1
+}
+
+is_loaded() {
+	launchctl print "$DS4_TARGET" >/dev/null 2>&1
+}
+
+is_running() {
+	launchctl print "$DS4_TARGET" 2>/dev/null | grep -q "state = running"
+}
+
+cmd_up() {
+	[ -f "$DS4_PLIST" ] || die "plist not found: $DS4_PLIST (run macos/install.sh)"
+	if is_loaded; then
+		if is_running; then
+			echo "ds4: already running"
+		else
+			launchctl kickstart "$DS4_TARGET"
+			echo "ds4: started"
+		fi
+	else
+		launchctl bootstrap "$DS4_DOMAIN" "$DS4_PLIST"
+		echo "ds4: started"
+	fi
+}
+
+cmd_down() {
+	if is_loaded; then
+		launchctl bootout "$DS4_TARGET"
+		echo "ds4: stopped"
+	else
+		echo "ds4: not running"
+	fi
+}
+
+cmd_restart() {
+	if is_loaded; then
+		launchctl kickstart -k "$DS4_TARGET"
+	else
+		launchctl bootstrap "$DS4_DOMAIN" "$DS4_PLIST"
+	fi
+	echo "ds4: restarted"
+}
+
+cmd_status() {
+	if ! is_loaded; then
+		echo "ds4: down (not loaded)"
+		exit 1
+	fi
+	launchctl print "$DS4_TARGET" 2>/dev/null | grep -E "^[[:space:]](state|pid) = " || true
+	if command -v curl >/dev/null 2>&1; then
+		if models=$(curl -fsS --max-time 2 "$DS4_URL/v1/models" 2>/dev/null); then
+			model=$(printf '%s' "$models" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' | head -n 1)
+			echo "ds4: API healthy at $DS4_URL (serving ${model:-unknown})"
+		else
+			echo "ds4: running but API not responding at $DS4_URL"
+		fi
+	fi
+}
+
+cmd_logs() {
+	[ -f "$DS4_LOG" ] || die "log file not found: $DS4_LOG"
+	exec tail -n "$DS4_LOG_LINES" -f "$DS4_LOG"
+}
+
+[ $# -ge 1 ] || { usage; exit 1; }
+
+case "$1" in
+	up) cmd_up ;;
+	down) cmd_down ;;
+	restart) cmd_restart ;;
+	status) cmd_status ;;
+	logs) cmd_logs ;;
+	*) usage; exit 1 ;;
+esac
