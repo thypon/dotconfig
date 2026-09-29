@@ -4,7 +4,7 @@ import time
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from conftest import REPO_ROOT, run_controller, write_shim
+from conftest import COMMON_BIN, REPO_ROOT, run_controller, write_shim
 
 scenarios(os.path.join(REPO_ROOT, "tests", "features", "hpm_controller.feature"))
 
@@ -142,6 +142,63 @@ def last_provider_prefix(prefix, fake_env):
 @given(parsers.parse('the controller last saw network state "{state}"'))
 def previous_network_state(state, fake_env):
     (fake_env["state_dir"] / "last-provider-ssid").write_text(state)
+
+
+@given("an oconnection binary is installed for the console user")
+def oconnection_binary_installed(fake_env):
+    oconnection_dir = fake_env["console_home"] / ".local" / "bin"
+    oconnection_dir.mkdir(parents=True, exist_ok=True)
+    path = oconnection_dir / "oconnection"
+    path.write_text(open(os.path.join(COMMON_BIN, "oconnection")).read())
+    path.chmod(0o755)
+
+
+@given(parsers.parse('the controller last saw wifi state "{state}"'))
+def previous_wifi_state(state, fake_env):
+    (fake_env["state_dir"] / "last-wifi-state").write_text(state)
+
+
+@given("the console home has a manual oconnection pause")
+def console_manual_pause(fake_env):
+    state = fake_env["console_home"] / ".local" / "state" / "oconnection"
+    state.mkdir(parents=True, exist_ok=True)
+    (state / "paused").write_text("0")
+
+
+@then("the auto pause flag exists in the console home")
+def auto_pause_exists(fake_env):
+    flag = fake_env["console_home"] / ".local" / "state" / "oconnection" / "paused.auto"
+    assert flag.is_file(), fake_env["result"].stderr
+
+
+@then("the auto pause flag is absent in the console home")
+def auto_pause_absent(fake_env):
+    flag = fake_env["console_home"] / ".local" / "state" / "oconnection" / "paused.auto"
+    assert not flag.exists(), fake_env["result"].stderr
+
+
+@then("the manual pause flag still exists in the console home")
+def manual_pause_kept(fake_env):
+    flag = fake_env["console_home"] / ".local" / "state" / "oconnection" / "paused"
+    assert flag.is_file()
+
+
+@then(parsers.parse('the wifi state is recorded as "{state}"'))
+def wifi_state_recorded(state, fake_env):
+    path = fake_env["state_dir"] / "last-wifi-state"
+    assert path.exists(), fake_env["result"].stderr
+    assert path.read_text().strip() == state
+
+
+@then("no wifi state is recorded")
+def no_wifi_state(fake_env):
+    assert not (fake_env["state_dir"] / "last-wifi-state").exists()
+
+
+@then("oconnection was never invoked")
+def oconnection_never_invoked(fake_env):
+    log = fake_env.get("provider_log")
+    assert log is None or not log.exists() or "oconnection" not in log.read_text()
 
 
 @given(parsers.parse('the controller last saw power state "{state}"'))

@@ -14,6 +14,9 @@
 # Env overrides (tests only): DOTCONFIG_SECRETS, DOTCONFIG_HPM_STATE_DIR,
 # DOTCONFIG_HPM_CONSOLE_USER, DOTCONFIG_HPM_CONSOLE_HOME, DOTCONFIG_PROVIDER_LOG.
 # Runs as a LaunchDaemon (root) every 10s; logs to /var/log/dotconfig-hpm.log.
+# Also holds opencode LLM connections on wifi loss (WiFi travel pause):
+# oconnection pause --auto as the console user; unpause --auto when wifi
+# returns. Manual oconnection pauses are never touched.
 
 set -u
 
@@ -39,6 +42,48 @@ case "$ps_info" in
         exit 0
         ;;
 esac
+
+# --- current WiFi SSID -------------------------------------------------------
+# (computed early: also drives the WiFi travel pause below, independent of
+# secrets and powermode)
+wifi_dev=$(networksetup -listallhardwareports 2>/dev/null \
+    | awk '/^Hardware Port: Wi-Fi/{getline; print $2; exit}')
+current_ssid=""
+if [ -n "$wifi_dev" ]; then
+    current_ssid=$(ipconfig getsummary "$wifi_dev" 2>/dev/null \
+        | sed -n 's/^ *SSID : //p' | head -n 1 | sed 's/_5G$//')
+fi
+
+# --- WiFi travel pause --------------------------------------------------------
+# Hold opencode LLM connections while offline (travel), independent of sleep:
+# on wifi loss run `oconnection pause --auto` as the console user; when wifi
+# returns, `oconnection unpause --auto`. Manual pauses (`paused`) are never
+# touched. Same run-as-user pattern as the provider block below.
+provider_log="${DOTCONFIG_PROVIDER_LOG:-/var/log/dotconfig-provider.log}"
+wifi_state_file="$STATE_DIR/last-wifi-state"
+want_wifi=down
+[ -n "$current_ssid" ] && want_wifi=up
+prev_wifi=""
+[ -f "$wifi_state_file" ] && prev_wifi=$(cat "$wifi_state_file" 2>/dev/null)
+if [ "$prev_wifi" != "$want_wifi" ] && [ -n "$console_user" ] \
+   && [ "$console_user" != "root" ] && [ "$console_user" != "loginwindow" ] \
+   && console_uid=$(stat -f %u /dev/console 2>/dev/null); then
+    echo "$want_wifi" > "$wifi_state_file" 2>/dev/null
+    oconnection_bin="$console_home/.local/bin/oconnection"
+    if [ -x "$oconnection_bin" ]; then
+        if [ "$want_wifi" = down ]; then
+            log "wifi down: pausing opencode connections"
+            sudo -u "#$console_uid" env HOME="$console_home" \
+                "$oconnection_bin" pause --auto >> "$provider_log" 2>&1 \
+                && log "oconnection paused" || log "oconnection pause FAILED"
+        else
+            log "wifi up: resuming opencode connections"
+            sudo -u "#$console_uid" env HOME="$console_home" \
+                "$oconnection_bin" unpause --auto >> "$provider_log" 2>&1 \
+                && log "oconnection resumed" || log "oconnection unpause FAILED"
+        fi
+    fi
+fi
 
 # --- sleep policy: never suspend on AC, normal sleep on battery ---------------
 # Note: pmset -g reports the disablesleep value as 'SleepDisabled' in the
@@ -105,15 +150,6 @@ case "$current" in
         ;;
 esac
 
-# --- current WiFi SSID -------------------------------------------------------
-wifi_dev=$(networksetup -listallhardwareports 2>/dev/null \
-    | awk '/^Hardware Port: Wi-Fi/{getline; print $2; exit}')
-current_ssid=""
-if [ -n "$wifi_dev" ]; then
-    current_ssid=$(ipconfig getsummary "$wifi_dev" 2>/dev/null \
-        | sed -n 's/^ *SSID : //p' | head -n 1 | sed 's/_5G$//')
-fi
-
 # --- desired powermode -------------------------------------------------------
 if [ "$source" = "AC" ] && [ "$ssid" = "$current_ssid" ]; then
     desired=2
@@ -143,7 +179,6 @@ fi
 # local ds4 server; otherwise it keeps the provider's own remote models.
 last_ssid_state="$STATE_DIR/last-provider-ssid"
 last_power_state="$STATE_DIR/last-provider-power"
-provider_log="${DOTCONFIG_PROVIDER_LOG:-/var/log/dotconfig-provider.log}"
 want_net=off
 if [ "$ssid" = "$current_ssid" ] && [ -n "$current_ssid" ]; then
     want_net=work

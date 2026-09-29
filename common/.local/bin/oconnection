@@ -1,0 +1,107 @@
+#!/bin/sh
+# oconnection - pause/unpause opencode LLM connections (travel gate).
+#
+# The opencode plugin in ~/.config/opencode/plugins/oconnection/ holds every
+# outgoing LLM request (main agent, subagents, title, compaction) while a
+# pause flag exists in the state dir. Local providers (loopback baseURL or
+# provider id "ds4") bypass the gate and keep working.
+#
+# Flags: paused      = manual pause (oconnection pause)
+#        paused.auto = auto pause  (lid close via sleepwatcher ~/.sleep)
+#
+# Env overrides:
+#   OCONNECTION_STATE_DIR    state dir (default: ${XDG_STATE_HOME:-$HOME/.local/state}/oconnection)
+#   OCONNECTION_CHECK_URL    wake connectivity probe (default: gstatic generate_204)
+#   OCONNECTION_WAKE_MAX     wake give-up in seconds (default: 600)
+#   OCONNECTION_CHECK_INTERVAL  wake probe interval in seconds (default: 2)
+#
+# Usage: oconnection pause [--auto]       create a pause flag
+#        oconnection unpause [--auto|--all]  remove pause flag(s)
+#        oconnection status               0 = running, 1 = paused
+#        oconnection wake                 wait for network, then unpause --auto
+set -eu
+
+STATE_DIR="${OCONNECTION_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/oconnection}"
+CHECK_URL="${OCONNECTION_CHECK_URL:-https://connectivitycheck.gstatic.com/generate_204}"
+WAKE_MAX="${OCONNECTION_WAKE_MAX:-600}"
+CHECK_INTERVAL="${OCONNECTION_CHECK_INTERVAL:-2}"
+PAUSED_FILE="$STATE_DIR/paused"
+AUTO_FILE="$STATE_DIR/paused.auto"
+
+usage() {
+  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//; s/^#$//' >&2
+  exit 2
+}
+
+now() {
+  date +%s
+}
+
+pause() {
+  mkdir -p "$STATE_DIR"
+  now > "$1"
+}
+
+state() {
+  if [ -f "$PAUSED_FILE" ]; then
+    printf 'paused (manual)\n'
+  elif [ -f "$AUTO_FILE" ]; then
+    printf 'paused (auto)\n'
+  else
+    printf 'running\n'
+  fi
+}
+
+paused() {
+  [ -f "$PAUSED_FILE" ] || [ -f "$AUTO_FILE" ]
+}
+
+cmd="${1:-}"
+[ -n "$cmd" ] || usage
+shift
+
+case "$cmd" in
+pause)
+  case "${1:-}" in
+  "" ) pause "$PAUSED_FILE" ;;
+  --auto) pause "$AUTO_FILE" ;;
+  *) usage ;;
+  esac
+  state
+  ;;
+unpause)
+  case "${1:-}" in
+  "" ) rm -f "$PAUSED_FILE" ;;
+  --auto) rm -f "$AUTO_FILE" ;;
+  --all) rm -f "$PAUSED_FILE" "$AUTO_FILE" ;;
+  *) usage ;;
+  esac
+  state
+  ;;
+status)
+  state
+  paused && exit 1 || exit 0
+  ;;
+wake)
+  if ! paused; then
+    printf 'running\n'
+    exit 0
+  fi
+  deadline=$(( $(now) + WAKE_MAX ))
+  while ! curl -sf "$CHECK_URL" > /dev/null 2>&1; do
+    if [ "$(now)" -ge "$deadline" ]; then
+      printf 'oconnection: no connectivity after %ss, still %s\n' "$WAKE_MAX" "$(state)" >&2
+      exit 1
+    fi
+    sleep "$CHECK_INTERVAL"
+  done
+  rm -f "$AUTO_FILE"
+  state
+  ;;
+-h|--help|help)
+  usage
+  ;;
+*)
+  usage
+  ;;
+esac

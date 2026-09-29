@@ -177,6 +177,101 @@ Feature: High Power Mode controller
     Then pmset is called with disablesleep 0
     And a notification is shown
 
+  # --- WiFi travel pause -------------------------------------------------------
+  # Wifi loss holds opencode LLM connections (oconnection pause --auto as the
+  # console user); wifi return releases them. Manual pauses are untouched.
+
+  Scenario: WiFi down pauses opencode connections
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi is off
+    And the current powermode is 0
+    And the current disablesleep is 0
+    And a fake console user with a home directory
+    And an oconnection binary is installed for the console user
+    When the controller runs
+    Then the auto pause flag exists in the console home
+    And the wifi state is recorded as "down"
+    And the controller exits 0
+
+  Scenario: WiFi return resumes opencode connections
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And an oconnection binary is installed for the console user
+    And the controller last saw wifi state "down"
+    When the controller runs
+    Then the auto pause flag is absent in the console home
+    And the wifi state is recorded as "up"
+    And the controller exits 0
+
+  Scenario: WiFi up without a pause is a no-op on repeat runs
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And an oconnection binary is installed for the console user
+    And the controller last saw wifi state "up"
+    When the controller runs
+    Then the auto pause flag is absent in the console home
+    And oconnection was never invoked
+    And the wifi state is recorded as "up"
+
+  Scenario: WiFi transitions never touch a manual oconnection pause
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi is off
+    And the current powermode is 0
+    And the current disablesleep is 0
+    And a fake console user with a home directory
+    And an oconnection binary is installed for the console user
+    And the console home has a manual oconnection pause
+    When the controller runs
+    Then the auto pause flag exists in the console home
+    And the manual pause flag still exists in the console home
+    And the wifi state is recorded as "down"
+
+  Scenario: WiFi return releases only the auto pause
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi SSID is "TEST_WORK_SSID"
+    And the current powermode is 2
+    And the current disablesleep is 1
+    And a fake console user with a home directory
+    And an oconnection binary is installed for the console user
+    And the console home has a manual oconnection pause
+    And the controller last saw wifi state "down"
+    When the controller runs
+    Then the auto pause flag is absent in the console home
+    And the manual pause flag still exists in the console home
+
+  Scenario: Missing console user skips the wifi pause entirely
+    Given a fake secrets file with hpm_wifi_ssid "TEST_WORK_SSID"
+    And the power source is AC
+    And the WiFi is off
+    And the current powermode is 0
+    And the current disablesleep is 0
+    When the controller runs
+    Then no wifi state is recorded
+    And the controller exits 0
+
+  Scenario: WiFi pause works even without secrets
+    Given no secrets file exists
+    And the power source is AC
+    And the WiFi is off
+    And the current disablesleep is 0
+    And a fake console user with a home directory
+    And an oconnection binary is installed for the console user
+    When the controller runs
+    Then the auto pause flag exists in the console home
+    And the wifi state is recorded as "down"
+    And the controller exits 0
+
   # --- provider re-resolution on network transitions ---------------------------
 
   Scenario: First run on work WiFi re-resolves the last provider
