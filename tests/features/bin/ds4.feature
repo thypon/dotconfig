@@ -1,5 +1,5 @@
 Feature: ds4
-  Control the DwarfStar ds4-server launchd service (up/down/restart/status/logs).
+  Control the DwarfStar ds4-server launchd service (up/start/down/stop/restart/status/logs).
 
   Background:
     Given the ds4 service is controlled via DS4_DOMAIN gui/999
@@ -31,6 +31,35 @@ Feature: ds4
   Scenario: down is idempotent when not loaded
     Given launchctl reports the agent as unloaded
     When ds4 runs with "down"
+    Then the script exits 0
+
+  Scenario: start bootstraps the agent when unloaded
+    Given launchctl reports the agent as unloaded
+    When ds4 runs with "start"
+    Then launchctl bootstraps gui/999/com.dwarfstar.ds4-server from the plist
+    And the script exits 0
+
+  Scenario: start is idempotent when already running
+    Given launchctl reports the agent as running
+    When ds4 runs with "start"
+    Then launchctl is not called with bootstrap
+    And the script exits 0
+
+  Scenario: start kickstarts a loaded but stopped agent
+    Given launchctl reports the agent as stopped
+    When ds4 runs with "start"
+    Then launchctl kickstarts gui/999/com.dwarfstar.ds4-server
+    And the script exits 0
+
+  Scenario: stop boots out the agent
+    Given launchctl reports the agent as running
+    When ds4 runs with "stop"
+    Then launchctl boots out gui/999/com.dwarfstar.ds4-server
+    And the script exits 0
+
+  Scenario: stop is idempotent when not loaded
+    Given launchctl reports the agent as unloaded
+    When ds4 runs with "stop"
     Then the script exits 0
 
   Scenario: restart kickstarts a loaded agent

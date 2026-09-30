@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 # Control the DwarfStar ds4-server launchd agent (LLM inference server).
-# Usage: ds4 <up|down|restart|status|logs>
+# Usage: ds4 <up|start|down|stop|restart|status|logs>
 DS4_LABEL="${DS4_LABEL:-com.dwarfstar.ds4-server}"
 DS4_PLIST="${DS4_PLIST:-$HOME/Library/LaunchAgents/$DS4_LABEL.plist}"
 DS4_LOG="${DS4_LOG:-$HOME/.ds4/server.log}"
@@ -11,7 +11,7 @@ DS4_LOG_LINES="${DS4_LOG_LINES:-50}"
 DS4_TARGET="$DS4_DOMAIN/$DS4_LABEL"
 
 usage() {
-	echo "Usage: ds4 <up|down|restart|status|logs>" >&2
+	echo "Usage: ds4 <up|start|down|stop|restart|status|logs>" >&2
 }
 
 die() {
@@ -84,8 +84,8 @@ cmd_logs() {
 [ $# -ge 1 ] || { usage; exit 1; }
 
 case "$1" in
-	up) cmd_up ;;
-	down) cmd_down ;;
+	up|start) cmd_up ;;
+	down|stop) cmd_down ;;
 	restart) cmd_restart ;;
 	status) cmd_status ;;
 	logs) cmd_logs ;;
