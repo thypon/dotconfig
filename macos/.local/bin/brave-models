@@ -1,0 +1,797 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "httpx>=0.27",
+#   "cryptography>=42",
+# ]
+# ///
+"""
+brave-models — sync the latest flagship Venice.ai models plus local ds4-server
+models into Brave Leo (custom models) across every Brave channel and profile.
+
+Usage:
+  brave-models [--api-key KEY] [--dry-run] [--yes] [--max-age-days N]
+
+What it does:
+  1. Fetches Venice.ai text models, keeps the newest flagship model per family
+     (recency-cutoff, novelty variants dropped).
+  2. Probes the local ds4 server (OpenAI-compatible, 127.0.0.1:8000); offers to
+     start it via `ds4 up` when down.
+  3. Discovers Brave channels dynamically (Nightly/Beta/Dev/stable data dirs)
+     and every profile in each channel from "Local State" (info_cache) plus
+     on-disk Preferences — including the Leo AI Content Agent profile.
+  4. Asks to quit running Brave instances (Preferences are overwritten by the
+     browser on exit otherwise), backs up every file before modifying it.
+  5. Replaces all previously injected Venice/ds4 models with the fresh set,
+     keeps user-added custom models untouched, sets the default Leo model to
+     ds4 (falls back to the strongest Venice model when ds4 is unavailable),
+     and enables the brave-ai-chat-allow-private-ips flag needed for the
+     loopback ds4 endpoint.
+
+Env overrides:
+  DS4_URL                    default http://127.0.0.1:8000
+  VENICE_API_KEY             Venice API key (else --api-key, else reuse the
+                             encrypted key already stored in Preferences)
+  BRAVE_SOFTWARE_DIR         default ~/Library/Application Support/BraveSoftware
+  BRAVE_MODELS_MAX_AGE_DAYS  default 120
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import getpass
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+import httpx
+
+VENICE_MODELS_URL = os.environ.get(
+    "BRAVE_VENICE_MODELS_URL", "https://api.venice.ai/api/v1/models?type=text"
+)
+VENICE_CHAT_URL = "https://api.venice.ai/api/v1/chat/completions"
+DS4_URL = os.environ.get("DS4_URL", "http://127.0.0.1:8000")
+DS4_API_KEY = "ds4-local"  # ds4 ignores auth; placeholder for Brave's form
+BRAVE_BASE = Path(
+    os.environ.get(
+        "BRAVE_SOFTWARE_DIR",
+        Path.home() / "Library/Application Support/BraveSoftware",
+    )
+)
+MAX_AGE_DAYS = int(os.environ.get("BRAVE_MODELS_MAX_AGE_DAYS", "120"))
+QUIT_TIMEOUT = float(os.environ.get("BRAVE_MODELS_QUIT_TIMEOUT", "30"))
+DS4_WAIT = float(os.environ.get("BRAVE_MODELS_DS4_WAIT", "240"))
+SKIP_PROFILES = {"Guest Profile", "System Profile"}
+PRIVATE_IP_FLAG = "brave-ai-chat-allow-private-ips@1"
+
+# Channel data-dir name -> macOS app name (for quit/relaunch). Unknown
+# Brave-Browser-* dirs map to "Brave Browser <Suffix>".
+CHANNEL_APP = {
+    "Brave-Browser": "Brave Browser",
+    "Brave-Browser-Beta": "Brave Browser Beta",
+    "Brave-Browser-Development": "Brave Browser Development",
+    "Brave-Browser-Nightly": "Brave Browser Nightly",
+}
+
+# Model families we care about, most specific prefix first. Anything else
+# falls back to its first token as the family name.
+FAMILY_PREFIXES = [
+    "claude-opus",
+    "claude-sonnet",
+    "claude-fable",
+    "claude-haiku",
+    "openai-gpt",
+    "deepseek",
+    "gemini",
+    "grok",
+    "kimi",
+    "glm",
+    "gemma",
+    "llama",
+    "minimax",
+    "mistral",
+    "qwen",
+    "trinity",
+    "mercury",
+    "nemotron",
+    "mimo",
+    "aion",
+    "seed",
+    "inkling",
+]
+
+# Trailing tokens stripped when computing a family name.
+_STRIP_TOKEN = re.compile(
+    r"^("
+    r"\d{4,8}"  # date stamps / long numeric versions (0813, 20250101)
+    r"|\d+\.\d+(\.\d+)*"  # dotted versions: 3.3 / 4.5
+    r"|\d+"  # bare integers
+    r"|a\d+b?"  # MoE active params: a22b, a3b
+    r"|\d+b"  # param counts: 70b
+    r"|\d+t"  # total params: 4t
+    r"|fp\d+|int\d+|bf\d+"  # quantisation
+    r"|fast|turbo|mini|pro|plus|flash|preview|nano|lite|large|small|medium|big"
+    r"|thinking|reasoning|instruct|chat|it|next|api"
+    r"|multi.agent|codex|coder|role.play|uncensored|heretic"
+    r"|cascade"
+    r"|p"  # single-letter e2ee suffix
+    r")$",
+    re.IGNORECASE,
+)
+
+# Variants never worth injecting even when they are the newest of a family.
+_NOVELTY = re.compile(
+    r"role.?play|uncensored|heretic|build\b|experiment", re.IGNORECASE
+)
+
+_TIER2 = re.compile(r"\b(pro|max|ultra)\b", re.IGNORECASE)
+_TIER0 = re.compile(r"\b(flash|mini|small|nano|lite|tiny|fast)\b", re.IGNORECASE)
+
+# Vendor namespace prefixes stripped when computing a family name, so
+# z-ai-glm / zai-org-glm compete with plain glm (e2ee variant wins).
+_VENDOR = re.compile(
+    r"^(z-ai|zai-org|aion-labs|xiaomi|olafangensan|nvidia|google|venice|meta|inception)-",
+    re.IGNORECASE,
+)
+
+
+def log(msg: str) -> None:
+    print(msg)
+
+
+def warn(msg: str) -> None:
+    print(f"WARNING: {msg}", file=sys.stderr)
+
+
+def die(msg: str, code: int = 1) -> None:
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def ask(prompt: str, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+    if not sys.stdin.isatty():
+        return False
+    try:
+        answer = input(f"{prompt} [Y/n] ").strip().lower()
+    except EOFError:
+        return False
+    return answer not in ("n", "no")
+
+
+# --------------------------------------------------------------------------
+# Discovery: Brave channels and profiles
+# --------------------------------------------------------------------------
+
+def channel_app_name(channel_dir: Path) -> str:
+    name = channel_dir.name
+    if name in CHANNEL_APP:
+        return CHANNEL_APP[name]
+    if name.startswith("Brave-Browser"):
+        suffix = name[len("Brave-Browser"):].lstrip("-")
+        return f"Brave Browser {suffix}" if suffix else "Brave Browser"
+    return name
+
+
+def discover_channels() -> list[Path]:
+    if not BRAVE_BASE.is_dir():
+        return []
+    channels = []
+    for entry in sorted(BRAVE_BASE.iterdir()):
+        if not entry.is_dir():
+            continue
+        if not entry.name.startswith("Brave-Browser"):
+            continue  # skips BraveUpdater etc.
+        has_profiles = (entry / "Local State").exists() or any(
+            (entry / d / "Preferences").exists()
+            for d in os.listdir(entry)
+            if (entry / d).is_dir()
+        )
+        if has_profiles:
+            channels.append(entry)
+    return channels
+
+
+def discover_profiles(channel_dir: Path) -> list[tuple[str, str]]:
+    """Return [(profile_dir_name, display_name)] dynamically.
+
+    Union of Local State profile.info_cache keys and on-disk directories that
+    contain a Preferences file. This catches the Leo AI Content Agent profile
+    (ai_chat_agent_profile), which a hardcoded list always misses.
+    """
+    names: dict[str, str] = {}
+
+    local_state_path = channel_dir / "Local State"
+    if local_state_path.exists():
+        try:
+            with open(local_state_path) as f:
+                local_state = json.load(f)
+            for key, info in (
+                local_state.get("profile", {}).get("info_cache", {}).items()
+            ):
+                names[key] = info.get("name") or key
+        except (OSError, json.JSONDecodeError) as e:
+            warn(f"{channel_dir.name}: could not read Local State ({e})")
+
+    for entry in sorted(os.listdir(channel_dir)):
+        prefs = channel_dir / entry / "Preferences"
+        if (channel_dir / entry).is_dir() and prefs.exists():
+            names.setdefault(entry, entry)
+
+    return [
+        (key, name)
+        for key, name in sorted(names.items())
+        if key not in SKIP_PROFILES
+    ]
+
+
+# --------------------------------------------------------------------------
+# Brave process handling
+# --------------------------------------------------------------------------
+
+def brave_pids(app_name: str) -> list[int]:
+    result = subprocess.run(
+        ["pgrep", "-f", app_name], capture_output=True, text=True
+    )
+    return [int(line) for line in result.stdout.split()]
+
+
+def quit_brave(app_name: str, timeout: float | None = None) -> bool:
+    timeout = QUIT_TIMEOUT if timeout is None else timeout
+    subprocess.run(
+        ["osascript", "-e", f'quit app "{app_name}"'],
+        capture_output=True,
+        text=True,
+    )
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not brave_pids(app_name):
+            return True
+        time.sleep(1.0)
+    return False
+
+
+# --------------------------------------------------------------------------
+# Venice model selection
+# --------------------------------------------------------------------------
+
+def fetch_venice_models() -> list[dict]:
+    resp = httpx.get(VENICE_MODELS_URL, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+    return [m for m in data.get("data", []) if m.get("type") == "text"]
+
+
+def _core_id(model_id: str) -> str:
+    return model_id[5:] if model_id.startswith("e2ee-") else model_id
+
+
+def model_family(model_id: str) -> str:
+    mid = _core_id(model_id)
+    for prefix in FAMILY_PREFIXES:
+        if mid.startswith(prefix):
+            return prefix
+    mid = _VENDOR.sub("", mid)  # z-ai-glm-* -> glm-*
+    for prefix in FAMILY_PREFIXES:
+        if mid.startswith(prefix):
+            return prefix
+    return mid.split("-")[0]
+
+
+def _version_tuple(model_id: str) -> tuple[int, ...]:
+    """Major version: first numeric run of the id, ignoring date stamps and
+    parameter-count tokens (120b, a3b, 4t).
+
+    Single component on purpose: "grok-4-20" (a date) must not beat
+    "grok-4-7", and "gpt-oss-120b" must not beat "gpt-6.1". Generations
+    within a major version resolve by tier, then recency.
+    """
+    core = re.sub(r"\b(?:a\d+b|\d+b|\d+t)\b", "", _core_id(model_id))
+    nums = [
+        int(x)
+        for x in re.findall(r"\d+", core)
+        if not (len(x) >= 4 and x.isdigit())  # 0813, 20250101 = date stamps
+    ]
+    return (nums[0],) if nums else (0,)
+
+
+def _tier(model: dict) -> int:
+    haystack = f"{_core_id(model['id'])} {model.get('model_spec', {}).get('name', '')}"
+    if _TIER2.search(haystack):
+        return 2
+    if _TIER0.search(haystack):
+        return 0
+    return 1
+
+
+def _is_flash(model: dict) -> bool:
+    return "flash" in _core_id(model["id"]).lower()
+
+
+def select_venice_models(
+    models: list[dict], max_age_days: int
+) -> tuple[list[dict], list[str]]:
+    """Flagship winner per family, plus its newest flash companion when the
+    winner itself is not a flash variant (glm-5.3-flash and deepseek-v4.1-
+    flash are as strong as their base models). Recency cutoff; novelty
+    variants dropped. e2ee preferred over plain within the same model."""
+    cutoff = time.time() - max_age_days * 86400
+
+    def sort_key(m: dict) -> tuple:
+        return (
+            _version_tuple(m["id"]),
+            _tier(m),
+            m.get("created", 0),
+            1 if m["id"].startswith("e2ee-") else 0,  # final tiebreak
+        )
+
+    families: dict[str, list[dict]] = {}
+    for m in models:
+        families.setdefault(model_family(m["id"]), []).append(m)
+
+    picked: list[dict] = []
+    dropped: list[str] = []
+    seen_ids: set[str] = set()
+
+    def emit(member: dict, fam: str, role: str) -> None:
+        label = member.get("model_spec", {}).get("name") or member["id"]
+        haystack = f"{_core_id(member['id'])} {label}"
+        if _NOVELTY.search(haystack):
+            dropped.append(f"{fam} {role}: novelty variant {member['id']}")
+            return
+        if member.get("created", 0) < cutoff:
+            dropped.append(
+                f"{fam} {role}: {member['id']} is "
+                f"{(time.time() - member.get('created', 0)) / 86400:.0f}d old"
+            )
+            return
+        if member["id"] not in seen_ids:
+            seen_ids.add(member["id"])
+            picked.append(member)
+
+    for fam, members in sorted(families.items()):
+        winner = max(members, key=sort_key)
+        emit(winner, fam, "flagship")
+        if not _is_flash(winner):
+            major = _version_tuple(winner["id"])[0]
+            flashes = [
+                m
+                for m in members
+                if _is_flash(m) and _version_tuple(m["id"])[0] == major
+            ]
+            if flashes:
+                emit(max(flashes, key=sort_key), fam, "flash")
+
+    picked.sort(key=lambda m: (-m.get("created", 0), model_family(m["id"])))
+    return picked, dropped
+
+
+# --------------------------------------------------------------------------
+# ds4 local server
+# --------------------------------------------------------------------------
+
+def ds4_probe() -> list[dict] | None:
+    try:
+        resp = httpx.get(f"{DS4_URL}/v1/models", timeout=2.0)
+        resp.raise_for_status()
+        return resp.json().get("data", []) or None
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+def ds4_start_and_wait(timeout: float | None = None) -> list[dict] | None:
+    timeout = DS4_WAIT if timeout is None else timeout
+    ds4_bin = shutil.which("ds4") or str(Path.home() / ".local/bin/ds4")
+    if not Path(ds4_bin).exists():
+        warn(f"ds4 CLI not found at {ds4_bin}")
+        return None
+    subprocess.run([ds4_bin, "up"], check=False)
+    log("  waiting for ds4 to become healthy...")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        models = ds4_probe()
+        if models:
+            return models
+        time.sleep(3.0)
+    warn("ds4 did not become healthy in time")
+    return None
+
+
+def _pretty_model_id(model_id: str) -> str:
+    return " ".join(
+        part.upper() if part in ("glm", "ai") else part.capitalize()
+        for part in model_id.split("-")
+    )
+
+
+def build_ds4_models(entries: list[dict]) -> list[dict]:
+    models = []
+    for entry in entries:
+        model_id = entry.get("id", "")
+        if not model_id:
+            continue
+        ctx = entry.get("context_length") or entry.get("top_provider", {}).get(
+            "context_length"
+        ) or 8192
+        supported = entry.get("supported_parameters", [])
+        models.append(
+            {
+                "api_key": DS4_API_KEY,
+                "context_size": ctx,
+                "endpoint_url": f"{DS4_URL}/v1/chat/completions",
+                "key": make_key(f"ds4:{model_id}"),
+                "label": f"ds4: {_pretty_model_id(model_id)} (local)",
+                "model_request_name": model_id,
+                "supports_tools": "tools" in supported,
+                "vision_support": True,  # ds4 loads the vision encoder
+            }
+        )
+    return models
+
+
+# --------------------------------------------------------------------------
+# Brave OSCrypt (macOS) — ported verbatim from the proven session.md script
+# --------------------------------------------------------------------------
+
+def make_key(seed: str) -> str:
+    return "custom:" + hashlib.md5(seed.encode()).hexdigest()[:8]
+
+
+def _brave_encryption_key() -> bytes:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+    result = subprocess.run(
+        [
+            "security",
+            "find-generic-password",
+            "-s",
+            "Brave Safe Storage",
+            "-a",
+            "Brave",
+            "-w",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    password = result.stdout.strip().encode()
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA1(), length=16, salt=b"saltysalt", iterations=1003
+    )
+    return kdf.derive(password)
+
+
+def encrypt_api_key(plaintext: str) -> str:
+    from cryptography.hazmat.primitives import padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    key = _brave_encryption_key()
+    iv = b" " * 16  # Chromium OSCrypt macOS fixed IV
+
+    padder = padding.PKCS7(128).padder()
+    padded = padder.update(plaintext.encode()) + padder.finalize()
+
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    enc = cipher.encryptor()
+    ciphertext = enc.update(padded) + enc.finalize()
+
+    return base64.b64encode(b"v10" + ciphertext).decode()
+
+
+def find_existing_venice_blob(channels: list[Path]) -> str | None:
+    """Reuse the encrypted Venice api_key already stored in any profile.
+
+    All Brave channels share the single "Brave Safe Storage" keychain entry,
+    so the blob is valid across channels.
+    """
+    for channel in channels:
+        for profile_dir, _ in discover_profiles(channel):
+            prefs_path = channel / profile_dir / "Preferences"
+            try:
+                with open(prefs_path) as f:
+                    prefs = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                continue
+            for m in prefs.get("brave", {}).get("ai_chat", {}).get(
+                "custom_models", []
+            ):
+                if (
+                    m.get("endpoint_url") == VENICE_CHAT_URL
+                    and m.get("api_key")
+                ):
+                    return m["api_key"]
+    return None
+
+
+# --------------------------------------------------------------------------
+# Injection
+# --------------------------------------------------------------------------
+
+def is_managed_model(m: dict) -> bool:
+    label = m.get("label", "")
+    return label.startswith("Venice:") or label.startswith("ds4:")
+
+
+def atomic_write_json(path: Path, data: dict) -> None:
+    tmp = path.with_name(f".{path.name}.tmp.{os.getpid()}")
+    with open(tmp, "w") as f:
+        json.dump(data, f, separators=(",", ":"))
+    shutil.copystat(path, tmp)
+    os.replace(tmp, path)
+
+
+def inject_profile(
+    prefs_path: Path,
+    new_models: list[dict],
+    default_model_key: str | None,
+    dry_run: bool,
+) -> dict:
+    stats = {"removed": 0, "kept": 0, "added": len(new_models), "wrote": False}
+    if not prefs_path.exists():
+        stats["error"] = "missing"
+        return stats
+
+    with open(prefs_path) as f:
+        prefs = json.load(f)
+
+    ai_chat = prefs.setdefault("brave", {}).setdefault("ai_chat", {})
+    existing: list[dict] = ai_chat.get("custom_models", [])
+    managed_keys = {m.get("key") for m in existing if is_managed_model(m)}
+    kept = [m for m in existing if not is_managed_model(m)]
+    stats["removed"] = len(existing) - len(kept)
+    stats["kept"] = len(kept)
+
+    ai_chat["custom_models"] = kept + new_models
+
+    if default_model_key:
+        previous_default = ai_chat.get("default_model_key")
+        if previous_default != default_model_key:
+            ai_chat["default_model_key"] = default_model_key
+            stats["default_changed"] = previous_default
+        # Tab organisation pointing at a removed managed model would dangle.
+        if ai_chat.get("tab_organization_model_key") in managed_keys:
+            ai_chat["tab_organization_model_key"] = default_model_key
+    elif ai_chat.get("default_model_key") in managed_keys:
+        warn(
+            f"{prefs_path.parent.name}: default model was an injected model "
+            "and ds4 is unavailable — leaving default unchanged (dangling)."
+        )
+
+    if dry_run:
+        return stats
+
+    backup = prefs_path.with_name(
+        f"{prefs_path.name}.bak.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    )
+    shutil.copy2(prefs_path, backup)
+    stats["backup"] = backup.name
+    atomic_write_json(prefs_path, prefs)
+    stats["wrote"] = True
+    return stats
+
+
+def ensure_private_ip_flag(channel_dir: Path, dry_run: bool) -> bool:
+    """Enable brave-ai-chat-allow-private-ips so Leo can reach 127.0.0.1."""
+    path = channel_dir / "Local State"
+    if not path.exists():
+        return False
+    with open(path) as f:
+        local_state = json.load(f)
+    experiments: list[str] = (
+        local_state.setdefault("browser", {}).setdefault(
+            "enabled_labs_experiments", []
+        )
+    )
+    if PRIVATE_IP_FLAG in experiments:
+        return False
+    experiments.append(PRIVATE_IP_FLAG)
+    if dry_run:
+        return True
+    backup = path.with_name(
+        f"{path.name}.bak.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    )
+    shutil.copy2(path, backup)
+    atomic_write_json(path, local_state)
+    log(f"  enabled {PRIVATE_IP_FLAG} in Local State (backup: {backup.name})")
+    return True
+
+
+# --------------------------------------------------------------------------
+# Main flow
+# --------------------------------------------------------------------------
+
+def build_custom_model(model: dict, api_key: str) -> dict:
+    spec = model.get("model_spec", {})
+    model_id = model["id"]
+    name = spec.get("name", model_id)
+    display_name = re.sub(r"^e2ee[\s\-]", "", name, flags=re.IGNORECASE)
+    return {
+        "api_key": api_key,
+        "context_size": spec.get("availableContextTokens", 4096),
+        "endpoint_url": VENICE_CHAT_URL,
+        "key": make_key(f"venice:{model_id}"),
+        "label": f"Venice: {display_name}",
+        "model_request_name": model_id,
+        "supports_tools": spec.get("capabilities", {}).get(
+            "supportsFunctionCalling", False
+        ),
+        "vision_support": spec.get("capabilities", {}).get(
+            "supportsVision", False
+        ),
+    }
+
+
+def resolve_api_key(args: argparse.Namespace, blob: str | None) -> str | None:
+    """Returns the api_key string to store, or None when unavailable."""
+    plaintext = args.api_key or os.environ.get("VENICE_API_KEY")
+    if plaintext:
+        return encrypt_api_key(plaintext)
+    if blob:
+        return blob
+    if args.dry_run:
+        return "(preview — no key needed)"
+    if sys.stdin.isatty():
+        try:
+            plaintext = getpass.getpass("Venice API key: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return None
+        if plaintext:
+            return encrypt_api_key(plaintext)
+    return None
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Sync Venice.ai + ds4 models into Brave Leo custom models"
+    )
+    parser.add_argument("--api-key", default="", help="Venice API key")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preview without writing"
+    )
+    parser.add_argument(
+        "--yes", action="store_true", help="Assume yes for all prompts"
+    )
+    parser.add_argument(
+        "--max-age-days",
+        type=int,
+        default=MAX_AGE_DAYS,
+        help="Drop families with no newer release than this (default 120)",
+    )
+    args = parser.parse_args()
+
+    channels = discover_channels()
+    if not channels:
+        die(f"no Brave channels found under {BRAVE_BASE}")
+
+    log("Brave channels:")
+    for channel in channels:
+        profiles = discover_profiles(channel)
+        listing = ", ".join(f"{d} ({n})" for d, n in profiles)
+        log(f"  {channel.name}: {listing}")
+
+    log("\nFetching Venice.ai text models...")
+    try:
+        models = fetch_venice_models()
+    except Exception as e:
+        die(f"fetching Venice models: {e}")
+    log(f"  {len(models)} text models listed")
+
+    venice, dropped = select_venice_models(models, args.max_age_days)
+    for reason in dropped:
+        log(f"  dropped {reason}")
+    log(f"  selected {len(venice)} flagship models:")
+    for m in venice:
+        age = (time.time() - m.get("created", 0)) / 86400
+        log(
+            f"    {m['id']:55s} {age:4.0f}d  "
+            f"{m.get('model_spec', {}).get('name', '')}"
+        )
+
+    log(f"\nProbing ds4 at {DS4_URL}...")
+    ds4_entries = ds4_probe()
+    ds4_started = False
+    if ds4_entries:
+        log(f"  up — serving {[e.get('id') for e in ds4_entries]}")
+    else:
+        if args.dry_run:
+            log("  down — dry-run: would offer to start via `ds4 up`")
+        elif ask("ds4 is down. Start it via `ds4 up`?", args.yes):
+            ds4_entries = ds4_start_and_wait()
+            ds4_started = True
+        if not ds4_entries:
+            log("  unavailable — proceeding without ds4 models")
+
+    blob = find_existing_venice_blob(channels)
+    api_key = resolve_api_key(args, blob)
+    if api_key is None:
+        die(
+            "no Venice API key available (pass --api-key, set VENICE_API_KEY, "
+            "or keep at least one existing Venice model in Preferences)"
+        )
+    key_source = "reused encrypted blob" if not (args.api_key or os.environ.get("VENICE_API_KEY")) and blob else "provided"
+
+    venice_entries = [build_custom_model(m, api_key) for m in venice]
+    ds4_custom = build_ds4_models(ds4_entries) if ds4_entries else []
+    custom_models = venice_entries + ds4_custom
+
+    # Default Leo model: ds4 local when available, else strongest Venice.
+    if ds4_custom:
+        default_key = ds4_custom[0]["key"]
+        default_name = ds4_custom[0]["label"]
+    elif venice_entries:
+        default_key = venice_entries[0]["key"]
+        default_name = venice_entries[0]["label"]
+        warn(f"ds4 unavailable — defaulting Leo to {default_name}")
+    else:
+        default_key = None
+        default_name = None
+    if default_key:
+        log(f"\nDefault Leo model: {default_name} ({default_key})")
+
+    quit_channels: list[str] = []
+    updated_profiles = 0
+    for channel in channels:
+        app_name = channel_app_name(channel)
+        pids = brave_pids(app_name)
+        log(f"\n=== {channel.name} ({app_name})")
+        if pids:
+            if args.dry_run:
+                log(f"  running (pid {pids[0]}) — dry-run: would ask to quit")
+            elif ask(f"  {app_name} is running. Quit it now?", args.yes):
+                log("  quitting...")
+                if quit_brave(app_name):
+                    quit_channels.append(app_name)
+                else:
+                    warn(
+                        f"{app_name} did not exit — skipping this channel "
+                        "(Preferences would be overwritten by the browser)"
+                    )
+                    continue
+            else:
+                log("  skipping this channel (Brave still running)")
+                continue
+
+        if ds4_custom:
+            ensure_private_ip_flag(channel, args.dry_run)
+
+        for profile_dir, display in discover_profiles(channel):
+            prefs_path = channel / profile_dir / "Preferences"
+            stats = inject_profile(prefs_path, custom_models, default_key, args.dry_run)
+            if stats.get("error"):
+                continue
+            updated_profiles += 1
+            suffix = (
+                f", default {stats['default_changed']!r} → {default_name}"
+                if stats.get("default_changed")
+                else ""
+            )
+            log(
+                f"  {display}: -{stats['removed']} +{stats['added']} "
+                f"kept {stats['kept']}{suffix}"
+                + (f" [dry-run]" if args.dry_run else "")
+            )
+
+    log(f"\n{'Would update' if args.dry_run else 'Updated'} "
+        f"{updated_profiles} profile(s) across {len(channels)} channel(s).")
+
+    for app_name in quit_channels:
+        if ask(f"Relaunch {app_name}?", args.yes):
+            subprocess.run(["open", "-a", app_name], check=False)
+
+    if ds4_started:
+        log("\nNOTE: ds4 was started for this run and is left running.")
+
+
+if __name__ == "__main__":
+    main()
