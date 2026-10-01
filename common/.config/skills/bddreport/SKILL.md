@@ -11,7 +11,7 @@ Turns bddsec-style findings into the canonical deliverable: `pentest-report.md`,
 
 Findings must be evidence-backed. In order of preference:
 1. bddsec audit results already in this conversation (bugs/risks/nits with file:line evidence).
-2. No findings present → run the bddsec skill first (Phase 1 hypothesize + Phase 2 verify), then report.
+2. No findings present → run the bddsec skill first (Phase 1 hypothesize + Phase 2 verify static + Phase 3 exploit-test), then report.
 
 Never invent findings. No verified evidence for a finding → it stays a `risk`, marked as such.
 
