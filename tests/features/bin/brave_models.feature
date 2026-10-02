@@ -5,7 +5,8 @@ Feature: brave-models syncs Venice and ds4 models into Brave Leo
   as Leo custom models with ds4 as the default Leo model.
 
   Background:
-    Given a fake Brave installation with Nightly and Beta channels
+    Given a fake Brave installation with Nightly, Beta, and Development channels
+    And a local Brave development build exists
     And the Brave safe storage keychain entry exists
     And the Venice API answers with a text-model catalog
     And the ds4 server answers with its model list
@@ -33,6 +34,7 @@ Feature: brave-models syncs Venice and ds4 models into Brave Leo
     And the selection does not include "gpt-oss-120b"
     And the selection does not include "venice-uncensored-1-2"
 
+
   Scenario: Models are injected into every profile keeping user entries
     Given a Venice API key is available
     When brave-models runs with --yes
@@ -41,6 +43,19 @@ Feature: brave-models syncs Venice and ds4 models into Brave Leo
     And the Nightly "Profile 3" preferences keep the user model "test"
     And the Nightly "Leo AI Content Agent" preferences contain the injected models
     And the Beta "Beta" preferences contain the injected models
+
+  Scenario: The local Development build channel is injected too
+    Given a Venice API key is available
+    When brave-models runs with --yes
+    Then the Development "Default" preferences contain the injected models
+    And the Development "Default" default model key is the ds4 model key
+    And the Development Local State contains "brave-ai-chat-allow-private-ips@1"
+
+  Scenario: The Development channel Venice keys use the mock keychain password
+    Given a Venice API key is available
+    When brave-models runs with --yes
+    Then the Development Venice models store the mock-keychain api key
+    And the Nightly Venice models store the real-keychain api key
 
   Scenario: The default Leo model is the local ds4 model
     Given a Venice API key is available
@@ -58,6 +73,13 @@ Feature: brave-models syncs Venice and ds4 models into Brave Leo
     When brave-models runs with --yes
     Then Brave Nightly is quit via osascript
     And Brave Nightly is relaunched via open
+
+  Scenario: The development build is quit and relaunched with the mock keychain
+    Given the local Development build is running
+    And a Venice API key is available
+    When brave-models runs with --yes
+    Then the development build is quit via osascript
+    And the development build is relaunched via open with the mock keychain
 
   Scenario: A running Brave that refuses to quit skips that channel
     Given Brave Nightly is running and refuses to quit
@@ -82,6 +104,13 @@ Feature: brave-models syncs Venice and ds4 models into Brave Leo
     Given an existing Venice custom model with encrypted key
     When brave-models runs with --yes
     Then the written Venice models keep that api key
+
+  Scenario: An undecryptable stored Venice key is passed through with a warning
+    Given an existing Venice custom model with encrypted key
+    When brave-models runs with --yes
+    Then the written Venice models keep that api key
+    And the Development Venice models keep that api key
+    And the output warns that the mock-keychain build cannot use the stored key
 
   Scenario: A plaintext API key is encrypted with the Brave safe storage key
     Given the Brave safe storage keychain entry exists

@@ -190,6 +190,31 @@ touch "$DS4_READY_FLAG"
 exit 0
 """
 
+DEV_APP_DIRNAME = "Brave Browser Development.app"
+DEV_CHANNEL = "Brave-Browser-Development"
+MOCK_KEYCHAIN_PASSWORD = "mock_password"
+
+# Known-answer from keychain_key_provider_unittest.mm:
+# PBKDF2-HMAC-SHA1("mock_password", "saltysalt", 1003), 16 bytes.
+_MOCK_KEYCHAIN_KAT = bytes.fromhex("af0f762aaf6d7d11581b7aa8ce7218de")
+
+
+def _os_crypt_blob(plaintext, keychain_password):
+    """Recompute Brave's OSCrypt mac "v10" blob independently: PBKDF2-HMAC-
+    SHA1(keychain password, b"saltysalt", 1003) -> AES-128-CBC with the fixed
+    16-space IV -> "v10" prefix -> base64 (mirrors encryptor.cc +
+    keychain_key_provider.mm)."""
+    from cryptography.hazmat.primitives import padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    key = hashlib.pbkdf2_hmac(
+        "sha1", keychain_password.encode(), b"saltysalt", 1003, dklen=16
+    )
+    padder = padding.PKCS7(128).padder()
+    padded = padder.update(plaintext.encode()) + padder.finalize()
+    enc = Cipher(algorithms.AES(key), modes.CBC(b" " * 16)).encryptor()
+    return base64.b64encode(b"v10" + enc.update(padded) + enc.finalize()).decode()
+
 
 def _prefs_skeleton():
     return {
@@ -204,7 +229,8 @@ def _prefs_skeleton():
 
 
 def _make_brave_tree(base):
-    """Fake BraveSoftware tree: Nightly (4 real + 2 skipped profiles) + Beta."""
+    """Fake BraveSoftware tree: Nightly (4 real + 2 skipped profiles), Beta,
+    and a Development channel (the local pnpm-start dev build)."""
     nightly = base / "Brave-Browser-Nightly"
     profiles = {
         "Default": _prefs_skeleton(),
@@ -256,6 +282,16 @@ def _make_brave_tree(base):
         json.dumps({"profile": {"info_cache": {"Beta": {"name": "Beta"}}}})
     )
 
+    development = base / "Brave-Browser-Development"
+    dev_profile = development / "Default"
+    dev_profile.mkdir(parents=True)
+    (dev_profile / "Preferences").write_text(
+        json.dumps(_prefs_skeleton(), separators=(",", ":"))
+    )
+    (development / "Local State").write_text(
+        json.dumps({"profile": {"info_cache": {"Default": {"name": "Default"}}}})
+    )
+
 
 def _ds4_key(model_id):
     return "custom:" + hashlib.md5(f"ds4:{model_id}".encode()).hexdigest()[:8]
@@ -265,7 +301,7 @@ def _venice_key(model_id):
     return "custom:" + hashlib.md5(f"venice:{model_id}".encode()).hexdigest()[:8]
 
 
-@given("a fake Brave installation with Nightly and Beta channels")
+@given("a fake Brave installation with Nightly, Beta, and Development channels")
 def fake_brave_installation(ctx):
     base = ctx.env.home / "BraveSoftware"
     base.mkdir(parents=True)
@@ -369,6 +405,22 @@ def existing_venice_blob(ctx):
     prefs_path.write_text(json.dumps(prefs, separators=(",", ":")))
 
 
+@given("a local Brave development build exists")
+def local_dev_build(ctx):
+    """Marker .app the script's dev-build glob must find (mirrors
+    ~/src/out/Component_arm64/Brave Browser Development.app)."""
+    app_dir = ctx.env.home / "src" / "out" / "Component_arm64" / DEV_APP_DIRNAME
+    app_dir.mkdir(parents=True)
+    ctx.env.set_env(BRAVE_DEV_APP_GLOB=str(app_dir))
+
+
+@given("the local Development build is running")
+def dev_build_running(ctx):
+    ctx.ds4_ready.touch()
+    ctx.env.set_env(PGREP_APP="Brave Browser Development")
+    (ctx.env.state_dir / "pids").write_text("4242\n")
+
+
 @given("the Brave safe storage keychain entry exists")
 def keychain_entry(ctx):
     ctx.env.set_env(KEYCHAIN_SECRET="unit-test-keychain-secret")
@@ -405,9 +457,13 @@ PROFILE_DIRS = {"Leo AI Content Agent": "ai_chat_agent_profile"}
 
 
 def _prefs(ctx, profile):
+    return _channel_prefs(ctx, "Brave-Browser-Nightly", profile)
+
+
+def _channel_prefs(ctx, channel, profile):
     prefs_path = (
         ctx.brave_base
-        / "Brave-Browser-Nightly"
+        / channel
         / PROFILE_DIRS.get(profile, profile)
         / "Preferences"
     )
@@ -567,3 +623,84 @@ def encrypted_key(ctx):
     for m in venice:
         assert m["api_key"] != "secret-venice-key"
         assert base64.b64decode(m["api_key"]).startswith(b"v10")
+
+
+# --------------------------------------------------------------------------
+# Local development build (pnpm/npm start) — mock-keychain channel
+# --------------------------------------------------------------------------
+
+
+def _venice_models(prefs):
+    models = prefs["brave"]["ai_chat"]["custom_models"]
+    venice = [m for m in models if m["label"].startswith("Venice: ")]
+    assert venice
+    return venice
+
+
+@then(parsers.parse('the Development "{profile}" preferences contain the injected models'))
+def dev_prefs_contain_injected(ctx, profile):
+    labels = _labels(_channel_prefs(ctx, DEV_CHANNEL, profile))
+    assert any(l.startswith("Venice: ") for l in labels)
+    assert any(l.startswith("ds4: ") for l in labels)
+
+
+@then(parsers.parse('the Development "{profile}" default model key is the ds4 model key'))
+def dev_default_is_ds4(ctx, profile):
+    prefs = _channel_prefs(ctx, DEV_CHANNEL, profile)
+    assert (
+        prefs["brave"]["ai_chat"]["default_model_key"]
+        == _ds4_key("glm-5.3-flash")
+    )
+
+
+@then('the Development Local State contains "brave-ai-chat-allow-private-ips@1"')
+def dev_local_state_flag(ctx):
+    path = ctx.brave_base / DEV_CHANNEL / "Local State"
+    state = json.loads(path.read_text())
+    assert "brave-ai-chat-allow-private-ips@1" in (
+        state["browser"]["enabled_labs_experiments"]
+    )
+
+
+@then("the Development Venice models store the mock-keychain api key")
+def dev_venice_mock_key(ctx):
+    assert hashlib.pbkdf2_hmac(
+        "sha1", MOCK_KEYCHAIN_PASSWORD.encode(), b"saltysalt", 1003, dklen=16
+    ) == _MOCK_KEYCHAIN_KAT
+    expected = _os_crypt_blob("unit-test-venice-key", MOCK_KEYCHAIN_PASSWORD)
+    for m in _venice_models(_channel_prefs(ctx, DEV_CHANNEL, "Default")):
+        assert m["api_key"] == expected, m["label"]
+
+
+@then("the Nightly Venice models store the real-keychain api key")
+def nightly_venice_real_key(ctx):
+    expected = _os_crypt_blob("unit-test-venice-key", "unit-test-keychain-secret")
+    for m in _venice_models(_prefs(ctx, "Default")):
+        assert m["api_key"] == expected, m["label"]
+
+
+@then("the Development Venice models keep that api key")
+def dev_blob_reused(ctx):
+    for m in _venice_models(_channel_prefs(ctx, DEV_CHANNEL, "Default")):
+        assert m["api_key"] == "v10existingblob", m["label"]
+
+
+@then(
+    "the output warns that the mock-keychain build cannot use the stored key"
+)
+def mock_fallback_warned(ctx):
+    assert "could not decrypt" in ctx.proc.stderr, ctx.proc.stderr
+
+
+@then("the development build is quit via osascript")
+def dev_build_quit_logged(ctx):
+    log = (ctx.env.state_dir / "osascript.log").read_text()
+    assert 'quit app "Brave Browser Development"' in log, log
+
+
+@then("the development build is relaunched via open with the mock keychain")
+def dev_build_relaunched_mock(ctx):
+    log = (ctx.env.state_dir / "open.log").read_text()
+    assert (
+        "open -a Brave Browser Development --args --use-mock-keychain" in log
+    ), log

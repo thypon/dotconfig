@@ -24,10 +24,15 @@ What it does:
   4. Asks to quit running Brave instances (Preferences are overwritten by the
      browser on exit otherwise), backs up every file before modifying it.
   5. Replaces all previously injected Venice/ds4 models with the fresh set,
-     keeps user-added custom models untouched, sets the default Leo model to
-     ds4 (falls back to the strongest Venice model when ds4 is unavailable),
-     and enables the brave-ai-chat-allow-private-ips flag needed for the
-     loopback ds4 endpoint.
+      keeps user-added custom models untouched, sets the default Leo model to
+      ds4 (falls back to the strongest Venice model when ds4 is unavailable),
+      and enables the brave-ai-chat-allow-private-ips flag needed for the
+      loopback ds4 endpoint.
+   6. Locally built Development channels (pnpm/npm `start` from a chromium/
+      brave checkout) always run with --use-mock-keychain, so their Venice
+      api_key is encrypted with the mock-keychain password instead of the
+      real "Brave Safe Storage" one, and the build is relaunched with that
+      flag.
 
 Env overrides:
   DS4_URL                    default http://127.0.0.1:8000
@@ -35,6 +40,9 @@ Env overrides:
                              encrypted key already stored in Preferences)
   BRAVE_SOFTWARE_DIR         default ~/Library/Application Support/BraveSoftware
   BRAVE_MODELS_MAX_AGE_DAYS  default 120
+  BRAVE_DEV_APP_GLOB         glob locating the locally built Development app
+                             (default ~/src/out/*/Brave Browser Development.app;
+                             empty disables dev-build handling)
 """
 
 from __future__ import annotations
@@ -42,6 +50,7 @@ from __future__ import annotations
 import argparse
 import base64
 import getpass
+import glob
 import hashlib
 import json
 import os
@@ -72,6 +81,15 @@ QUIT_TIMEOUT = float(os.environ.get("BRAVE_MODELS_QUIT_TIMEOUT", "30"))
 DS4_WAIT = float(os.environ.get("BRAVE_MODELS_DS4_WAIT", "240"))
 SKIP_PROFILES = {"Guest Profile", "System Profile"}
 PRIVATE_IP_FLAG = "brave-ai-chat-allow-private-ips@1"
+
+# Locally built dev channels (pnpm/npm `start`) always launch with
+# --use-mock-keychain, whose key comes from Chromium's FakeKeychainV2 with
+# the fixed password below — same OSCrypt derivation as the real keychain
+# (PBKDF2-HMAC-SHA1, salt b"saltysalt", 1003 iters, AES-128-CBC, fixed
+# 16-space IV, "v10" tag), only the password differs.
+MOCK_KEYCHAIN_PASSWORD = "mock_password"
+DEV_CHANNEL_DIR = "Brave-Browser-Development"
+DEV_APP_GLOB = "~/src/out/*/Brave Browser Development.app"
 
 # Channel data-dir name -> macOS app name (for quit/relaunch). Unknown
 # Brave-Browser-* dirs map to "Brave Browser <Suffix>".
@@ -181,6 +199,19 @@ def channel_app_name(channel_dir: Path) -> str:
         suffix = name[len("Brave-Browser"):].lstrip("-")
         return f"Brave Browser {suffix}" if suffix else "Brave Browser"
     return name
+
+
+def dev_build_detected(channel_dir: Path) -> bool:
+    """True when the channel belongs to a locally built Development app
+    (~/src/out/... built via pnpm/npm `start`). Those builds launch with
+    --use-mock-keychain, so their Venice api_key must be encrypted with the
+    mock-keychain password."""
+    if channel_dir.name != DEV_CHANNEL_DIR:
+        return False
+    pattern = os.environ.get("BRAVE_DEV_APP_GLOB", DEV_APP_GLOB)
+    if not pattern:
+        return False
+    return bool(glob.glob(os.path.expanduser(pattern)))
 
 
 def discover_channels() -> list[Path]:
@@ -447,36 +478,41 @@ def make_key(seed: str) -> str:
     return "custom:" + hashlib.md5(seed.encode()).hexdigest()[:8]
 
 
-def _brave_encryption_key() -> bytes:
+def _brave_encryption_key(password: str | None = None) -> bytes:
+    """OSCrypt mac v10 key: PBKDF2-HMAC-SHA1(password, b"saltysalt", 1003),
+    16 bytes. password=None reads the real "Brave Safe Storage" keychain
+    entry; dev builds launched with --use-mock-keychain use the fixed
+    FakeKeychainV2 password instead."""
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-    result = subprocess.run(
-        [
-            "security",
-            "find-generic-password",
-            "-s",
-            "Brave Safe Storage",
-            "-a",
-            "Brave",
-            "-w",
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    password = result.stdout.strip().encode()
+    if password is None:
+        result = subprocess.run(
+            [
+                "security",
+                "find-generic-password",
+                "-s",
+                "Brave Safe Storage",
+                "-a",
+                "Brave",
+                "-w",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        password = result.stdout.strip()
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA1(), length=16, salt=b"saltysalt", iterations=1003
     )
-    return kdf.derive(password)
+    return kdf.derive(password.encode())
 
 
-def encrypt_api_key(plaintext: str) -> str:
+def encrypt_api_key(plaintext: str, password: str | None = None) -> str:
     from cryptography.hazmat.primitives import padding
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-    key = _brave_encryption_key()
+    key = _brave_encryption_key(password)
     iv = b" " * 16  # Chromium OSCrypt macOS fixed IV
 
     padder = padding.PKCS7(128).padder()
@@ -489,13 +525,38 @@ def encrypt_api_key(plaintext: str) -> str:
     return base64.b64encode(b"v10" + ciphertext).decode()
 
 
+def decrypt_api_key(encoded: str) -> str | None:
+    """Decrypt an OSCrypt mac "v10..." blob with the real "Brave Safe
+    Storage" keychain password. Returns None on any failure (invalid
+    base64, foreign/mock-keychain blob, wrong keychain secret)."""
+    from cryptography.hazmat.primitives import padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    try:
+        encrypted = base64.b64decode(encoded)
+        if not encrypted.startswith(b"v10") or len(encrypted) < 3 + 16:
+            return None
+        key = _brave_encryption_key()
+        cipher = Cipher(algorithms.AES(key), modes.CBC(b" " * 16))
+        dec = cipher.decryptor()
+        padded = dec.update(encrypted[3:]) + dec.finalize()
+        unpadder = padding.PKCS7(128).unpadder()
+        return (unpadder.update(padded) + unpadder.finalize()).decode()
+    except (ValueError, TypeError, subprocess.SubprocessError):
+        return None
+
+
 def find_existing_venice_blob(channels: list[Path]) -> str | None:
     """Reuse the encrypted Venice api_key already stored in any profile.
 
-    All Brave channels share the single "Brave Safe Storage" keychain entry,
-    so the blob is valid across channels.
+    All regular Brave channels share the single "Brave Safe Storage"
+    keychain entry, so the blob is valid across channels. Locally built
+    Development channels are skipped: their blobs are mock-keychain
+    encrypted and unusable anywhere else.
     """
     for channel in channels:
+        if dev_build_detected(channel):
+            continue
         for profile_dir, _ in discover_profiles(channel):
             prefs_path = channel / profile_dir / "Preferences"
             try:
@@ -632,23 +693,55 @@ def build_custom_model(model: dict, api_key: str) -> dict:
     }
 
 
-def resolve_api_key(args: argparse.Namespace, blob: str | None) -> str | None:
-    """Returns the api_key string to store, or None when unavailable."""
+def resolve_api_keys(
+    args: argparse.Namespace, blob: str | None
+) -> tuple[str | None, str | None]:
+    """Returns (real_key, dev_key).
+
+    real_key: api_key for regular channels — encrypted with the "Brave Safe
+    Storage" keychain password (a stored blob is reused verbatim when it
+    cannot be decrypted). dev_key: same plaintext encrypted with the
+    mock-keychain password for locally built Development channels; falls
+    back to the stored blob (with a warning) when there is no plaintext.
+    Both None → no key available.
+    """
     plaintext = args.api_key or os.environ.get("VENICE_API_KEY")
     if plaintext:
-        return encrypt_api_key(plaintext)
+        return (
+            encrypt_api_key(plaintext),
+            encrypt_api_key(plaintext, password=MOCK_KEYCHAIN_PASSWORD),
+        )
     if blob:
-        return blob
+        try:
+            recovered = decrypt_api_key(blob)
+        except Exception:  # never fatal — fall back to the stored blob
+            recovered = None
+        if recovered:
+            log("  reusing stored Venice key (decrypted; dev build gets a "
+                "mock-keychain copy)")
+            return blob, encrypt_api_key(
+                recovered, password=MOCK_KEYCHAIN_PASSWORD
+            )
+        warn(
+            "could not decrypt the stored Venice api_key — reusing it "
+            "verbatim; the local Development build's mock keychain will "
+            "not be able to read it (pass --api-key to fix)"
+        )
+        return blob, blob
     if args.dry_run:
-        return "(preview — no key needed)"
+        placeholder = "(preview — no key needed)"
+        return placeholder, placeholder
     if sys.stdin.isatty():
         try:
             plaintext = getpass.getpass("Venice API key: ").strip()
         except (EOFError, KeyboardInterrupt):
-            return None
+            return None, None
         if plaintext:
-            return encrypt_api_key(plaintext)
-    return None
+            return (
+                encrypt_api_key(plaintext),
+                encrypt_api_key(plaintext, password=MOCK_KEYCHAIN_PASSWORD),
+            )
+    return None, None
 
 
 def main() -> None:
@@ -713,15 +806,14 @@ def main() -> None:
             log("  unavailable — proceeding without ds4 models")
 
     blob = find_existing_venice_blob(channels)
-    api_key = resolve_api_key(args, blob)
-    if api_key is None:
+    real_key, dev_key = resolve_api_keys(args, blob)
+    if real_key is None:
         die(
             "no Venice API key available (pass --api-key, set VENICE_API_KEY, "
             "or keep at least one existing Venice model in Preferences)"
         )
-    key_source = "reused encrypted blob" if not (args.api_key or os.environ.get("VENICE_API_KEY")) and blob else "provided"
 
-    venice_entries = [build_custom_model(m, api_key) for m in venice]
+    venice_entries = [build_custom_model(m, real_key) for m in venice]
     ds4_custom = build_ds4_models(ds4_entries) if ds4_entries else []
     custom_models = venice_entries + ds4_custom
 
@@ -739,19 +831,30 @@ def main() -> None:
     if default_key:
         log(f"\nDefault Leo model: {default_name} ({default_key})")
 
-    quit_channels: list[str] = []
+    quit_channels: list[tuple[str, bool]] = []  # (app_name, is_dev_build)
     updated_profiles = 0
     for channel in channels:
         app_name = channel_app_name(channel)
+        is_dev = dev_build_detected(channel)
+        channel_models = custom_models
+        if is_dev and venice:
+            channel_models = (
+                [build_custom_model(m, dev_key) for m in venice] + ds4_custom
+            )
         pids = brave_pids(app_name)
         log(f"\n=== {channel.name} ({app_name})")
+        if is_dev:
+            log(
+                "  local development build — Venice api_key encrypted with "
+                "the mock-keychain password (pnpm/npm start default)"
+            )
         if pids:
             if args.dry_run:
                 log(f"  running (pid {pids[0]}) — dry-run: would ask to quit")
             elif ask(f"  {app_name} is running. Quit it now?", args.yes):
                 log("  quitting...")
                 if quit_brave(app_name):
-                    quit_channels.append(app_name)
+                    quit_channels.append((app_name, is_dev))
                 else:
                     warn(
                         f"{app_name} did not exit — skipping this channel "
@@ -767,7 +870,9 @@ def main() -> None:
 
         for profile_dir, display in discover_profiles(channel):
             prefs_path = channel / profile_dir / "Preferences"
-            stats = inject_profile(prefs_path, custom_models, default_key, args.dry_run)
+            stats = inject_profile(
+                prefs_path, channel_models, default_key, args.dry_run
+            )
             if stats.get("error"):
                 continue
             updated_profiles += 1
@@ -785,9 +890,14 @@ def main() -> None:
     log(f"\n{'Would update' if args.dry_run else 'Updated'} "
         f"{updated_profiles} profile(s) across {len(channels)} channel(s).")
 
-    for app_name in quit_channels:
+    for app_name, is_dev in quit_channels:
         if ask(f"Relaunch {app_name}?", args.yes):
-            subprocess.run(["open", "-a", app_name], check=False)
+            cmd = ["open", "-a", app_name]
+            if is_dev:
+                # Dev builds default to --use-mock-keychain; keep the
+                # relaunch consistent with the injected api_key.
+                cmd += ["--args", "--use-mock-keychain"]
+            subprocess.run(cmd, check=False)
 
     if ds4_started:
         log("\nNOTE: ds4 was started for this run and is left running.")
