@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# opencode-gc — periodic maintenance for the opencode data dir.
+#
+# Reclaims disk from known unbounded-growth paths (upstream: anomalyco/opencode
+# #31526 auto_vacuum off, #33356 unbounded event journal, #36093 snapshot GC):
+#   1. snapshot repos: remove tmp_pack_* garbage, git gc --prune=now when large
+#   2. opencode.db: delete superseded event rows (keep latest per message/part),
+#      then VACUUM when freelist is significant
+#   3. tool-output: delete files older than TOOL_OUTPUT_DAYS
+#   4. log: truncate when > LOG_MAX_MB
+#
+# Usage: opencode-gc [--dry-run]
+# Env:   OPENCODE_DATA, TOOL_OUTPUT_DAYS (default 14), LOG_MAX_MB (default 100),
+#        GC_MIN_MB (default 100), VACUUM_MIN_MB (default 1024)
+
+set -euo pipefail
+
+DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    *) echo "usage: opencode-gc [--dry-run]" >&2; exit 2 ;;
+  esac
+done
+
+DATA_DIR="${OPENCODE_DATA:-$HOME/.local/share/opencode}"
+DB="$DATA_DIR/opencode.db"
+TOOL_OUTPUT_DAYS="${TOOL_OUTPUT_DAYS:-14}"
+LOG_MAX_MB="${LOG_MAX_MB:-100}"
+GC_MIN_MB="${GC_MIN_MB:-100}"
+VACUUM_MIN_MB="${VACUUM_MIN_MB:-1024}"
+BATCH=25000
+
+run() {
+  if [ "$DRY_RUN" = 1 ]; then echo "[dry-run] $*"; else "$@"; fi
+}
+
+echo "opencode-gc: $DATA_DIR ($(du -sh "$DATA_DIR" 2>/dev/null | cut -f1)) $(date '+%F %T')"
+if pgrep -x opencode >/dev/null 2>&1; then
+  echo "note: opencode instances running — writes are WAL-safe, VACUUM may wait on locks"
+fi
+
+# --- 1. snapshot repos ------------------------------------------------------
+shopt -s nullglob
+for snaprepo in "$DATA_DIR"/snapshot/*/*/; do
+  [ -f "${snaprepo}HEAD" ] || continue
+  # interrupted-repack garbage (git never consumes tmp_pack_* files)
+  while IFS= read -r -d '' f; do
+    echo "snapshot garbage: $f ($(du -h "$f" | cut -f1))"
+    run rm -f "$f"
+  done < <(find "$snaprepo/objects" -name 'tmp_pack_*' -type f -print0 2>/dev/null)
+  # gc only when the object store is large; refs (active snapshot history) are kept
+  mb=$(du -sm "${snaprepo}objects" 2>/dev/null | cut -f1)
+  if [ "${mb:-0}" -ge "$GC_MIN_MB" ]; then
+    echo "snapshot gc: $snaprepo (${mb}M)"
+    run git --git-dir="$snaprepo" reflog expire --expire=now --expire-unreachable=now --all
+    run git --git-dir="$snaprepo" gc --prune=now
+  fi
+done
+shopt -u nullglob
+
+# --- 2. db: prune superseded events, keep latest per message/part -----------
+if [ -f "$DB" ]; then
+  to_delete=$(sqlite3 "$DB" "
+    SELECT COUNT(*) FROM (
+      SELECT ROW_NUMBER() OVER (
+        PARTITION BY type, aggregate_id,
+          CASE type WHEN 'message.updated.1' THEN json_extract(data,'\$.info.id')
+                    WHEN 'message.part.updated.1' THEN json_extract(data,'\$.part.id') END
+        ORDER BY seq DESC) rn
+      FROM event WHERE type IN ('message.updated.1','message.part.updated.1')
+    ) WHERE rn > 1;" 2>/dev/null || echo 0)
+  echo "db: superseded event rows to delete: ${to_delete}"
+
+  if [ "${to_delete:-0}" -gt 0 ] && [ "$DRY_RUN" != 1 ]; then
+    {
+      echo "PRAGMA busy_timeout=60000;"
+      echo "CREATE TEMP TABLE del_ids AS WITH base AS (
+        SELECT id, type, aggregate_id,
+          CASE type WHEN 'message.updated.1' THEN json_extract(data,'\$.info.id')
+                    WHEN 'message.part.updated.1' THEN json_extract(data,'\$.part.id') END AS obj_id,
+          seq
+        FROM event WHERE type IN ('message.updated.1','message.part.updated.1'))
+        SELECT id FROM (SELECT id, ROW_NUMBER() OVER (
+          PARTITION BY type, aggregate_id, obj_id ORDER BY seq DESC) rn FROM base) WHERE rn>1;"
+      n=$(( (to_delete + BATCH - 1) / BATCH + 2 ))
+      i=0
+      while [ "$i" -lt "$n" ]; do
+        echo "DELETE FROM event WHERE id IN (SELECT id FROM del_ids WHERE rowid IN (SELECT rowid FROM del_ids ORDER BY rowid LIMIT $BATCH));"
+        echo "DELETE FROM del_ids WHERE rowid IN (SELECT rowid FROM del_ids ORDER BY rowid LIMIT $BATCH);"
+        i=$((i + 1))
+      done
+    } | sqlite3 "$DB" >/dev/null
+    echo "db: deleted ${to_delete} superseded event rows"
+  fi
+
+  # VACUUM only if there is meaningful free space to reclaim and headroom for it
+  if [ "$DRY_RUN" != 1 ]; then
+    dead_mb=$(sqlite3 "$DB" "SELECT CAST(ROUND(page_size*freelist_count/1048576.0) AS INTEGER) FROM pragma_page_size(), pragma_freelist_count();" 2>/dev/null || echo 0)
+    db_kb=$(du -k "$DB" | cut -f1)
+    free_kb=$(df -k "$DATA_DIR" | awk 'NR==2 {print $4}')
+    if [ "${dead_mb:-0}" -ge "$VACUUM_MIN_MB" ] && [ "$free_kb" -gt $((db_kb * 2)) ]; then
+      echo "db: VACUUM (dead=${dead_mb}M, file=$(du -h "$DB" | cut -f1))"
+      sqlite3 "$DB" "PRAGMA busy_timeout=300000; PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA integrity_check;" >/dev/null
+      echo "db: vacuumed -> $(du -h "$DB" | cut -f1)"
+    else
+      echo "db: VACUUM skipped (dead=${dead_mb:-0}M < ${VACUUM_MIN_MB}M or low disk headroom)"
+    fi
+  else
+    dead_mb=$(sqlite3 "file:$DB?mode=ro" "SELECT CAST(ROUND(page_size*freelist_count/1048576.0) AS INTEGER) FROM pragma_page_size(), pragma_freelist_count();" 2>/dev/null || echo 0)
+    echo "[dry-run] would VACUUM if dead=${dead_mb:-0}M >= ${VACUUM_MIN_MB}M"
+  fi
+else
+  echo "db: $DB not found, skipping"
+fi
+
+# --- 3. tool-output: age-based cleanup ---------------------------------------
+if [ -d "$DATA_DIR/tool-output" ]; then
+  echo "tool-output: removing files older than ${TOOL_OUTPUT_DAYS}d"
+  if [ "$DRY_RUN" = 1 ]; then
+    find "$DATA_DIR/tool-output" -type f -mtime +"$TOOL_OUTPUT_DAYS" -print
+  else
+    find "$DATA_DIR/tool-output" -type f -mtime +"$TOOL_OUTPUT_DAYS" -print -delete
+  fi
+fi
+
+# --- 4. log truncation --------------------------------------------------------
+shopt -s nullglob
+for lg in "$DATA_DIR"/log/*.log; do
+  mb=$(( $(wc -c <"$lg") / 1024 / 1024 ))
+  if [ "$mb" -ge "$LOG_MAX_MB" ]; then
+    echo "log: $lg (${mb}M) > ${LOG_MAX_MB}M"
+    run : >"$lg"
+  fi
+done
+shopt -u nullglob
+
+echo "opencode-gc done: $DATA_DIR ($(du -sh "$DATA_DIR" 2>/dev/null | cut -f1))"
