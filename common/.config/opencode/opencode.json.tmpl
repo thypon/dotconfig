@@ -276,8 +276,15 @@
       "model": "dynamic/small_model"
     }
   },
-  "plugin": [
-    "@tarquinen/opencode-dcp@3.1.15",
-    ["opencode-auto-resume@1.1.19", { "busyStallStrategy": "off" }]
+  "plugins": [
+    "@tarquinen/opencode-dcp@3.2.0",
+    {
+      "package": "./plugins/opencode-auto-resume-v2.ts",
+      "options": { "busyStallStrategy": "off" }
+    },
+    {
+      "package": "github:beremaran/opencode-subagent-throttle#v0.3.0",
+      "options": { "maxParallel": 12, "mode": "session" }
+    }
   ]
 }

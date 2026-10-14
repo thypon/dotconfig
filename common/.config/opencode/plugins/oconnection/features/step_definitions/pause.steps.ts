@@ -1,6 +1,6 @@
 import { Given, Then, When } from "@cucumber/cucumber"
 import { AUTO_FLAG, MANUAL_FLAG } from "../../src/index"
-import { flagPath, makePlugin, providerStub, runHook, until } from "./support"
+import { flagPath, gateEvent, makePlugin, runHook, until } from "./support"
 
 Given("a fresh state dir", function () {
   this.files = new Set()
@@ -25,19 +25,19 @@ Given("no pause flag exists", function () {
   this.files.clear()
 })
 
-When('a chat.headers hook runs for provider {string}', function (name: string) {
-  runHook(this, providerStub(name))
+When('an http.request hook runs for provider {string}', function (name: string) {
+  runHook(this, gateEvent(name))
 })
 
 When(
-  'a chat.headers hook runs for a remote provider with baseURL {string}',
-  function (baseURL: string) {
-    runHook(this, providerStub("openrouter", baseURL))
+  'an http.request hook runs for provider {string} against {string}',
+  function (name: string, url: string) {
+    runHook(this, gateEvent(name, url))
   },
 )
 
-When("chat.headers hooks run for {int} requests", function (n: number) {
-  for (let i = 0; i < n; i++) runHook(this, providerStub("openrouter"))
+When("http.request hooks run for {int} requests", function (n: number) {
+  for (let i = 0; i < n; i++) runHook(this, gateEvent("openrouter"))
 })
 
 When("the pause flag is removed", function () {
@@ -77,10 +77,11 @@ Then("the manual pause flag does not exist", function () {
   }
 })
 
-Then("the output headers are unchanged", function () {
+Then("the request is unchanged", function () {
   const run = this.hooks[this.hooks.length - 1]
-  if (Object.keys(run.output.headers).length > 0) {
-    throw new Error("gate mutated the output headers")
+  const headers = [...run.event.request.headers.entries()]
+  if (headers.length !== 1 || headers[0]![0] !== "content-type") {
+    throw new Error(`gate mutated the request headers: ${JSON.stringify(headers)}`)
   }
 })
 

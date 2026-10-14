@@ -1,6 +1,5 @@
-import { spawn, spawnSync } from "bun"
-import type { Plugin } from "@opencode-ai/plugin"
-import { tool, type ToolDefinition } from "@opencode-ai/plugin/tool"
+import { Plugin } from "@opencode/plugin"
+import { spawn, spawnSync } from "child_process"
 
 const CLI_LANGUAGES = [
   "bash", "c", "cpp", "csharp", "css", "elixir", "go", "haskell",
@@ -53,15 +52,15 @@ interface RunOptions {
 let sgPath: string | null = null
 
 function findSg(): string | null {
-  const proc = spawnSync(["sg", "--version"], { stdout: "pipe", stderr: "pipe" })
-  if (proc.exitCode === 0 && proc.stdout.toString().includes("ast-grep")) {
+  const proc = spawnSync("sg", ["--version"], { encoding: "utf8" })
+  if (proc.status === 0 && proc.stdout.includes("ast-grep")) {
     return "sg"
   }
 
   const candidates = ["/opt/homebrew/bin/sg", "/usr/local/bin/sg"]
   for (const p of candidates) {
-    const check = spawnSync([p, "--version"], { stdout: "pipe", stderr: "pipe" })
-    if (check.exitCode === 0 && check.stdout.toString().includes("ast-grep")) {
+    const check = spawnSync(p, ["--version"], { encoding: "utf8" })
+    if (check.status === 0 && check.stdout.includes("ast-grep")) {
       return p
     }
   }
@@ -69,7 +68,7 @@ function findSg(): string | null {
   return null
 }
 
-async function runSg(options: RunOptions): Promise<SgResult> {
+async function runSg(options: RunOptions, signal?: AbortSignal): Promise<SgResult> {
   if (!sgPath) {
     return { matches: [], totalMatches: 0, truncated: false, error: "ast-grep not found" }
   }
@@ -94,18 +93,32 @@ async function runSg(options: RunOptions): Promise<SgResult> {
   const paths = (options.paths && options.paths.length > 0) ? options.paths : ["."]
   args.push(...paths)
 
-  const proc = spawn(args, {
-    stdout: "pipe",
-    stderr: "pipe",
+  const proc = spawn(args[0], args.slice(1), {
+    stdio: ["ignore", "pipe", "pipe"],
   })
 
+  // Attach stream readers immediately at spawn; after `exit` the streams may
+  // already be closed and `end` would never fire (plugin hung doing this).
+  let stdout = ""
+  let stderr = ""
+  proc.stdout?.on("data", (chunk: Buffer) => (stdout += chunk.toString()))
+  proc.stderr?.on("data", (chunk: Buffer) => (stderr += chunk.toString()))
+
   const timeout = setTimeout(() => proc.kill(), DEFAULT_TIMEOUT_MS)
+  const onAbort = () => proc.kill()
+  signal?.addEventListener("abort", onAbort, { once: true })
 
-  const exitCode = await proc.exited
-  clearTimeout(timeout)
-
-  const stdout = await new Response(proc.stdout).text()
-  const stderr = await new Response(proc.stderr).text()
+  let exitCode: number | null
+  try {
+    // `close` = process exited AND stdio flushed — safe to read buffers now.
+    exitCode = await new Promise<number | null>((resolve) => {
+      proc.on("close", (code) => resolve(code))
+      proc.on("error", () => resolve(-1))
+    })
+  } finally {
+    clearTimeout(timeout)
+    signal?.removeEventListener("abort", onAbort)
+  }
 
   if (exitCode !== 0 && stdout.trim() === "") {
     if (stderr.includes("No files found")) {
@@ -225,6 +238,108 @@ function formatReplaceResult(result: SgResult, isDryRun: boolean): string {
   return lines.join("\n")
 }
 
+export default Plugin.define({
+  id: "ast-grep",
+  async setup(ctx) {
+    sgPath = findSg()
+
+    if (!sgPath) {
+      console.error("[ast-grep] sg not found, tool disabled")
+      return
+    }
+
+    console.error(`[ast-grep] using sg at ${sgPath}`)
+
+    await ctx.tool.transform((editor) => {
+      editor.add({
+        name: "ast_grep_search",
+        description:
+          "AST-aware code pattern search, 25 languages. Meta-variables: $VAR (single node), $$$ (multiple). " +
+          "Patterns must be complete AST nodes: 'async function $NAME($$$) { $$$ }'. " +
+          "Examples: 'console.log($MSG)', 'def $FUNC($$$):'",
+        input: {
+          type: "object",
+          properties: {
+            pattern: { type: "string", description: "AST pattern with meta-variables ($VAR, $$$). Must be complete AST node." },
+            lang: { type: "string", enum: [...CLI_LANGUAGES], description: "Target language" },
+            paths: { type: "array", items: { type: "string" }, description: "Paths to search (default: ['.'])" },
+            globs: { type: "array", items: { type: "string" }, description: "Include/exclude globs (prefix ! to exclude)" },
+            context: { type: "number", description: "Context lines around match" },
+          },
+          required: ["pattern", "lang"],
+          additionalProperties: false,
+        },
+        execute: async (args, toolCtx) => {
+          const a = args as {
+            pattern: string
+            lang: CliLanguage
+            paths?: string[]
+            globs?: string[]
+            context?: number
+          }
+          try {
+            const result = await runSg(a, toolCtx?.signal)
+            let output = formatSearchResult(result)
+            if (result.matches.length === 0 && !result.error) {
+              const hint = getEmptyResultHint(a.pattern, a.lang)
+              if (hint) output += `\n\n${hint}`
+            }
+            return { content: output }
+          } catch (e) {
+            return { content: `Error: ${e instanceof Error ? e.message : String(e)}` }
+          }
+        },
+      })
+
+      editor.add({
+        name: "ast_grep_replace",
+        description:
+          "AST-aware pattern replace, applies immediately; dryRun=true previews. " +
+          "Meta-variables preserve matched content. Example: pattern='console.log($MSG)' rewrite='logger.info($MSG)'",
+        input: {
+          type: "object",
+          properties: {
+            pattern: { type: "string", description: "AST pattern to match" },
+            rewrite: { type: "string", description: "Replacement pattern (can use $VAR from pattern)" },
+            lang: { type: "string", enum: [...CLI_LANGUAGES], description: "Target language" },
+            paths: { type: "array", items: { type: "string" }, description: "Paths to search" },
+            globs: { type: "array", items: { type: "string" }, description: "Include/exclude globs" },
+            dryRun: { type: "boolean", description: "Preview changes without applying (default: false)" },
+          },
+          required: ["pattern", "rewrite", "lang"],
+          additionalProperties: false,
+        },
+        execute: async (args, toolCtx) => {
+          const a = args as {
+            pattern: string
+            rewrite: string
+            lang: CliLanguage
+            paths?: string[]
+            globs?: string[]
+            dryRun?: boolean
+          }
+          try {
+            const result = await runSg(
+              {
+                pattern: a.pattern,
+                rewrite: a.rewrite,
+                lang: a.lang,
+                paths: a.paths,
+                globs: a.globs,
+                updateAll: a.dryRun !== true,
+              },
+              toolCtx?.signal,
+            )
+            return { content: formatReplaceResult(result, a.dryRun === true) }
+          } catch (e) {
+            return { content: `Error: ${e instanceof Error ? e.message : String(e)}` }
+          }
+        },
+      })
+    })
+  },
+})
+
 function getEmptyResultHint(pattern: string, lang: CliLanguage): string | null {
   const src = pattern.trim()
 
@@ -243,90 +358,3 @@ function getEmptyResultHint(pattern: string, lang: CliLanguage): string | null {
 
   return null
 }
-
-const ast_grep_search: ToolDefinition = tool({
-  description:
-    "AST-aware code pattern search, 25 languages. Meta-variables: $VAR (single node), $$$ (multiple). " +
-    "Patterns must be complete AST nodes: 'async function $NAME($$$) { $$$ }'. " +
-    "Examples: 'console.log($MSG)', 'def $FUNC($$$):'",
-  args: {
-    pattern: tool.schema.string().describe("AST pattern with meta-variables ($VAR, $$$). Must be complete AST node."),
-    lang: tool.schema.enum(CLI_LANGUAGES).describe("Target language"),
-    paths: tool.schema.array(tool.schema.string()).optional().describe("Paths to search (default: ['.'])"),
-    globs: tool.schema.array(tool.schema.string()).optional().describe("Include/exclude globs (prefix ! to exclude)"),
-    context: tool.schema.number().optional().describe("Context lines around match"),
-  },
-  execute: async (args, ctx) => {
-    try {
-      const result = await runSg({
-        pattern: args.pattern,
-        lang: args.lang as CliLanguage,
-        paths: args.paths,
-        globs: args.globs,
-        context: args.context,
-      })
-
-      let output = formatSearchResult(result)
-
-      if (result.matches.length === 0 && !result.error) {
-        const hint = getEmptyResultHint(args.pattern, args.lang as CliLanguage)
-        if (hint) output += `\n\n${hint}`
-      }
-
-      ctx.metadata({ metadata: { output } })
-      return output
-    } catch (e) {
-      const output = `Error: ${e instanceof Error ? e.message : String(e)}`
-      ctx.metadata({ metadata: { output } })
-      return output
-    }
-  },
-})
-
-const ast_grep_replace: ToolDefinition = tool({
-  description:
-    "AST-aware pattern replace, applies immediately; dryRun=true previews. " +
-    "Meta-variables preserve matched content. Example: pattern='console.log($MSG)' rewrite='logger.info($MSG)'",
-  args: {
-    pattern: tool.schema.string().describe("AST pattern to match"),
-    rewrite: tool.schema.string().describe("Replacement pattern (can use $VAR from pattern)"),
-    lang: tool.schema.enum(CLI_LANGUAGES).describe("Target language"),
-    paths: tool.schema.array(tool.schema.string()).optional().describe("Paths to search"),
-    globs: tool.schema.array(tool.schema.string()).optional().describe("Include/exclude globs"),
-    dryRun: tool.schema.boolean().optional().describe("Preview changes without applying (default: false)"),
-  },
-  execute: async (args, ctx) => {
-    try {
-      const result = await runSg({
-        pattern: args.pattern,
-        rewrite: args.rewrite,
-        lang: args.lang as CliLanguage,
-        paths: args.paths,
-        globs: args.globs,
-        updateAll: args.dryRun !== true,
-      })
-      const output = formatReplaceResult(result, args.dryRun === true)
-      ctx.metadata({ metadata: { output } })
-      return output
-    } catch (e) {
-      const output = `Error: ${e instanceof Error ? e.message : String(e)}`
-      ctx.metadata({ metadata: { output } })
-      return output
-    }
-  },
-})
-
-export default (async () => {
-  sgPath = findSg()
-
-  if (!sgPath) {
-    console.error("[ast-grep] sg not found, tool disabled")
-    return {}
-  }
-
-  console.error(`[ast-grep] using sg at ${sgPath}`)
-
-  return {
-    tool: { ast_grep_search, ast_grep_replace },
-  }
-}) satisfies Plugin

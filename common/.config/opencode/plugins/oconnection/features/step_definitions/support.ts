@@ -4,10 +4,16 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { AUTO_FLAG, MANUAL_FLAG, createOConnection, stateDir } from "../../src/index"
 
+export type GateEvent = {
+  sessionID: string
+  model: { providerID: string }
+  request: Request
+}
+
 export type HookRun = {
   promise: Promise<void>
   settled: boolean
-  output: { headers: Record<string, string> }
+  event: GateEvent
 }
 
 export class OConnectionWorld {
@@ -60,49 +66,32 @@ export async function makePlugin(world: any) {
       world.sleepCount++
       await new Promise((resolve) => setTimeout(resolve, 0))
     },
-    client: {
-      app: {
-        log: async (req: unknown) => {
-          const body = (req as { body?: { level?: string; message?: string } }).body ?? {}
-          world.logs.push({ level: body.level ?? "", message: body.message ?? "" })
-        },
-      },
+    log: async (level: string, message: string, extra?: Record<string, unknown>) => {
+      world.logs.push({ level, message: extra ? `${message} ${JSON.stringify(extra)}` : message })
     },
   })
 }
 
-export function providerStub(name: string, baseURL?: string) {
-  const info: { id: string; options: Record<string, unknown> } = { id: name, options: {} }
-  const provider: { info: typeof info; options: Record<string, unknown> } = {
-    info,
-    options: {},
-  }
-  if (baseURL) provider.options.baseURL = baseURL
-  return provider
-}
-
-export function hookInput(provider: ReturnType<typeof providerStub>) {
+export function gateEvent(providerID: string, url?: string): GateEvent {
   return {
     sessionID: "ses_test",
-    agent: "build",
-    model: {} as never,
-    provider,
-    message: {} as never,
+    model: { providerID },
+    request: new Request(url ?? "https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    }),
   }
 }
 
-export function runHook(world: any, provider: ReturnType<typeof providerStub>) {
-  const output = { headers: {} as Record<string, string> }
+export function runHook(world: any, event: GateEvent) {
   const run: HookRun = {
-    promise: Promise.resolve().then(() => {}), // replaced below
+    promise: Promise.resolve(),
     settled: false,
-    output,
+    event,
   }
-  const hook = world.plugin!["chat.headers"]
-  const promise = (hook as (input: unknown, output: unknown) => Promise<void>)(
-    hookInput(provider),
-    output,
-  ).then(
+  const hook = world.plugin!["http.request"]
+  const promise = (hook as (input: GateEvent) => Promise<void>)(event).then(
     () => {
       run.settled = true
     },

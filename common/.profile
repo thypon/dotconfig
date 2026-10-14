@@ -176,6 +176,11 @@ export PATH="$HOME/.vms/bin:$PATH"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+##############################
+# OpenCode Background Agents #
+##############################
+export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true
+
 #############################
 # Private Profile if exists #
 #############################

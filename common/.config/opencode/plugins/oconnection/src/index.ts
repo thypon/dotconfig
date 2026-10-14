@@ -1,4 +1,4 @@
-import type { Plugin } from "@opencode-ai/plugin"
+import { Plugin } from "@opencode/plugin"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 
@@ -17,19 +17,18 @@ export function stateDir(): string {
 
 const LOOPBACK = /localhost|127\.0\.0\.1|\[::1\]/i
 
-// Shape-compatible subset of the chat.headers ProviderContext
-// ({ source, info: Provider, options }) so tests can pass stubs.
-export type ProviderLike = {
-  info?: { id?: string; options?: Record<string, unknown> }
-  options?: Record<string, unknown>
+// V2 http.request hook event: native provider request before dispatch.
+export type GateEvent = {
+  sessionID?: string
+  model?: { providerID?: string }
+  request?: { url?: string }
 }
 
 // Local inference servers keep working while traveling: no gate.
-export function isLocalProvider(provider: ProviderLike | undefined): boolean {
-  if (provider?.info?.id === "ds4") return true
-  for (const url of [provider?.options?.baseURL, provider?.info?.options?.baseURL]) {
-    if (typeof url === "string" && LOOPBACK.test(url)) return true
-  }
+export function isLocalRequest(event: GateEvent): boolean {
+  if (event.model?.providerID === "ds4") return true
+  const url = event.request?.url
+  if (typeof url === "string" && LOOPBACK.test(url)) return true
   return false
 }
 
@@ -37,9 +36,9 @@ export async function createOConnection(
   opts: {
     stateDir?: string
     pollMs?: number
-    client?: unknown
     exists?: (path: string) => boolean
     sleep?: (ms: number) => Promise<void>
+    log?: (level: string, message: string, extra?: Record<string, unknown>) => Promise<void> | void
   } = {},
 ) {
   const dir = opts.stateDir ?? stateDir()
@@ -47,48 +46,45 @@ export async function createOConnection(
   const exists = opts.exists ?? ((path: string) => existsSync(path))
   const sleep =
     opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
-  const client = opts.client as { app?: { log?: (req: unknown) => Promise<unknown> } } | undefined
-  const log = async (level: string, message: string, extra?: Record<string, unknown>) => {
-    try {
-      await client?.app?.log?.({ body: { service: "oconnection", level, message, extra } })
-    } catch {
-      // logging must never break the runtime
-    }
-  }
+  const log =
+    opts.log ??
+    ((level: string, message: string, extra?: Record<string, unknown>) => {
+      console.error(`[oconnection] ${level}: ${message}`, extra ?? "")
+    })
 
   const held = () => exists(join(dir, MANUAL_FLAG)) || exists(join(dir, AUTO_FLAG))
 
   return {
     paused: held,
-    // Runs inside LLMRequestPrep.prepare before the HTTP request is assembled.
-    // Awaiting here holds the request indefinitely (no timeout wraps hooks),
-    // keeping the TUI pending until the flag disappears. Polling (not fs.watch)
-    // so the gate survives sleep/wake.
-    "chat.headers": async (
-      input: { sessionID?: string; provider?: ProviderLike },
-      output?: { headers?: Record<string, string> },
-    ) => {
-      void output
-      if (isLocalProvider(input.provider)) return
+    // Runs as the V2 session "http.request" hook before the native provider
+    // HTTP dispatch. Awaiting here holds the request indefinitely, keeping the
+    // client pending until the flag disappears. Polling (not fs.watch) so the
+    // gate survives sleep/wake.
+    "http.request": async (event: GateEvent): Promise<void> => {
+      if (isLocalRequest(event)) return
       let waited = false
       while (held()) {
         if (!waited) {
           waited = true
           await log("info", "oconnection: request held (travel pause)", {
-            sessionID: input.sessionID,
-            provider: input.provider?.info?.id,
+            sessionID: event.sessionID,
+            provider: event.model?.providerID,
           })
         }
         await sleep(pollMs)
       }
       if (waited) {
-        await log("info", "oconnection: request released", { sessionID: input.sessionID })
+        await log("info", "oconnection: request released", { sessionID: event.sessionID })
       }
     },
   }
 }
 
-export default (async ({ client }) => {
-  console.error("[oconnection] registered, gate: chat.headers, state dir: " + stateDir())
-  return createOConnection({ client })
-}) satisfies Plugin
+export default Plugin.define({
+  id: "oconnection",
+  async setup(ctx) {
+    console.error("[oconnection] registered, gate: http.request, state dir: " + stateDir())
+    const gate = await createOConnection()
+    await ctx.session.hook("http.request", gate["http.request"] as never)
+  },
+})

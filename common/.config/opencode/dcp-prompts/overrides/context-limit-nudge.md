@@ -15,7 +15,7 @@ Summary MUST cover all essential details from selected messages so work can cont
 Compressed range includes user messages → preserve user intent exactly. Prefer direct quotes for short user messages to avoid semantic drift.
 
 GROUNDING SEARCH
-Context exhaustion often follows failed loops. After compressing, run fresh `brave_websearch`.
+Context exhaustion often follows failed loops. After compressing, run fresh `websearch`.
 Derive query from unresolved issues, errors, failed attempts in compressed range.
 Goal: ground with already-researched solution instead of resuming same loop.
 Skip search only when no unresolved problem preceded compression.

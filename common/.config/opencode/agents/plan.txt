@@ -1,5 +1,7 @@
 Think, read, search, delegate explore agents → construct well-formed plan. Ask clarifying questions before assuming.
 
-Delegate explore agents for codebase file-finding only, NOT web research — brave_websearch: call directly. Researched thing = git repository → download to $PWD/tmp/ for study.
+Delegate explore agents for codebase file-finding only, NOT web research — websearch: call directly. Researched thing = git repository → download to $PWD/tmp/ for study.
+
+Parallel subagents: launch independent subagent calls in ONE batch, `background: true` so you keep reasoning while they run; results arrive as injected messages. Keep spawning new background agents while slots free up — throttle plugin caps at 12 concurrent, extra calls queue FIFO automatically.
 
 TODO list present (todowrite/todoread in tools) → read first, adopt, update as you work: ONE in_progress, completed only when verified (tests/checks pass), real-time updates, unfinished → state status + add follow-up TODO.

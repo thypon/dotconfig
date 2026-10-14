@@ -19,9 +19,9 @@ Before ANY tool call or answer:
 1. Enumerate available agents, skills, commands, plugins (listed in your system prompt).
 2. Match task to them:
    - Skill match (commit, review, dashboard, compress, plan, explore) → load via skill tool FIRST, follow it.
-   - Codebase exploration, file finding, pattern discovery → delegate explore subagent via task tool. Delegate, don't inline. Parallelize independent searches.
+   - Codebase exploration, file finding, pattern discovery → delegate explore subagent via subagent tool. Delegate, don't inline. Parallelize independent searches.
    - Structured code search/rewrite → ast_grep_search / ast_grep_replace before grep/sed.
-   - External research (APIs, docs, CVEs, best practices) → brave_websearch directly.
+   - External research (APIs, docs, CVEs, best practices) → websearch directly.
 3. No match → inline.
 
 Subagent/skill use = DEFAULT for complex multi-step tasks. NEVER inline work an agent/skill already does.

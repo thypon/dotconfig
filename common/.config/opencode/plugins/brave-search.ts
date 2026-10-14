@@ -1,12 +1,10 @@
-import type { Plugin } from "@opencode-ai/plugin"
-import { tool, type ToolDefinition } from "@opencode-ai/plugin/tool"
+import { Plugin } from "@opencode/plugin"
 import { homedir } from "os"
 import { join } from "path"
 import { readFileSync } from "fs"
 
 const BRAVE_API = "https://api.search.brave.com/res/v1/web/search"
 const MAX_RESULTS = 20
-const FRESHNESS_OPTIONS = ["auto", "pd", "pw", "pm", "py"] as const
 
 const KEY_FILE = join(homedir(), ".config", "opencode", "brave-search-api-key")
 
@@ -24,9 +22,6 @@ interface BraveWebResult {
   url: string
   description?: string
   age?: string
-  language?: string
-  family_friendly?: boolean
-  source?: string
 }
 
 interface BraveSearchResponse {
@@ -34,100 +29,51 @@ interface BraveSearchResponse {
   query?: { original: string }
 }
 
-async function braveSearch(
-  query: string,
-  count: number,
-  freshness?: string,
-): Promise<string> {
-  const apiKey = getApiKey()
-  if (!apiKey) {
-    return "Error: BRAVE_API_KEY not set. Set it in env or .env"
-  }
+export default Plugin.define({
+  id: "brave-search",
+  async setup(ctx) {
+    const apiKey = getApiKey()
+    if (!apiKey) {
+      console.error("[brave-search] BRAVE_API_KEY not set, provider disabled")
+      return
+    }
 
-  const url = new URL(BRAVE_API)
-  url.searchParams.set("q", query)
-  url.searchParams.set("count", String(Math.min(Math.max(count, 1), MAX_RESULTS)))
-  if (freshness && freshness !== "auto") {
-    url.searchParams.set("freshness", freshness)
-  }
+    await ctx.websearch.transform((editor) => {
+      editor.add({
+        id: "brave",
+        name: "Brave",
+        execute: async ({ query }, { signal }) => {
+          const url = new URL(BRAVE_API)
+          url.searchParams.set("q", query)
+          url.searchParams.set("count", String(MAX_RESULTS))
 
-  let res: Response
-  try {
-    res = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip",
-        "X-Subscription-Token": apiKey,
-      },
+          const res = await fetch(url.toString(), {
+            headers: {
+              Accept: "application/json",
+              "Accept-Encoding": "gzip",
+              "X-Subscription-Token": apiKey,
+            },
+            signal,
+          })
+
+          if (!res.ok) {
+            const body = await res.text().catch(() => "")
+            throw new Error(`Brave API ${res.status}${body ? ` — ${body.slice(0, 500)}` : ""}`)
+          }
+
+          const data = (await res.json()) as BraveSearchResponse
+          const results = data.web?.results ?? []
+          return results.map((r) => ({
+            url: r.url,
+            title: r.title,
+            content: [r.description, r.age ? `Age: ${r.age}` : ""].filter(Boolean).join("\n"),
+            time: {},
+          }))
+        },
+      })
+      editor.default.set("brave")
     })
-  } catch (e) {
-    return `Error: Network failure — ${e instanceof Error ? e.message : String(e)}`
-  }
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "")
-    return `Error: Brave API ${res.status}${body ? ` — ${body.slice(0, 500)}` : ""}`
-  }
-
-  let data: BraveSearchResponse
-  try {
-    data = (await res.json()) as BraveSearchResponse
-  } catch {
-    return "Error: Failed to parse Brave Search response"
-  }
-
-  const results = data.web?.results ?? []
-  if (results.length === 0) {
-    return `No results for "${query}". Try a different query.`
-  }
-
-  const lines: string[] = [
-    `## Brave Search: "${data.query?.original ?? query}"`,
-    "",
-  ]
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i]
-    lines.push(`${i + 1}. [${r.title}](${r.url})`)
-    if (r.description) lines.push(`   ${r.description}`)
-    if (r.age) lines.push(`   _Age: ${r.age}_`)
-    if (r.language && r.language !== "en") lines.push(`   _Lang: ${r.language}_`)
-    lines.push("")
-  }
-
-  return lines.join("\n")
-}
-
-const brave_websearch: ToolDefinition = tool({
-  description:
-    "Web search via Brave. Ranked results: titles, URLs, descriptions, age. " +
-    "Use for current events, docs, research beyond training data.",
-  args: {
-    query: tool.schema.string().describe("Search query"),
-    count: tool.schema.number().optional().describe("Results count (1-20, default 10)"),
-    freshness: tool.schema
-      .enum(FRESHNESS_OPTIONS)
-      .optional()
-      .describe(
-        "Time filter: auto (default), pd (past day), pw (past week), pm (past month), py (past year)",
-      ),
-  },
-  execute: async (args, ctx) => {
-    const output = await braveSearch(
-      args.query,
-      args.count ?? 10,
-      args.freshness,
-    )
-    ctx.metadata({ metadata: { output } })
-    return output
+    console.error("[brave-search] websearch provider 'brave' registered as default")
   },
 })
-
-export default (async () => {
-  if (!getApiKey()) {
-    console.error("[brave-search] BRAVE_API_KEY not set, tool disabled")
-    return {}
-  }
-
-  console.error("[brave-search] registered, tool: brave_websearch")
-  return { tool: { brave_websearch } }
-}) satisfies Plugin

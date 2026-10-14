@@ -1,0 +1,7 @@
+{
+  "name": "opencode-config-host",
+  "private": true,
+  "dependencies": {
+    "@opencode/plugin": "2.0.28"
+  }
+}
