@@ -21,6 +21,30 @@ MACOS_INSTALL_STUB = """#!/bin/sh
 echo "macos-install $*" >> "$MACOS_INSTALL_LOG"
 """
 
+SERVICE_SHIM = """#!/bin/sh
+case "$1" in
+service)
+  case "$2" in
+  status)
+    if [ -f "$SERVICE_UP_FILE" ]; then exit 0; else exit 3; fi
+    ;;
+  restart)
+    echo restart >> "$SERVICE_LOG"
+    exit 0
+    ;;
+  esac
+  ;;
+esac
+exit 1
+"""
+
+
+def _service_env(ctx):
+    ctx.service_up = ctx.env.state_dir / "service-up"
+    ctx.service_log = ctx.env.state_dir / "service.log"
+    ctx.env.shim("opencode", SERVICE_SHIM)
+    ctx.env.set_env(SERVICE_UP_FILE=str(ctx.service_up), SERVICE_LOG=str(ctx.service_log))
+
 
 def _touch(ctx, relpath, content):
     path = ctx.toplevel / relpath
@@ -68,6 +92,17 @@ def fake_macos_installer(ctx):
     _touch(ctx, "macos/install.sh", MACOS_INSTALL_STUB)
     ctx.macos_install_log = ctx.env.state_dir / "macos-install.log"
     ctx.env.set_env(MACOS_INSTALL_LOG=str(ctx.macos_install_log))
+
+
+@given("the opencode background service is running")
+def service_running(ctx):
+    _service_env(ctx)
+    ctx.service_up.touch()
+
+
+@given("the opencode background service is stopped")
+def service_stopped(ctx):
+    _service_env(ctx)
 
 
 @given("the pi config directory in home is a symlink")
@@ -133,6 +168,18 @@ def provider_reresolution_ran(ctx):
 @then("the macos installer ran")
 def macos_installer_ran(ctx):
     assert ctx.macos_install_log.exists()
+
+
+@then("the background service restart ran")
+def service_restart_ran(ctx):
+    assert ctx.service_log.exists(), "no service restart logged"
+    assert "restart" in ctx.service_log.read_text()
+
+
+@then("the background service restart did not run")
+def service_restart_skipped(ctx):
+    if ctx.service_log.exists():
+        raise AssertionError(ctx.service_log.read_text())
 
 
 @then("the hook reports no macos directory")

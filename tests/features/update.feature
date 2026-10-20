@@ -41,6 +41,20 @@ Feature: dotfiles update git hook
     Then the hook exits 0
     And the provider re-resolution ran
 
+  Scenario: The background service restarts after the update
+    Given a fake repo toplevel with common files
+    And the opencode background service is running
+    When the update hook runs
+    Then the hook exits 0
+    And the background service restart ran
+
+  Scenario: A stopped background service is not restarted
+    Given a fake repo toplevel with common files
+    And the opencode background service is stopped
+    When the update hook runs
+    Then the hook exits 0
+    And the background service restart did not run
+
   Scenario: The macos installer runs on darwin
     Given a fake repo toplevel with common files
     And a fake macos installer in the toplevel

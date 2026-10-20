@@ -176,6 +176,17 @@ if [ -x "$HOME/.local/bin/provider" ]; then
 	"$HOME/.local/bin/provider" || true
 fi
 
+# Reload the background opencode service (when one is running) so fresh
+# config and plugins take effect without a manual restart.
+if command -v opencode >/dev/null 2>&1; then
+	if opencode service status >/dev/null 2>&1; then
+		echo "Restarting opencode background service..."
+		opencode service restart || true
+	else
+		echo "No opencode background service running, skipping restart"
+	fi
+fi
+
 _pnpm_install
 _pnpm_install_plugins
 _install_plugin_deps
