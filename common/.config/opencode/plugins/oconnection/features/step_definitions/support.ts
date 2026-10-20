@@ -72,6 +72,20 @@ export async function makePlugin(world: any) {
   })
 }
 
+// Same harness but with the production default logger, so scenarios can
+// assert against the real events.log writer.
+export async function makePluginWithDefaults(world: any) {
+  return createOConnection({
+    stateDir: world.dir,
+    pollMs: 0,
+    exists: (path: string) => world.files.has(path),
+    sleep: async () => {
+      world.sleepCount++
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    },
+  })
+}
+
 export function gateEvent(providerID: string, url?: string): GateEvent {
   return {
     sessionID: "ses_test",

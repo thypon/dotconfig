@@ -46,3 +46,21 @@ Feature: Travel pause gate
     When an http.request hook runs for provider "openrouter"
     Then the hook returns
     And the request is unchanged
+
+  Scenario: the event log records the held request
+    Given the pause flag exists
+    And the default-logger plugin is created
+    When an http.request hook runs for provider "openrouter"
+    And the pause flag is removed
+    Then the hook returns
+    And the event log records a hold with the request url
+    And the event log records a release with waitMs
+
+  Scenario: the event log rotates past the size limit
+    Given the pause flag exists
+    And the default-logger plugin is created
+    And the event log exceeds the rotation limit
+    When an http.request hook runs for provider "openrouter"
+    And the pause flag is removed
+    Then the hook returns
+    And the event log rotated

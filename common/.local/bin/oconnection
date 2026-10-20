@@ -15,6 +15,9 @@
 #   OCONNECTION_WAKE_MAX     wake give-up in seconds (default: 600)
 #   OCONNECTION_CHECK_INTERVAL  wake probe interval in seconds (default: 2)
 #
+# Every state change appends a JSON line to $STATE_DIR/events.log
+# ({"ts","event","flag"}). Past 512 KB the log rotates to events.log.1.
+#
 # Usage: oconnection pause [--auto]       create a pause flag
 #        oconnection unpause [--auto|--all]  remove pause flag(s)
 #        oconnection status               0 = running, 1 = paused
@@ -29,8 +32,20 @@ PAUSED_FILE="$STATE_DIR/paused"
 AUTO_FILE="$STATE_DIR/paused.auto"
 
 usage() {
-  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//; s/^#$//' >&2
+  sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//; s/^#$//' >&2
   exit 2
+}
+
+EVENTS_LOG="$STATE_DIR/events.log"
+ROTATE_BYTES=524288
+
+log_event() {
+  mkdir -p "$STATE_DIR"
+  if [ -f "$EVENTS_LOG" ] && [ "$(wc -c < "$EVENTS_LOG")" -gt "$ROTATE_BYTES" ]; then
+    mv "$EVENTS_LOG" "$EVENTS_LOG.1"
+  fi
+  printf '{"ts":"%s","event":"%s","flag":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" >> "$EVENTS_LOG"
 }
 
 now() {
@@ -63,17 +78,17 @@ shift
 case "$cmd" in
 pause)
   case "${1:-}" in
-  "" ) pause "$PAUSED_FILE" ;;
-  --auto) pause "$AUTO_FILE" ;;
+  "" ) pause "$PAUSED_FILE"; log_event pause manual ;;
+  --auto) pause "$AUTO_FILE"; log_event pause auto ;;
   *) usage ;;
   esac
   state
   ;;
 unpause)
   case "${1:-}" in
-  "" ) rm -f "$PAUSED_FILE" ;;
-  --auto) rm -f "$AUTO_FILE" ;;
-  --all) rm -f "$PAUSED_FILE" "$AUTO_FILE" ;;
+  "" ) rm -f "$PAUSED_FILE"; log_event unpause manual ;;
+  --auto) rm -f "$AUTO_FILE"; log_event unpause auto ;;
+  --all) rm -f "$PAUSED_FILE" "$AUTO_FILE"; log_event unpause all ;;
   *) usage ;;
   esac
   state
@@ -90,12 +105,14 @@ wake)
   deadline=$(( $(now) + WAKE_MAX ))
   while ! curl -sf "$CHECK_URL" > /dev/null 2>&1; do
     if [ "$(now)" -ge "$deadline" ]; then
+      log_event wake-timeout auto
       printf 'oconnection: no connectivity after %ss, still %s\n' "$WAKE_MAX" "$(state)" >&2
       exit 1
     fi
     sleep "$CHECK_INTERVAL"
   done
   rm -f "$AUTO_FILE"
+  log_event wake-release auto
   state
   ;;
 -h|--help|help)

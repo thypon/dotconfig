@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -104,3 +105,24 @@ def then_no_flags(ctx):
 def then_usage(ctx):
     assert "oconnection pause [--auto]" in ctx.proc.stderr
     assert "oconnection status" in ctx.proc.stderr
+
+
+@then(parsers.parse('the event log records "{event}" with flag "{flag}"'))
+def then_event_logged(ctx, event, flag):
+    log = ctx.state / "events.log"
+    assert log.is_file(), f"missing {log}"
+    lines = [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+    matches = [l for l in lines if l.get("event") == event and l.get("flag") == flag]
+    assert matches, f"no {event}/{flag} entry in {lines}"
+    assert matches[-1].get("ts"), "missing ts"
+
+
+@given("the event log is seeded past the rotation limit")
+def given_seed_log(ctx):
+    ctx.state.mkdir(parents=True, exist_ok=True)
+    (ctx.state / "events.log").write_text("x" * 600000)
+
+
+@then("the previous event log exists")
+def then_rotated(ctx):
+    assert (ctx.state / "events.log.1").is_file()

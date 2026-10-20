@@ -1,6 +1,8 @@
 import { Given, Then, When } from "@cucumber/cucumber"
-import { AUTO_FLAG, MANUAL_FLAG } from "../../src/index"
-import { flagPath, gateEvent, makePlugin, runHook, until } from "./support"
+import { readFileSync, statSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
+import { AUTO_FLAG, EVENTS_LOG, MANUAL_FLAG, ROTATE_BYTES } from "../../src/index"
+import { flagPath, gateEvent, makePlugin, makePluginWithDefaults, runHook, until } from "./support"
 
 Given("a fresh state dir", function () {
   this.files = new Set()
@@ -11,6 +13,14 @@ Given("a fresh state dir", function () {
 
 Given("the plugin is created", async function () {
   this.plugin = await makePlugin(this)
+})
+
+Given("the default-logger plugin is created", async function () {
+  this.plugin = await makePluginWithDefaults(this)
+})
+
+Given("the event log exceeds the rotation limit", function () {
+  writeFileSync(join(this.dir, EVENTS_LOG), "x".repeat(ROTATE_BYTES + 1))
 })
 
 Given("the pause flag exists", function () {
@@ -92,5 +102,44 @@ Then("the gate logged a hold and a release", function () {
   }
   if (!messages.some((m: string) => m.includes("request released"))) {
     throw new Error("no release log; logs: " + JSON.stringify(messages))
+  }
+})
+
+function readEvents(dir: string): Record<string, unknown>[] {
+  const path = join(dir, EVENTS_LOG)
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+}
+
+Then("the event log records a hold with the request url", function () {
+  const entries = readEvents(this.dir)
+  const hold = entries.find((e) => String(e.message).includes("request held"))
+  if (!hold) throw new Error("no held entry; entries: " + JSON.stringify(entries))
+  const run = this.hooks[this.hooks.length - 1]
+  if (hold.url !== run.event.request.url) {
+    throw new Error(`held url ${hold.url} != ${run.event.request.url}`)
+  }
+  if (hold.sessionID !== run.event.sessionID || hold.provider !== "openrouter") {
+    throw new Error(`bad held identity: ${JSON.stringify(hold)}`)
+  }
+  if (typeof hold.ts !== "string") throw new Error("held entry missing ts")
+})
+
+Then("the event log records a release with waitMs", function () {
+  const entries = readEvents(this.dir)
+  const release = entries.find((e) => String(e.message).includes("request released"))
+  if (!release) throw new Error("no released entry; entries: " + JSON.stringify(entries))
+  if (typeof release.waitMs !== "number") {
+    throw new Error(`release waitMs not a number: ${JSON.stringify(release)}`)
+  }
+})
+
+Then("the event log rotated", function () {
+  const rotated = join(this.dir, EVENTS_LOG + ".1")
+  const info = statSync(rotated)
+  if (info.size !== ROTATE_BYTES + 1) {
+    throw new Error(`rotated log size ${info.size} != ${ROTATE_BYTES + 1}`)
   }
 })

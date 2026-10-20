@@ -1,9 +1,11 @@
 import { Plugin } from "@opencode/plugin"
-import { existsSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from "node:fs"
 import { join } from "node:path"
 
 export const MANUAL_FLAG = "paused"
 export const AUTO_FLAG = "paused.auto"
+export const EVENTS_LOG = "events.log"
+export const ROTATE_BYTES = 524288
 
 // Mirrors the CLI's default: ${XDG_STATE_HOME:-$HOME/.local/state}/oconnection
 export function defaultStateDir(): string {
@@ -32,6 +34,33 @@ export function isLocalRequest(event: GateEvent): boolean {
   return false
 }
 
+// JSONL event writer shared with the oconnection CLI: every gate event lands
+// in $STATE_DIR/events.log as {"ts","level","message",...extra}. Rotates to
+// events.log.1 past ROTATE_BYTES so the file cannot grow unbounded. Also
+// mirrors to console.error for interactive runs.
+export function fileLogger(dir: string, consoleMirror = true) {
+  const path = join(dir, EVENTS_LOG)
+  return (level: string, message: string, extra: Record<string, unknown> = {}) => {
+    try {
+      mkdirSync(dir, { recursive: true })
+      try {
+        if (statSync(path).size > ROTATE_BYTES) renameSync(path, path + ".1")
+      } catch {
+        // no existing log yet
+      }
+      appendFileSync(
+        path,
+        JSON.stringify({ ts: new Date().toISOString(), level, message, ...extra }) + "\n",
+      )
+    } catch (err) {
+      console.error(`[oconnection] log write failed: ${err}`)
+    }
+    if (consoleMirror) {
+      console.error(`[oconnection] ${level}: ${message}`, extra ?? "")
+    }
+  }
+}
+
 export async function createOConnection(
   opts: {
     stateDir?: string
@@ -46,11 +75,7 @@ export async function createOConnection(
   const exists = opts.exists ?? ((path: string) => existsSync(path))
   const sleep =
     opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
-  const log =
-    opts.log ??
-    ((level: string, message: string, extra?: Record<string, unknown>) => {
-      console.error(`[oconnection] ${level}: ${message}`, extra ?? "")
-    })
+  const log = opts.log ?? fileLogger(dir)
 
   const held = () => exists(join(dir, MANUAL_FLAG)) || exists(join(dir, AUTO_FLAG))
 
@@ -62,6 +87,7 @@ export async function createOConnection(
     // gate survives sleep/wake.
     "http.request": async (event: GateEvent): Promise<void> => {
       if (isLocalRequest(event)) return
+      const started = Date.now()
       let waited = false
       while (held()) {
         if (!waited) {
@@ -69,12 +95,17 @@ export async function createOConnection(
           await log("info", "oconnection: request held (travel pause)", {
             sessionID: event.sessionID,
             provider: event.model?.providerID,
+            url: event.request?.url,
           })
         }
         await sleep(pollMs)
       }
       if (waited) {
-        await log("info", "oconnection: request released", { sessionID: event.sessionID })
+        await log("info", "oconnection: request released", {
+          sessionID: event.sessionID,
+          provider: event.model?.providerID,
+          waitMs: Date.now() - started,
+        })
       }
     },
   }
@@ -83,7 +114,10 @@ export async function createOConnection(
 export default Plugin.define({
   id: "oconnection",
   async setup(ctx) {
-    console.error("[oconnection] registered, gate: http.request, state dir: " + stateDir())
+    fileLogger(stateDir())("info", "oconnection: plugin registered", {
+      gate: "http.request",
+      stateDir: stateDir(),
+    })
     const gate = await createOConnection()
     await ctx.session.hook("http.request", gate["http.request"] as never)
   },

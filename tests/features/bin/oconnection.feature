@@ -71,3 +71,39 @@ Feature: oconnection travel pause CLI
     When oconnection runs "frobnicate"
     Then the script exits non-zero
     And the usage is printed
+
+  Scenario: pause is recorded in the event log
+    When oconnection pauses
+    Then the event log records "pause" with flag "manual"
+
+  Scenario: auto pause is recorded in the event log
+    When oconnection pauses with the auto flag
+    Then the event log records "pause" with flag "auto"
+
+  Scenario: unpause is recorded in the event log
+    Given the gate is manually paused
+    When oconnection unpauses
+    Then the event log records "unpause" with flag "manual"
+
+  Scenario: unpause --all is recorded in the event log
+    Given the gate is manually paused
+    And the gate is auto paused
+    When oconnection unpauses with --all
+    Then the event log records "unpause" with flag "all"
+
+  Scenario: wake release is recorded in the event log
+    Given the gate is auto paused
+    When oconnection wakes with a passing check url
+    Then the event log records "wake-release" with flag "auto"
+
+  Scenario: a blocked wake is recorded in the event log
+    Given the gate is auto paused
+    When oconnection wakes with a failing check url
+    Then the script exits 1
+    And the event log records "wake-timeout" with flag "auto"
+
+  Scenario: the event log rotates when it grows too large
+    Given the event log is seeded past the rotation limit
+    When oconnection pauses
+    Then the previous event log exists
+    And the pause flag exists in the state dir
