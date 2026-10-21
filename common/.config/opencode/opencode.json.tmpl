@@ -1,21 +1,18 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "share": "disabled",
-  "autoupdate": false,
-  "lsp": true,
+  "update": "disable",
   "default_agent": "plan",
   "model": "dynamic/model",
-  "small_model": "dynamic/small_model",
-  "provider": {
+  "providers": {
     "openrouter": {
-      "options": {
+      "settings": {
         "timeout": 600000
       }
     },
     "ds4": {
-      "npm": "@ai-sdk/openai-compatible",
       "name": "DS4 Local",
-      "options": {
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
         "baseURL": "http://localhost:8000/v1",
         "apiKey": "ds4-local"
       },
@@ -40,234 +37,224 @@
       }
     },
     "amazon-bedrock": {
-      "options": {
+      "settings": {
         "region": "us-west-2",
         "profile": "claude-code-bedrock-sso"
       },
       "models": {
         "claude-opus": {
-          "id": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/a4v3qtnkelgp",
+          "modelID": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/a4v3qtnkelgp",
           "name": "Claude Opus (Bedrock)"
         },
         "claude-sonnet": {
-          "id": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/i85wjhfzw5r3",
+          "modelID": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/i85wjhfzw5r3",
           "name": "Claude Sonnet (Bedrock)"
         },
         "claude-haiku": {
-          "id": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/u8agk44ql7te",
+          "modelID": "arn:aws:bedrock:us-west-2:168134825737:application-inference-profile/u8agk44ql7te",
           "name": "Claude Haiku (Bedrock)"
         }
       }
     }
   },
-  "agent": {
+  "agents": {
     "plan": {
       "mode": "primary",
       "model": "dynamic/frontier_model",
-      "prompt": "{file:agents/plan.txt}",
-      "permission": {
-        "edit": "ask",
-        "bash": {
-          "*": "ask",
-          "gh issue view*": "allow",
-          "gh issue list*": "allow",
-          "gh pr view*": "allow",
-          "gh pr list*": "allow",
-          "gh pr diff*": "allow",
-          "gh pr checks*": "allow",
-          "gh pr status*": "allow",
-          "gh repo view*": "allow",
-          "gh search *": "allow",
-          "gh api --method GET *": "allow",
-          "gh api *": "ask",
-          "head *": "allow",
-          "tail *": "allow",
-          "cat *": "allow",
-          "less *": "allow",
-          "more *": "allow",
-          "bat *": "allow",
-          "grep *": "allow",
-          "rg *": "allow",
-          "ag *": "allow",
-          "ack *": "allow",
-          "sort *": "allow",
-          "uniq *": "allow",
-          "wc *": "allow",
-          "cut *": "allow",
-          "tr *": "allow",
-          "awk *": "allow",
-          "sed *": "allow",
-          "jq *": "allow",
-          "yq *": "allow",
-          "xq *": "allow",
-          "strings *": "allow",
-          "od *": "allow",
-          "hexdump *": "allow",
-          "xxd *": "allow",
-          "file *": "allow",
-          "stat *": "allow",
-          "ls *": "allow",
-          "find *": "allow",
-          "fd *": "allow",
-          "tree *": "allow",
-          "du *": "allow",
-          "df *": "allow",
-          "diff *": "allow",
-          "comm *": "allow",
-          "cmp *": "allow",
-          "paste *": "allow",
-          "column *": "allow",
-          "expand *": "allow",
-          "unexpand *": "allow",
-          "fold *": "allow",
-          "fmt *": "allow",
-          "nl *": "allow",
-          "tac *": "allow",
-          "rev *": "allow",
-          "shuf *": "allow",
-          "split *": "allow",
-          "csplit *": "allow",
-          "tee *": "allow",
-          "xargs *": "allow",
-          "basename *": "allow",
-          "dirname *": "allow",
-          "realpath *": "allow",
-          "readlink *": "allow",
-          "test *": "allow",
-          "[ *": "allow",
-          "true": "allow",
-          "false": "allow",
-          "echo *": "allow",
-          "printf *": "allow"
-        },
-        "external_directory": {
-          "~/src/**": "allow"
-        }
-      }
+      "system": "{file:agents/plan.txt}",
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "gh issue view*", "effect": "allow" },
+        { "action": "shell", "resource": "gh issue list*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr view*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr list*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr diff*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr checks*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr status*", "effect": "allow" },
+        { "action": "shell", "resource": "gh repo view*", "effect": "allow" },
+        { "action": "shell", "resource": "gh search *", "effect": "allow" },
+        { "action": "shell", "resource": "gh api *", "effect": "ask" },
+        { "action": "shell", "resource": "gh api --method GET *", "effect": "allow" },
+        { "action": "shell", "resource": "head *", "effect": "allow" },
+        { "action": "shell", "resource": "tail *", "effect": "allow" },
+        { "action": "shell", "resource": "cat *", "effect": "allow" },
+        { "action": "shell", "resource": "less *", "effect": "allow" },
+        { "action": "shell", "resource": "more *", "effect": "allow" },
+        { "action": "shell", "resource": "bat *", "effect": "allow" },
+        { "action": "shell", "resource": "grep *", "effect": "allow" },
+        { "action": "shell", "resource": "rg *", "effect": "allow" },
+        { "action": "shell", "resource": "ag *", "effect": "allow" },
+        { "action": "shell", "resource": "ack *", "effect": "allow" },
+        { "action": "shell", "resource": "sort *", "effect": "allow" },
+        { "action": "shell", "resource": "uniq *", "effect": "allow" },
+        { "action": "shell", "resource": "wc *", "effect": "allow" },
+        { "action": "shell", "resource": "cut *", "effect": "allow" },
+        { "action": "shell", "resource": "tr *", "effect": "allow" },
+        { "action": "shell", "resource": "awk *", "effect": "allow" },
+        { "action": "shell", "resource": "sed *", "effect": "allow" },
+        { "action": "shell", "resource": "jq *", "effect": "allow" },
+        { "action": "shell", "resource": "yq *", "effect": "allow" },
+        { "action": "shell", "resource": "xq *", "effect": "allow" },
+        { "action": "shell", "resource": "strings *", "effect": "allow" },
+        { "action": "shell", "resource": "od *", "effect": "allow" },
+        { "action": "shell", "resource": "hexdump *", "effect": "allow" },
+        { "action": "shell", "resource": "xxd *", "effect": "allow" },
+        { "action": "shell", "resource": "file *", "effect": "allow" },
+        { "action": "shell", "resource": "stat *", "effect": "allow" },
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "fd *", "effect": "allow" },
+        { "action": "shell", "resource": "tree *", "effect": "allow" },
+        { "action": "shell", "resource": "du *", "effect": "allow" },
+        { "action": "shell", "resource": "df *", "effect": "allow" },
+        { "action": "shell", "resource": "diff *", "effect": "allow" },
+        { "action": "shell", "resource": "comm *", "effect": "allow" },
+        { "action": "shell", "resource": "cmp *", "effect": "allow" },
+        { "action": "shell", "resource": "paste *", "effect": "allow" },
+        { "action": "shell", "resource": "column *", "effect": "allow" },
+        { "action": "shell", "resource": "expand *", "effect": "allow" },
+        { "action": "shell", "resource": "unexpand *", "effect": "allow" },
+        { "action": "shell", "resource": "fold *", "effect": "allow" },
+        { "action": "shell", "resource": "fmt *", "effect": "allow" },
+        { "action": "shell", "resource": "nl *", "effect": "allow" },
+        { "action": "shell", "resource": "tac *", "effect": "allow" },
+        { "action": "shell", "resource": "rev *", "effect": "allow" },
+        { "action": "shell", "resource": "shuf *", "effect": "allow" },
+        { "action": "shell", "resource": "split *", "effect": "allow" },
+        { "action": "shell", "resource": "csplit *", "effect": "allow" },
+        { "action": "shell", "resource": "tee *", "effect": "allow" },
+        { "action": "shell", "resource": "xargs *", "effect": "allow" },
+        { "action": "shell", "resource": "basename *", "effect": "allow" },
+        { "action": "shell", "resource": "dirname *", "effect": "allow" },
+        { "action": "shell", "resource": "realpath *", "effect": "allow" },
+        { "action": "shell", "resource": "readlink *", "effect": "allow" },
+        { "action": "shell", "resource": "test *", "effect": "allow" },
+        { "action": "shell", "resource": "[ *", "effect": "allow" },
+        { "action": "shell", "resource": "true", "effect": "allow" },
+        { "action": "shell", "resource": "false", "effect": "allow" },
+        { "action": "shell", "resource": "echo *", "effect": "allow" },
+        { "action": "shell", "resource": "printf *", "effect": "allow" },
+        { "action": "external_directory", "resource": "*", "effect": "ask" },
+        { "action": "external_directory", "resource": "~/src/**", "effect": "allow" }
+      ]
     },
     "build": {
-      "prompt": "{file:agents/lean.txt}",
+      "system": "{file:agents/lean.txt}",
       "model": "dynamic/model",
-      "permission": {
-        "external_directory": {
-          "~/src/**": "allow"
-        }
-      }
+      "permissions": [
+        { "action": "external_directory", "resource": "*", "effect": "ask" },
+        { "action": "external_directory", "resource": "~/src/**", "effect": "allow" }
+      ]
     },
     "general": {
-      "prompt": "{file:agents/lean.txt}",
+      "system": "{file:agents/lean.txt}",
       "model": "dynamic/model",
-      "permission": {
-        "external_directory": {
-          "~/src/**": "allow"
-        }
-      }
+      "permissions": [
+        { "action": "external_directory", "resource": "*", "effect": "ask" },
+        { "action": "external_directory", "resource": "~/src/**", "effect": "allow" }
+      ]
     },
     "explore": {
       "model": "dynamic/small_model",
-      "prompt": "{file:agents/explore.txt}",
-      "permission": {
-        "external_directory": {
-          "~/src/**": "allow"
-        }
-      }
+      "system": "{file:agents/explore.txt}",
+      "permissions": [
+        { "action": "external_directory", "resource": "*", "effect": "ask" },
+        { "action": "external_directory", "resource": "~/src/**", "effect": "allow" }
+      ]
     },
     "scout": {
-      "prompt": "{file:agents/lean.txt}",
+      "system": "{file:agents/lean.txt}",
       "model": "dynamic/small_model",
-      "permission": {
-        "external_directory": {
-          "~/src/**": "allow"
-        }
-      }
+      "permissions": [
+        { "action": "external_directory", "resource": "*", "effect": "ask" },
+        { "action": "external_directory", "resource": "~/src/**", "effect": "allow" }
+      ]
     },
     "review": {
       "description": "Read-only code review, caveman terse output",
       "mode": "primary",
       "model": "dynamic/antagonist_model",
-      "prompt": "{file:agents/review.txt}",
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "ask",
-          "gh issue view*": "allow",
-          "gh issue list*": "allow",
-          "gh pr view*": "allow",
-          "gh pr list*": "allow",
-          "gh pr diff*": "allow",
-          "gh pr checks*": "allow",
-          "gh pr status*": "allow",
-          "gh repo view*": "allow",
-          "gh search *": "allow",
-          "gh api --method GET *": "allow",
-          "gh api *": "ask",
-          "head *": "allow",
-          "tail *": "allow",
-          "cat *": "allow",
-          "less *": "allow",
-          "more *": "allow",
-          "bat *": "allow",
-          "grep *": "allow",
-          "rg *": "allow",
-          "ag *": "allow",
-          "ack *": "allow",
-          "sort *": "allow",
-          "uniq *": "allow",
-          "wc *": "allow",
-          "cut *": "allow",
-          "tr *": "allow",
-          "awk *": "allow",
-          "sed *": "allow",
-          "jq *": "allow",
-          "yq *": "allow",
-          "xq *": "allow",
-          "strings *": "allow",
-          "od *": "allow",
-          "hexdump *": "allow",
-          "xxd *": "allow",
-          "file *": "allow",
-          "stat *": "allow",
-          "ls *": "allow",
-          "find *": "allow",
-          "fd *": "allow",
-          "tree *": "allow",
-          "du *": "allow",
-          "df *": "allow",
-          "diff *": "allow",
-          "comm *": "allow",
-          "cmp *": "allow",
-          "paste *": "allow",
-          "column *": "allow",
-          "expand *": "allow",
-          "unexpand *": "allow",
-          "fold *": "allow",
-          "fmt *": "allow",
-          "nl *": "allow",
-          "tac *": "allow",
-          "rev *": "allow",
-          "shuf *": "allow",
-          "split *": "allow",
-          "csplit *": "allow",
-          "tee *": "allow",
-          "xargs *": "allow",
-          "basename *": "allow",
-          "dirname *": "allow",
-          "realpath *": "allow",
-          "readlink *": "allow",
-          "test *": "allow",
-          "[ *": "allow",
-          "true": "allow",
-          "false": "allow",
-          "echo *": "allow",
-          "printf *": "allow",
-          "git diff*": "allow",
-          "git log*": "allow",
-          "git status*": "allow"
-        },
-        "external_directory": {
-          "~/src/**": "allow"
-        }
-      }
+      "system": "{file:agents/review.txt}",
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "gh issue view*", "effect": "allow" },
+        { "action": "shell", "resource": "gh issue list*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr view*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr list*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr diff*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr checks*", "effect": "allow" },
+        { "action": "shell", "resource": "gh pr status*", "effect": "allow" },
+        { "action": "shell", "resource": "gh repo view*", "effect": "allow" },
+        { "action": "shell", "resource": "gh search *", "effect": "allow" },
+        { "action": "shell", "resource": "gh api *", "effect": "ask" },
+        { "action": "shell", "resource": "gh api --method GET *", "effect": "allow" },
+        { "action": "shell", "resource": "head *", "effect": "allow" },
+        { "action": "shell", "resource": "tail *", "effect": "allow" },
+        { "action": "shell", "resource": "cat *", "effect": "allow" },
+        { "action": "shell", "resource": "less *", "effect": "allow" },
+        { "action": "shell", "resource": "more *", "effect": "allow" },
+        { "action": "shell", "resource": "bat *", "effect": "allow" },
+        { "action": "shell", "resource": "grep *", "effect": "allow" },
+        { "action": "shell", "resource": "rg *", "effect": "allow" },
+        { "action": "shell", "resource": "ag *", "effect": "allow" },
+        { "action": "shell", "resource": "ack *", "effect": "allow" },
+        { "action": "shell", "resource": "sort *", "effect": "allow" },
+        { "action": "shell", "resource": "uniq *", "effect": "allow" },
+        { "action": "shell", "resource": "wc *", "effect": "allow" },
+        { "action": "shell", "resource": "cut *", "effect": "allow" },
+        { "action": "shell", "resource": "tr *", "effect": "allow" },
+        { "action": "shell", "resource": "awk *", "effect": "allow" },
+        { "action": "shell", "resource": "sed *", "effect": "allow" },
+        { "action": "shell", "resource": "jq *", "effect": "allow" },
+        { "action": "shell", "resource": "yq *", "effect": "allow" },
+        { "action": "shell", "resource": "xq *", "effect": "allow" },
+        { "action": "shell", "resource": "strings *", "effect": "allow" },
+        { "action": "shell", "resource": "od *", "effect": "allow" },
+        { "action": "shell", "resource": "hexdump *", "effect": "allow" },
+        { "action": "shell", "resource": "xxd *", "effect": "allow" },
+        { "action": "shell", "resource": "file *", "effect": "allow" },
+        { "action": "shell", "resource": "stat *", "effect": "allow" },
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "fd *", "effect": "allow" },
+        { "action": "shell", "resource": "tree *", "effect": "allow" },
+        { "action": "shell", "resource": "du *", "effect": "allow" },
+        { "action": "shell", "resource": "df *", "effect": "allow" },
+        { "action": "shell", "resource": "diff *", "effect": "allow" },
+        { "action": "shell", "resource": "comm *", "effect": "allow" },
+        { "action": "shell", "resource": "cmp *", "effect": "allow" },
+        { "action": "shell", "resource": "paste *", "effect": "allow" },
+        { "action": "shell", "resource": "column *", "effect": "allow" },
+        { "action": "shell", "resource": "expand *", "effect": "allow" },
+        { "action": "shell", "resource": "unexpand *", "effect": "allow" },
+        { "action": "shell", "resource": "fold *", "effect": "allow" },
+        { "action": "shell", "resource": "fmt *", "effect": "allow" },
+        { "action": "shell", "resource": "nl *", "effect": "allow" },
+        { "action": "shell", "resource": "tac *", "effect": "allow" },
+        { "action": "shell", "resource": "rev *", "effect": "allow" },
+        { "action": "shell", "resource": "shuf *", "effect": "allow" },
+        { "action": "shell", "resource": "split *", "effect": "allow" },
+        { "action": "shell", "resource": "csplit *", "effect": "allow" },
+        { "action": "shell", "resource": "tee *", "effect": "allow" },
+        { "action": "shell", "resource": "xargs *", "effect": "allow" },
+        { "action": "shell", "resource": "basename *", "effect": "allow" },
+        { "action": "shell", "resource": "dirname *", "effect": "allow" },
+        { "action": "shell", "resource": "realpath *", "effect": "allow" },
+        { "action": "shell", "resource": "readlink *", "effect": "allow" },
+        { "action": "shell", "resource": "test *", "effect": "allow" },
+        { "action": "shell", "resource": "[ *", "effect": "allow" },
+        { "action": "shell", "resource": "true", "effect": "allow" },
+        { "action": "shell", "resource": "false", "effect": "allow" },
+        { "action": "shell", "resource": "echo *", "effect": "allow" },
+        { "action": "shell", "resource": "printf *", "effect": "allow" },
+        { "action": "shell", "resource": "git diff*", "effect": "allow" },
+        { "action": "shell", "resource": "git log*", "effect": "allow" },
+        { "action": "shell", "resource": "git status*", "effect": "allow" },
+        { "action": "external_directory", "resource": "*", "effect": "ask" },
+        { "action": "external_directory", "resource": "~/src/**", "effect": "allow" }
+      ]
     },
     "compaction": {
       "model": "dynamic/small_model"
@@ -283,7 +270,7 @@
       "options": { "command_name": "nudge" }
     },
     {
-      "package": "./plugins/opencode-auto-resume-v2.ts",
+      "package": "./plugins/opencode-auto-resume-v2",
       "options": { "busyStallStrategy": "off" }
     },
     {

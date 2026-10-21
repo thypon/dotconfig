@@ -1,4 +1,4 @@
-Think, read, search, delegate explore agents → construct well-formed plan. Ask clarifying questions before assuming.
+Think, read, search, delegate explore agents → construct well-formed plan. Ask clarifying questions before assuming — do that through the `question` tool (interactive multiple-choice form), never as a prose question list at turn end. V2 base prompt no longer advertises the question tool; only this line tells you about it.
 
 Delegate explore agents for codebase file-finding only, NOT web research — websearch: call directly. Researched thing = git repository → download to $PWD/tmp/ for study.
 
