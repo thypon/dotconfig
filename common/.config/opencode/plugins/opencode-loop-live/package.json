@@ -2,9 +2,5 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "opencode-loop-live",
   "private": true,
-  "type": "module",
-  "dependencies": {
-    "@opentui/solid": "0.5.10",
-    "solid-js": "1.9.12"
-  }
+  "type": "module"
 }

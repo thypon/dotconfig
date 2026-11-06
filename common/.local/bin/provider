@@ -38,6 +38,9 @@ OUTPUT_PATH = os.path.expanduser("~/.config/opencode/opencode.json")
 TUI_TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/tui.json.tmpl")
 TUI_OUTPUT_PATH = os.path.expanduser("~/.config/opencode/tui.json")
 
+CLI_TEMPLATE_PATH = os.path.expanduser("~/.config/opencode/cli.json.tmpl")
+CLI_OUTPUT_PATH = os.path.expanduser("~/.config/opencode/cli.json")
+
 SECRETS_PATH = os.path.expanduser("~/.config/secrets.yml")
 
 # DS4 local server (OpenAI-compatible GLM 5.3 Flash)
@@ -282,6 +285,19 @@ def setup_tui(replacements):
         json.dump(result, f, indent=2)
         f.write("\n")
     print(f"  resolved: {TUI_OUTPUT_PATH}")
+
+
+def setup_cli(replacements):
+    """Resolve cli.json template (V2 TUI plugins + TUI keybinds live in cli.json)."""
+    if not os.path.exists(CLI_TEMPLATE_PATH):
+        print("warning: cli.json.tmpl not found, skipping cli setup", file=sys.stderr)
+        return
+    template = load_jsonc(CLI_TEMPLATE_PATH)
+    result = resolve_template(template, replacements)
+    with open(CLI_OUTPUT_PATH, "w") as f:
+        json.dump(result, f, indent=2)
+        f.write("\n")
+    print(f"  resolved: {CLI_OUTPUT_PATH}")
 
 
 def setup_pi(replacements):
@@ -541,6 +557,7 @@ def main():
             print("--- opencode ---")
             setup_opencode(replacements)
             setup_tui(replacements)
+            setup_cli(replacements)
 
             print("\n--- pi ---")
             setup_pi(replacements)
@@ -578,6 +595,7 @@ def main():
     print(f"--- opencode ---")
     setup_opencode(replacements)
     setup_tui(replacements)
+    setup_cli(replacements)
 
     print(f"\n--- pi ---")
     setup_pi(replacements)
