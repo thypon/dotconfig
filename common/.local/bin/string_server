@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+# string_server - serve a single string over HTTP on /, log connections to stdout.
+#
+# The string comes from the first argument, piped stdin, or (on a TTY) an
+# interactive prompt. It is then served as text/plain on http://<ip>:<port>/
+# for every connection until Ctrl-C. Any other path returns 404.
+#
+# Usage:   string_server <string>
+#          echo <string> | string_server
+#          string_server            (prompts for the string)
+#          string_server -p <port> [string]
+#
+# Port:    default 8000, override with -p <port> or $STRING_SERVER_PORT.
+
+import os
+import socket
+import sys
+from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+def resolve_string():
+    """String from argv, piped stdin, or interactive prompt."""
+    pos = []
+    i = 0
+    argv = sys.argv[1:]
+    while i < len(argv):
+        if argv[i] in ("-p", "--port") and i + 1 < len(argv):
+            i += 2
+            continue
+        pos.append(argv[i])
+        i += 1
+    if pos:
+        return " ".join(pos)
+    if not sys.stdin.isatty():
+        data = sys.stdin.read()
+        if data:
+            return data
+    if sys.stdin.isatty():
+        try:
+            value = input("String to serve: ")
+        except EOFError:
+            value = ""
+        if value:
+            return value
+    sys.stderr.write(
+        "string_server: no string given.\n"
+        "Usage: string_server <string>\n"
+        "       echo <string> | string_server\n"
+        "       string_server            (prompts for the string)\n"
+    )
+    sys.exit(1)
+
+
+def resolve_port():
+    argv = sys.argv[1:]
+    for i, a in enumerate(argv):
+        if a in ("-p", "--port") and i + 1 < len(argv):
+            return int(argv[i + 1])
+        if a.startswith("-p") and a != "-p" and a[2:].isdigit():
+            return int(a[2:])
+        if a.startswith("--port="):
+            return int(a.split("=", 1)[1])
+    env = os.environ.get("STRING_SERVER_PORT")
+    if env:
+        return int(env)
+    return 8000
+
+
+def local_ips():
+    """Local IP addresses this host is reachable on, best effort."""
+    ips = []
+    try:  # primary outbound IP, no packets sent (UDP connect)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5)
+        s.connect(("8.8.8.8", 80))
+        ips.append(s.getsockname()[0])
+        s.close()
+    except OSError:
+        pass
+    try:  # hostname-bound addresses (loopback, extra interfaces)
+        host = socket.gethostname()
+        for info in socket.getaddrinfo(host, None, socket.AF_INET):
+            ip = info[4][0]
+            if ip not in ips:
+                ips.append(ip)
+    except OSError:
+        pass
+    if "127.0.0.1" not in ips:
+        ips.append("127.0.0.1")
+    return ips
+
+
+class Handler(BaseHTTPRequestHandler):
+    payload = b""
+
+    def _reply(self, code, body):
+        self.send_response(code)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+        sys.stdout.write(
+            '%s %s:%s "%s %s" %d "%s"\n'
+            % (
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                self.client_address[0],
+                self.client_address[1],
+                self.command,
+                self.path,
+                code,
+                self.headers.get("User-Agent", "-"),
+            )
+        )
+        sys.stdout.flush()
+
+    def do_GET(self):
+        if self.path == "/":
+            self._reply(200, Handler.payload)
+        else:
+            self._reply(404, b"not found\n")
+
+    def do_HEAD(self):
+        self.do_GET()
+
+    def log_message(self, fmt, *args):  # silence stock stderr logging
+        pass
+
+
+def main():
+    port = resolve_port()
+    value = resolve_string()
+    payload = value.encode("utf-8")
+    Handler.payload = payload
+
+    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    bound = server.server_address[1]
+
+    preview = value if len(value) <= 60 else value[:57] + "..."
+    sys.stdout.write('Serving "%s" on port %d\n' % (preview, bound))
+    for ip in local_ips():
+        sys.stdout.write("  http://%s:%d/\n" % (ip, bound))
+    sys.stdout.write("Ctrl-C to stop.\n")
+    sys.stdout.flush()
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+        sys.stdout.write("\nStopped.\n")
+        sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    main()
