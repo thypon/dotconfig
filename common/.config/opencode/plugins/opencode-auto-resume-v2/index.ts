@@ -256,6 +256,8 @@ interface SessionWatch {
 	 * an open list does not become finished by the model saying it is. */
 	todoNudgeAttempts: number
 	intentNudgeAttempts: number
+	/** Repetition-loop recoveries this turn (upstream #52763 detector). */
+	repetitionAttempts: number
 	/** Set when the model's own completion signal was seen (a trailing 🎉).
 	 * Latches so a finished session stops being nudged. */
 	completionSignaled: boolean
@@ -389,6 +391,18 @@ interface SessionWatch {
 	// Tool-loop tracking
 	recentToolCalls: ToolCallRecord[]
 
+	// Repetition-loop detection (local addition, upstream #52763)
+	/** Rolling tail of streamed text+reasoning, capped at repetitionTailChars. */
+	repTail: string
+	/** Last wall-clock the throttled repetition check ran on this tail. */
+	repLastCheckAt: number
+	/** Repetition recoveries spent this turn; reset in markBusy. */
+	repetitionTriggers: number
+	/** Synchronous re-entrancy latch: true from trigger entry until the
+	 * abort/recovery settles, so deltas streaming during the interrupt cannot
+	 * stack a second trigger on top of the first. */
+	repBusy: boolean
+
 	// Agent/model from last step (informational logging only; sessions are stateful in v2)
 	agent?: string
 	model?: string
@@ -492,6 +506,29 @@ export interface AutoResumeOptions {
 	subagentDeadMs?: number
 	/** Token floor for the silent-dead-stream heuristic. */
 	silentDeadStreamMinTokens?: number
+
+	// ---- Repetition-loop detector (local addition, upstream #52763) ----
+	/** Size of the rolling stream tail kept per session for repetition checks. */
+	repetitionTailChars?: number
+	/** Min run length (non-whitespace chars) of a single-char flood that trips. */
+	repetitionCharRunMin?: number
+	/** Dominant-char fraction over the tail that counts as a char flood. */
+	repetitionCharRunRatio?: number
+	/** Max length of a repeating phrase unit considered degenerate. */
+	repetitionPeriodMaxUnit?: number
+	/** Min period length for the phrase-repeat detector (shorter units are the
+	 * char-run detector's job; small periods risk flagging legit repetition). */
+	repetitionPeriodMinUnit?: number
+	/** How many times a phrase unit must repeat in the tail to trip. */
+	repetitionPeriodMinRepeats?: number
+	/** Min gap between repetition checks (stream deltas are frequent). */
+	repetitionCheckIntervalMs?: number
+	/** Repetition recoveries allowed per turn before standing that path down. */
+	repetitionMaxTriggers?: number
+	/** Prompt sent when a degenerate repetition loop is interrupted. */
+	repetitionRecoveryPrompt?: string
+	/** Command sent directly to degenerate agents (no interrupt cascade). */
+	repetitionStopPrompt?: string
 	/** Error names that mark a streaming failure. */
 	streamingFailureErrorNames?: string[]
 	/** Regex sources that mark a streaming failure message. */
@@ -659,6 +696,20 @@ const DEFAULT_SUBAGENT_DEAD_MS = 30 * 60_000
 const SUBAGENT_RECOVERY_PROMPT =
 	"It looks like you may have stalled or timed out. Please retry the last operation or continue with the task."
 const DEFAULT_SILENT_DEAD_STREAM_MIN_TOKENS = 200
+
+// ---- Repetition-loop detector (local addition, upstream #52763) ----
+// A degenerate stream repeats one character (or one short phrase) forever:
+// tokens keep flowing, so the silence-based stall watchdog resets forever and
+// never fires, the turn never finishes, and the session burns output budget
+// until the user aborts. Detected on the live stream tail instead of silence.
+const DEFAULT_REPETITION_TAIL_CHARS = 4_096
+const DEFAULT_REPETITION_CHAR_RUN_MIN = 512
+const DEFAULT_REPETITION_CHAR_RUN_RATIO = 0.95
+const DEFAULT_REPETITION_PERIOD_MAX_UNIT = 128
+const DEFAULT_REPETITION_PERIOD_MIN_UNIT = 2
+const DEFAULT_REPETITION_PERIOD_MIN_REPEATS = 12
+const DEFAULT_REPETITION_CHECK_INTERVAL_MS = 1_000
+const DEFAULT_REPETITION_MAX_TRIGGERS = 3
 const DEFAULT_CONTEXT_SATURATION_THRESHOLD = 0.85
 /** How long a fetched todo list is trusted before being re-read. */
 /** Cap on the remembered tool-part ids. Bounds a set that is otherwise fed one
@@ -1004,6 +1055,114 @@ const TOOL_LOOP_RECOVERY_PROMPT =
 	"1) Are you stuck in a loop? 2) Do you need different information first? " +
 	"3) Should you try a different tool or break the task into smaller steps? " +
 	"Take a moment to think about what's blocking you and propose a different strategy."
+
+// Local addition (upstream #52763): the previous turn degenerated into a
+// repetition loop and was interrupted mid-stream. Sent fresh after the abort.
+const REPETITION_RECOVERY_PROMPT =
+	"Your previous response degenerated into a repetition loop — the same character or " +
+	"phrase was emitted over and over without ever finishing. That output was discarded. " +
+	"Restart your last step from the beginning and answer concisely. If you have nothing " +
+	"new to emit for a part of the answer, move on or end your turn — never repeat text " +
+	"you have already written, and never pad with filler characters."
+
+/**
+ * Command sent DIRECTLY to a degenerate agent (subagent or child of an
+ * orchestrating manager) when repetition is detected. Delivered as a message,
+ * never as an interrupt: a hard stop on an orchestrated session cascades
+ * cancellation into the manager's other agents. Visible-channel wording so the
+ * agent treats it as an instruction, not system noise.
+ */
+const REPETITION_STOP_SEQUENCE_PROMPT =
+	"STOP THE SEQUENCE: you are repeating the same output in a loop. End the current " +
+	"repeated output immediately and produce the next concrete step of your task instead. " +
+	"Do not re-emit text you have already written; if you have nothing new, finish your " +
+	"turn and report what you have."
+
+/**
+ * Detect degenerate repetition in a streamed text tail (local addition,
+ * motivated by anomalyco/opencode#52763 and flash-model loops: GLM-5.3-flash,
+ * DeepSeek flash). Two shapes:
+ *
+ * 1. Char-run — the non-whitespace tail is one character repeated over and
+ *    over (e.g. `>>>>>` or `~~~~~` forever). Whitespace is excluded so
+ *    indented code, tables and blank-line runs never read as degenerate.
+ *
+ * 2. Phrase-period — a unit of `periodMinUnit..periodMaxUnit` chars repeats
+ *    shape, and the two-plus-char token flood: "heyheyhey…"). The repeat bar
+ *    scales with unit length so any unit must fill ~256 chars of pure
+ *    periodic tail before it counts — floor `periodMinRepeats` (12) for long
+ *    units, cap 64 for two/three-char floods — while short decorative repeats
+ *    (markdown rules, JSON closing braces, table borders) stay under it.
+ *    Degenerate loops repeat until the output limit, so the bar costs ~1s of
+ *    detection latency; a false interrupt costs more.
+ *
+ * Pure and exported for tests. Returns a short human reason, or null.
+ */
+export interface RepetitionCheckOptions {
+	charRunMin: number
+	charRunRatio: number
+	periodMaxUnit: number
+	periodMinUnit: number
+	periodMinRepeats: number
+}
+
+export function detectRepetition(tail: string, o: RepetitionCheckOptions): string | null {
+	if (!tail) return null
+
+	// --- 1. char-run over the last 2 KiB ---
+	const window = tail.length > 2048 ? tail.slice(-2048) : tail
+	const counts = new Map<string, number>()
+	let nonWsTotal = 0
+	for (let i = 0; i < window.length; i++) {
+		const ch = window.charAt(i)
+		if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") continue
+		counts.set(ch, (counts.get(ch) ?? 0) + 1)
+		nonWsTotal++
+	}
+	if (nonWsTotal >= o.charRunMin) {
+		let dom = ""
+		let domN = 0
+		for (const [ch, n] of counts) {
+			if (n > domN) {
+				dom = ch
+				domN = n
+			}
+		}
+		if (domN / nonWsTotal >= o.charRunRatio) {
+			return `char-run '${dom}' x${domN}/${nonWsTotal}`
+		}
+	}
+
+	// --- 2. phrase-period over the last maxUnit*minRepeats chars ---
+	const region = tail.length > o.periodMaxUnit * o.periodMinRepeats
+		? tail.slice(-o.periodMaxUnit * o.periodMinRepeats)
+		: tail
+	for (let p = o.periodMinUnit; p <= o.periodMaxUnit; p++) {
+		// Length-scaled bar: any unit must fill ~256 chars of pure periodic tail
+		// before it counts (min 12 repeats for long units, capped at 64). A
+		// two-char flood ("heyhey...") is caught at 64 repeats = 128 chars of
+		// pattern; a 40-char sentence loop needs only 12 repeats; and short
+		// decorative repeats (markdown rules, table borders, JSON closing
+		// braces) stay far under the bar. Without the scale, small periods
+		// would need an outsized fixed repeat count to stay safe.
+		const effRepeats = Math.min(64, Math.max(o.periodMinRepeats, Math.ceil(256 / p)))
+		if (region.length < p * effRepeats) continue
+		let ok = true
+		for (let i = p; i < region.length; i++) {
+			if (region.charAt(i) !== region.charAt(i - p)) {
+				ok = false
+				break
+			}
+		}
+		if (ok) {
+			const unit = region.slice(0, p)
+			if (/\S/.test(unit)) {
+				return `phrase-period unit=${p} repeats=${Math.floor(region.length / p)}`
+			}
+		}
+	}
+	return null
+}
 
 const TASK_TOOL_HINTS = ["task", "agent", "subagent", "dispatch"]
 
@@ -1838,6 +1997,17 @@ export default define({
 		const subagentNativeCompactionEnabled = opts.subagentNativeCompactionEnabled ?? false
 		// Live since the silent-dead-stream detector landed (lastSilentDeadStream).
 		const silentDeadStreamMinTokens = opts.silentDeadStreamMinTokens ?? DEFAULT_SILENT_DEAD_STREAM_MIN_TOKENS
+		// Live since the repetition-loop detector landed (see checkRepetitionLive).
+		const repetitionTailChars = opts.repetitionTailChars ?? DEFAULT_REPETITION_TAIL_CHARS
+		const repetitionCharRunMin = opts.repetitionCharRunMin ?? DEFAULT_REPETITION_CHAR_RUN_MIN
+		const repetitionCharRunRatio = opts.repetitionCharRunRatio ?? DEFAULT_REPETITION_CHAR_RUN_RATIO
+		const repetitionPeriodMaxUnit = opts.repetitionPeriodMaxUnit ?? DEFAULT_REPETITION_PERIOD_MAX_UNIT
+		const repetitionPeriodMinUnit = opts.repetitionPeriodMinUnit ?? DEFAULT_REPETITION_PERIOD_MIN_UNIT
+		const repetitionPeriodMinRepeats = opts.repetitionPeriodMinRepeats ?? DEFAULT_REPETITION_PERIOD_MIN_REPEATS
+		const repetitionCheckIntervalMs = opts.repetitionCheckIntervalMs ?? DEFAULT_REPETITION_CHECK_INTERVAL_MS
+		const repetitionMaxTriggers = opts.repetitionMaxTriggers ?? DEFAULT_REPETITION_MAX_TRIGGERS
+		const repetitionRecoveryPrompt = opts.repetitionRecoveryPrompt ?? REPETITION_RECOVERY_PROMPT
+		const repetitionStopPrompt = opts.repetitionStopPrompt ?? REPETITION_STOP_SEQUENCE_PROMPT
 		const streamingFailureErrorNames = opts.streamingFailureErrorNames ?? DEFAULT_STREAMING_FAILURE_ERROR_NAMES
 		const streamingFailureMessagePatterns = opts.streamingFailureMessagePatterns ?? DEFAULT_STREAMING_FAILURE_MESSAGE_PATTERNS
 		const doneWithoutDetailsPrompt = opts.doneWithoutDetailsPrompt ?? DONE_WITHOUT_DETAILS_PROMPT
@@ -1925,6 +2095,16 @@ export default define({
 			"neverInterruptTools",
 			"subagentDeadMs",
 			"silentDeadStreamMinTokens",
+			"repetitionTailChars",
+			"repetitionCharRunMin",
+			"repetitionCharRunRatio",
+			"repetitionPeriodMaxUnit",
+			"repetitionPeriodMinUnit",
+			"repetitionPeriodMinRepeats",
+			"repetitionCheckIntervalMs",
+			"repetitionMaxTriggers",
+			"repetitionRecoveryPrompt",
+			"repetitionStopPrompt",
 			"streamingFailureErrorNames",
 			"streamingFailureMessagePatterns",
 			"doneClaimPatterns",
@@ -2042,6 +2222,11 @@ export default define({
 				w.episodeRecovers ??= 0
 				w.inflightTools ??= new Map()
 				w.lastStuckToolCheck ??= 0
+				w.repTail ??= ""
+				w.repLastCheckAt ??= 0
+				w.repetitionTriggers ??= 0
+				w.repBusy ??= false
+				w.repetitionAttempts ??= 0
 				return w
 			}
 			if (!w) {
@@ -2122,6 +2307,11 @@ export default define({
 					compacting: false,
 					compactionStartedAt: null,
 					recentToolCalls: [],
+					repTail: "",
+					repLastCheckAt: 0,
+					repetitionTriggers: 0,
+					repBusy: false,
+					repetitionAttempts: 0,
 				}
 				sessions.set(sid, w)
 			}
@@ -2154,6 +2344,11 @@ export default define({
 				// abort+resume escalation. Nowhere else.
 				w.toolTextAttempts = 0
 				w.stuckToolAttempts = 0
+				// Repetition detection is per-turn: a fresh turn starts with an empty
+				// stream tail and a fresh trigger budget (upstream #52763 detector).
+				w.repTail = ""
+				w.repLastCheckAt = 0
+				w.repetitionTriggers = 0
 				// A fresh turn means the age gate is judged against a new call, so
 				// the watchdog's stuck-tool throttle re-arms with the attempt budget.
 				w.lastStuckToolCheck = 0
@@ -2621,6 +2816,11 @@ export default define({
 			allowDuringSelfAbort: boolean,
 			checkDuplicate: boolean,
 			forceSynthetic = false,
+			/** Repetition path only: command the agent directly even when it is a
+			 * subagent mid-stream. A degenerate agent must be stopped by MESSAGE,
+			 * not by interrupt — a hard stop on an orchestrated session cascades
+			 * cancellation into the manager's other agents (user-reported). */
+			allowSubagentBusy = false,
 		): Promise<boolean> {
 			// Dead instances stay silent across every injection path, not
 			// just the stall timer that schedules most of them. Checked
@@ -2628,8 +2828,10 @@ export default define({
 			if (!running) return false
 			const w = ensureWatch(sid)
 			// A subagent is not ours to recover. Checked first, before every other
-			// guard, so no code path below can reach a child.
-			if (await isSubAgentSession(sid)) {
+			// guard, so no code path below can reach a child. The repetition path
+			// is the sanctioned exception: it commands the child directly instead
+			// of interrupting anything.
+			if (!allowSubagentBusy && (await isSubAgentSession(sid))) {
 				dbg(`${short(sid)} subagent session — injection refused (parent owns recovery)`)
 				return false
 			}
@@ -2652,7 +2854,12 @@ export default define({
 				dbg(`${short(sid)} injection refused — inside our own abort window`)
 				return false
 			}
-			if (!allowDuringSelfAbort && w.status === "busy" && Date.now() - w.lastActivityAt < chunkTimeoutMs) {
+			if (
+				!allowDuringSelfAbort &&
+				!allowSubagentBusy &&
+				w.status === "busy" &&
+				Date.now() - w.lastActivityAt < chunkTimeoutMs
+			) {
 				dbg(`${short(sid)} injection refused — session busy and live (${Math.round((Date.now() - w.lastActivityAt) / 1000)}s since last event)`)
 				return false
 			}
@@ -2710,6 +2917,7 @@ export default define({
 			allowDuringSelfAbort = false,
 			checkDuplicate = false,
 			forceSynthetic = false,
+			allowSubagentBusy = false,
 		): Promise<boolean> {
 			// A correction the user cannot see must not produce a visible model
 			// reply: the silence order rides in the text itself, so it holds for
@@ -2720,7 +2928,7 @@ export default define({
 				? `${text} Do not acknowledge this message and do not reply to it visibly; apply it silently and continue the task.`
 				: text
 			return withInjectLock(sid, () =>
-				injectOnceLocked(sid, sendText, notification, allowDuringSelfAbort, checkDuplicate, forceSynthetic),
+				injectOnceLocked(sid, sendText, notification, allowDuringSelfAbort, checkDuplicate, forceSynthetic, allowSubagentBusy),
 			)
 		}
 
@@ -2889,7 +3097,7 @@ export default define({
 			}
 		}
 
-		async function tryAbortAndResume(sid: string, w: SessionWatch): Promise<boolean> {
+		async function tryAbortAndResume(sid: string, w: SessionWatch, promptOverride?: string): Promise<boolean> {
 			// Guarded separately because this path calls `interrupt()` *before*
 			// delegating to injectOnce — guarding only the injection would still
 			// let us interrupt a running child.
@@ -2947,7 +3155,7 @@ export default define({
 			// escalation that lands on top of a concurrent recovery injection is
 			// exactly the case that produced the simultaneous bursts of synthetic
 			// continues (and the "Step interrupted" they caused).
-			const ok = await injectOnce(sid, opts.continuePrompt ?? SAFE_CONTINUE_PROMPT, "abort+resume escalation", true)
+			const ok = await injectOnce(sid, promptOverride ?? opts.continuePrompt ?? SAFE_CONTINUE_PROMPT, "abort+resume escalation", true)
 			if (ok) {
 				w.lastRetryAt = Date.now()
 				log("info", `${short(sid)} resumed after abort`)
@@ -3420,11 +3628,128 @@ export default define({
 			dbg(`${short(sid)} pattern pass armed for +${toolTextCheckDelayMs}ms`)
 		}
 
+		// ---------------------------------------------------------------------
+		// Repetition-loop detector (local addition, upstream #52763)
+		// ---------------------------------------------------------------------
+
+		/**
+		 * Feed a streamed delta into the session's repetition tail and run the
+		 * throttled detection. Called from the text/reasoning delta cases; both
+		 * stream shapes degenerate the same way (anomalyco/opencode#52763).
+		 * Fire-and-forget trigger: the event pump must not await an interrupt.
+		 */
+		function noteRepetitionDelta(sid: string, delta: string) {
+			if (!delta) return
+			const w = ensureWatch(sid)
+			w.repTail += delta
+			if (w.repTail.length > repetitionTailChars) {
+				w.repTail = w.repTail.slice(-repetitionTailChars)
+			}
+			// Live degenerate streams only: an idle session's tail belongs to a
+			// turn that already ended, and idle forensics own that path.
+			if (w.status !== "busy") return
+			if (w.repBusy) return
+			const now = Date.now()
+			if (now - w.repLastCheckAt < repetitionCheckIntervalMs) return
+			w.repLastCheckAt = now
+			const why = detectRepetition(w.repTail, {
+				charRunMin: repetitionCharRunMin,
+				charRunRatio: repetitionCharRunRatio,
+				periodMaxUnit: repetitionPeriodMaxUnit,
+				periodMinUnit: repetitionPeriodMinUnit,
+				periodMinRepeats: repetitionPeriodMinRepeats,
+			})
+			if (why) void handleRepetitionTrigger(sid, why).catch(() => {})
+		}
+
+		/**
+		 * Live subagent children of `sid`, from the server's session rows
+		 * (parentID) crossed with this instance's busy watches. An untracked
+		 * child counts as running: the cost of a needless command message is a
+		 * nudge, the cost of interrupting a live orchestration is every
+		 * in-flight agent. Failure degrades to [] (old abort behaviour).
+		 */
+		async function runningSubagentChildren(sid: string): Promise<string[]> {
+			try {
+				const rows = await listSessionsHttp()
+				const kids = rows.filter((r) => r?.parentID === sid).map((r) => String(r?.id ?? ""))
+				const out: string[] = []
+				for (const kid of kids) {
+					if (!kid) continue
+					const kw = sessions.get(kid)
+					if (!kw || kw.status === "busy") out.push(kid)
+				}
+				return out
+			} catch {
+				return []
+			}
+		}
+
+		/**
+		 * Respond to a detected degenerate stream. An orchestrated session — one
+		 * that IS a subagent, or a manager with agents in flight — is never
+		 * interrupted: a hard stop cascades cancellation into the manager's
+		 * agents. Instead the agents themselves receive a direct "stop the
+		 * sequence" command message. A leaf session (no agents in flight, not a
+		 * child) gets the normal abort+resume with a fresh prompt.
+		 */
+		async function handleRepetitionTrigger(sid: string, why: string) {
+			const w = ensureWatch(sid)
+			// Synchronous latch first: deltas keep flowing until the intervention
+			// lands, and each one re-enters this path from noteRepetitionDelta.
+			if (w.repBusy || w.recovering || w.aborting || w.userCancelled || w.permissionPending) return
+			if (w.repetitionTriggers >= repetitionMaxTriggers) {
+				dbg(`${short(sid)} repetition budget exhausted (${w.repetitionTriggers}/${repetitionMaxTriggers}) — standing down for this turn`)
+				w.repTail = ""
+				return
+			}
+			w.repBusy = true
+			w.repetitionTriggers++
+			log("warn", `${short(sid)} repetition loop detected (${why}) — recovering degenerate stream`)
+			try {
+				const [isChild, kids] = await Promise.all([isSubAgentSession(sid), runningSubagentChildren(sid)])
+				if (isChild || kids.length > 0) {
+					// Message-only recovery, agent-directed. No session.interrupt(),
+					// no abort+resume on the manager: nothing here cancels a
+					// manager's in-flight agents.
+					const targets = isChild ? [sid] : kids.slice(0, 8)
+					let delivered = 0
+					for (const t of targets) {
+						const ok = await injectOnce(
+							t,
+							repetitionStopPrompt,
+							"repetition: stop-sequence command",
+							true, // allow during self-abort window (no abort is issued, but the window may overlap one)
+							false,
+							true, // synthetic/quiet channel — no visible model reply demanded
+							true, // bypass subagent + busy-live refusals: the agent IS mid-loop
+						)
+						if (ok) delivered++
+					}
+					if (delivered > 0) {
+						log("info", `${short(sid)} stop-sequence command delivered to ${delivered} agent(s) (no interrupt fired)`)
+					} else {
+						dbg(`${short(sid)} stop-sequence command not delivered to any agent (guards)`)
+					}
+				} else {
+					const aborted = await tryAbortAndResume(sid, w, repetitionRecoveryPrompt)
+					if (!aborted) {
+						await targetedRecovery(sid, "repetition-loop", repetitionRecoveryPrompt, "repetitionAttempts")
+					}
+				}
+			} finally {
+				w.repBusy = false
+				// The recovery turn streams its own tail; residue from the aborted
+				// stream must not read as a second loop the moment the latch clears.
+				w.repTail = ""
+			}
+		}
+
 		async function targetedRecovery(
 			sid: string,
 			kind: string,
 			prompt: string,
-			budgetKey: "toolTextAttempts" | "doneClaimAttempts" | "doneClaimOpenTodosAttempts" | "todoNudgeAttempts" | "intentNudgeAttempts" | "stuckToolAttempts",
+			budgetKey: "toolTextAttempts" | "doneClaimAttempts" | "doneClaimOpenTodosAttempts" | "todoNudgeAttempts" | "intentNudgeAttempts" | "stuckToolAttempts" | "repetitionAttempts",
 		) {
 			const w = ensureWatch(sid)
 			if (w.recovering || w.userCancelled || w.permissionPending) return
@@ -6225,6 +6550,9 @@ export default define({
 					const sid = sidOf(ev)
 					if (!sid) return
 					appendText(sid, ev.data?.assistantMessageID, typeof ev.data?.delta === "string" ? ev.data.delta : "")
+					// Repetition-loop detection (local addition, upstream #52763):
+					// fed the same deltas the liveness tracker sees.
+					noteRepetitionDelta(sid, typeof ev.data?.delta === "string" ? ev.data.delta : "")
 					touch(sid)
 					return
 				}
