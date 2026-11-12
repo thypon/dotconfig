@@ -26,8 +26,8 @@ packages:
     resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
     engines: {node: '>=18'}
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+  node-forge@1.4.3:
+    resolution: {integrity: sha512-P6wzfh6t70avmV8FrVEAd/36sOPJQ+hkaJVX1Laap9J/77m7M0eyozDvc8SwnDf4P7MP94gwbAAo0rg3YVXT+g==}
     engines: {node: '>= 6.13.0'}
 
   zod@3.25.76:
@@ -39,13 +39,13 @@ snapshots:
     dependencies:
       '@pondwader/socks5-server': 1.0.10
       commander: 12.1.0
-      node-forge: 1.4.0
+      node-forge: 1.4.3
       zod: 3.25.76
 
   '@pondwader/socks5-server@1.0.10': {}
 
   commander@12.1.0: {}
 
-  node-forge@1.4.0: {}
+  node-forge@1.4.3: {}
 
   zod@3.25.76: {}
